@@ -1848,11 +1848,15 @@ private:
 //------------------------------------------------
 
 parser::
-parser(const rts::context& ctx, detail::kind k)
-    : impl_(new impl(ctx, k))
+~parser()
 {
-    // TODO: use a single allocation for
-    // impl and workspace buffer.
+    delete impl_;
+}
+
+parser::
+parser() noexcept
+    : impl_(nullptr)
+{
 }
 
 parser::
@@ -1863,9 +1867,24 @@ parser(parser&& other) noexcept
 }
 
 parser::
-~parser()
+parser(
+    rts::context const& ctx,
+    detail::kind k)
+    : impl_(new impl(ctx, k))
 {
+    // TODO: use a single allocation for
+    // impl and workspace buffer.
+}
+
+void
+parser::
+assign(parser&& other) noexcept
+{
+    if(this == &other)
+        return;
     delete impl_;
+    impl_ = other.impl_;
+    other.impl_ = nullptr;
 }
 
 //--------------------------------------------

@@ -200,6 +200,26 @@ struct request_parser_test
     void
     testSpecial()
     {
+        // request_parser()
+        {
+            BOOST_TEST_NO_THROW(request_parser());
+        }
+
+        // operator=(request_parser&&)
+        {
+            request_parser pr;
+            BOOST_TEST_NO_THROW(pr = request_parser());
+        }
+        {
+            request_parser pr;
+
+            rts::context ctx;
+            request_parser::config cfg;
+            install_parser_service(ctx, cfg);
+
+            BOOST_TEST_NO_THROW(pr = request_parser(ctx));
+        }
+
         // request_parser(rts::context&)
         {
             rts::context ctx;
@@ -214,6 +234,10 @@ struct request_parser_test
             install_parser_service(ctx, {});
             request_parser pr1(ctx);
             request_parser pr2(std::move(pr1));
+        }
+        {
+            BOOST_TEST_NO_THROW(
+                request_parser(request_parser()));
         }
     }
 

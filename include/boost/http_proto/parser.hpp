@@ -614,16 +614,11 @@ private:
     friend class response_parser;
     class impl;
 
-    BOOST_HTTP_PROTO_DECL
-    parser(
-        const rts::context&,
-        detail::kind);
-
-    BOOST_HTTP_PROTO_DECL
-    parser(parser&& other) noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    ~parser();
+    BOOST_HTTP_PROTO_DECL ~parser();
+    BOOST_HTTP_PROTO_DECL parser() noexcept;
+    BOOST_HTTP_PROTO_DECL parser(parser&& other) noexcept;
+    BOOST_HTTP_PROTO_DECL parser(rts::context const&, detail::kind);
+    BOOST_HTTP_PROTO_DECL void assign(parser&& other) noexcept;
 
     BOOST_HTTP_PROTO_DECL
     void

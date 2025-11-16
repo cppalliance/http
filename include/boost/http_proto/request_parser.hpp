@@ -43,6 +43,62 @@ public:
         }
     };
 
+    /** Destructor.
+
+        Any views or buffers obtained from this
+        parser become invalid.
+    */
+    ~request_parser() = default;
+
+    /** Constructor.
+
+        Default-constructed parsers do not reference any
+        implementation and therefore must be assigned to before using.
+    */
+    request_parser() noexcept = default;
+
+    /** Constructor.
+
+        The states of `other` are transferred
+        to the newly constructed object,
+        including the allocated buffer.
+        After construction, the only valid
+        operations on the moved-from object
+        are destruction and assignment.
+
+        Buffer sequences previously obtained
+        using @ref prepare or @ref pull_body
+        remain valid.
+
+        @par Complexity
+        Constant.
+
+        @param other The parser to move from.
+    */
+    request_parser(
+        request_parser&& other) noexcept = default;
+
+    /** Assignment.
+        The states of `other` are transferred
+        to this object, including the allocated
+        buffer.
+        After assignment, the only valid
+        operations on the moved-from object
+        are destruction and assignment.
+        Buffer sequences previously obtained
+        using @ref prepare or @ref pull_body
+        remain valid.
+        @par Complexity
+        Constant.
+        @param other The parser to move from.
+    */
+    request_parser&
+    operator=(request_parser&& other) noexcept
+    {
+        assign(std::move(other));
+        return *this;
+    }
+
     /** Constructor.
 
         Constructs a parser that uses the @ref
@@ -84,35 +140,7 @@ public:
     */
     BOOST_HTTP_PROTO_DECL
     explicit
-    request_parser(const rts::context& ctx);
-
-    /** Constructor.
-
-        The states of `other` are transferred
-        to the newly constructed object,
-        including the allocated buffer.
-        After construction, the only valid
-        operations on the moved-from object
-        are destruction and assignment.
-
-        Buffer sequences previously obtained
-        using @ref prepare or @ref pull_body
-        remain valid.
-
-        @par Complexity
-        Constant.
-
-        @param other The parser to move from.
-    */
-    request_parser(
-        request_parser&& other) noexcept = default;
-
-    /** Destructor.
-
-        Any views or buffers obtained from this
-        parser become invalid.
-    */
-    ~request_parser() = default;
+    request_parser(rts::context const& ctx);
 
     /** Return a reference to the parsed request headers.
 
