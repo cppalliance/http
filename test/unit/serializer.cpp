@@ -211,7 +211,7 @@ struct serializer_test
     }
 
     void
-    testSpecialMembers()
+    testSpecial()
     {
         rts::context ctx;
         install_serializer_service(ctx, {});
@@ -221,6 +221,21 @@ struct serializer_test
         std::string expected = res.buffer();
         // empty body final chunk
         expected.append("0\r\n\r\n");
+
+        // serializer()
+        {
+            BOOST_TEST_NO_THROW(serializer());
+        }
+
+        // operator=(serializer&&)
+        {
+            serializer sr;
+            BOOST_TEST_NO_THROW(sr = serializer());
+        }
+        {
+            serializer sr;
+            BOOST_TEST_NO_THROW(sr = serializer(ctx));
+        }
 
         // serializer(serializer&&)
         {
@@ -956,7 +971,7 @@ struct serializer_test
     run()
     {
         testSyntax();
-        testSpecialMembers();
+        testSpecial();
         testEmptyBody();
         testOutput();
         testExpect100Continue();

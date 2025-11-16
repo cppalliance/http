@@ -931,11 +931,9 @@ private:
 //------------------------------------------------
 
 serializer::
-serializer(const rts::context& ctx)
-    : impl_(new impl(ctx))
+~serializer()
 {
-    // TODO: use a single allocation for
-    // impl and workspace buffer.
+    delete impl_;
 }
 
 serializer::
@@ -945,10 +943,25 @@ serializer(serializer&& other) noexcept
     other.impl_ = nullptr;
 }
 
+serializer&
 serializer::
-~serializer()
+operator=(serializer&& other) noexcept
 {
-    delete impl_;
+    if(this != &other)
+    {
+        delete impl_;
+        impl_ = other.impl_;
+        other.impl_ = nullptr;
+    }
+    return *this;
+}
+
+serializer::
+serializer(rts::context const& ctx)
+    : impl_(new impl(ctx))
+{
+    // TODO: use a single allocation for
+    // impl and workspace buffer.
 }
 
 void

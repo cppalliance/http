@@ -66,6 +66,63 @@ public:
     using const_buffers_type =
         boost::span<buffers::const_buffer const>;
 
+    /** Destructor
+    */
+    BOOST_HTTP_PROTO_DECL
+    ~serializer();
+
+    /** Constructor
+        Default-constructed serializers do not reference any implementation;
+        the only valid operations are destruction and assignment.
+    */
+    serializer() = default;
+
+    /** Constructor.
+
+        The states of `other` are transferred
+        to the newly constructed object,
+        which includes the allocated buffer.
+        After construction, the only valid
+        operations on the moved-from object
+        are destruction and assignment.
+
+        Buffer sequences previously obtained
+        using @ref prepare or @ref stream::prepare
+        remain valid.
+
+        @par Postconditions
+        @code
+        other.is_done() == true
+        @endcode
+
+        @par Complexity
+        Constant.
+
+        @param other The serializer to move from.
+    */
+    BOOST_HTTP_PROTO_DECL
+    serializer(
+        serializer&& other) noexcept;
+
+    /** Assignment.
+        The states of `other` are transferred
+        to this object, which includes the
+        allocated buffer. After assignment,
+        the only valid operations on the
+        moved-from object are destruction and
+        assignment.
+        Buffer sequences previously obtained
+        using @ref prepare or @ref stream::prepare
+        remain valid.
+        @par Complexity
+        Constant.
+        @param other The serializer to move from.
+        @return A reference to this object.
+    */
+    BOOST_HTTP_PROTO_DECL
+    serializer&
+    operator=(serializer&& other) noexcept;
+
     /** Constructor.
 
         Constructs a serializer that uses the @ref
@@ -115,38 +172,6 @@ public:
     explicit
     serializer(
         const rts::context& ctx);
-
-    /** Constructor.
-
-        The states of `other` are transferred
-        to the newly constructed object,
-        which includes the allocated buffer.
-        After construction, the only valid
-        operations on the moved-from object
-        are destruction and assignment.
-
-        Buffer sequences previously obtained
-        using @ref prepare or @ref stream::prepare
-        remain valid.
-
-        @par Postconditions
-        @code
-        other.is_done() == true
-        @endcode
-
-        @par Complexity
-        Constant.
-
-        @param other The serializer to move from.
-    */
-    BOOST_HTTP_PROTO_DECL
-    serializer(
-        serializer&& other) noexcept;
-
-    /** Destructor
-    */
-    BOOST_HTTP_PROTO_DECL
-    ~serializer();
 
     /** Reset the serializer for a new message.
 
@@ -536,7 +561,7 @@ private:
         message_base const&,
         source&);
 
-    impl* impl_;
+    impl* impl_ = nullptr;
 };
 
 /** Serializer configuration settings.
