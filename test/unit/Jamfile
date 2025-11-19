@@ -30,61 +30,16 @@ project
       <target-os>darwin,<undefined-sanitizer>norecover:<link>static
     ;
 
-local SOURCES =
-    compression.cpp
-    error.cpp
-    field.cpp
-    fields_base.cpp
-    fields.cpp
-    file_mode.cpp
-    header_limits.cpp
-    http_proto.cpp
-    message_base.cpp
-    metadata.cpp
-    method.cpp
-    parser.cpp
-    request_parser.cpp
-    request.cpp
-    response_parser.cpp
-    response.cpp
-    sandbox.cpp
-    serializer.cpp
-    sink.cpp
-    source.cpp
-    static_request.cpp
-    static_response.cpp
-    status.cpp
-    test_helpers.cpp
-    version.cpp
-    rfc/combine_field_values.cpp
-    rfc/detail/rules.cpp
-    rfc/detail/transfer_coding_rule.cpp
-    rfc/list_rule.cpp
-    rfc/parameter.cpp
-    rfc/quoted_token_rule.cpp
-    rfc/quoted_token_view.cpp
-    rfc/token_rule.cpp
-    ;
-
-for local f in $(SOURCES)
+for local f in [ glob-tree-ex . : *.cpp : file*.cpp ]
 {
-    run $(f) : target-name $(f:B)_ ;
+    run $(f) ;
 }
 
-# file tests
-
-local FILE_TESTS =
-    file.cpp
-    file_sink.cpp
-    file_source.cpp
-    detail/file_posix.cpp
-    detail/file_stdio.cpp
-    detail/file_win32.cpp
-    ;
-
-for local f in $(FILE_TESTS)
+for local f in [ glob-tree-ex . : file*.cpp ]
 {
-    run $(f) /boost/filesystem//boost_filesystem
-    : : : <warnings>off <undefined-sanitizer>norecover:<link>static
-    : $(f:B)_ ;
+    run $(f)
+        : requirements
+          <library>/boost/filesystem//boost_filesystem
+          <warnings>off <undefined-sanitizer>norecover:<link>static
+        ;
 }
