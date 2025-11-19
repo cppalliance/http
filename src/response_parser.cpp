@@ -14,7 +14,7 @@ namespace http_proto {
 
 response_parser::
 response_parser(
-    const rts::context& ctx)
+    rts::polystore& ctx)
     : parser(
         ctx,
         detail::kind::response)

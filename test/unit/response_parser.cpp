@@ -10,7 +10,7 @@
 // Test that header file is self-contained.
 #include <boost/http_proto/response_parser.hpp>
 
-#include <boost/rts/context.hpp>
+#include <boost/rts/polystore.hpp>
 
 #include "test_suite.hpp"
 
@@ -32,7 +32,7 @@ public:
         {
             response_parser pr;
 
-            rts::context ctx;
+            rts::polystore ctx;
             response_parser::config cfg;
             install_parser_service(ctx, cfg);
 
@@ -43,9 +43,9 @@ public:
             BOOST_TEST_NO_THROW(pr = response_parser());
         }
 
-        // response_parser(rts::context&)
+        // response_parser(rts::polystore&)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             response_parser::config cfg;
             install_parser_service(ctx, cfg);
             response_parser pr(ctx);
@@ -53,7 +53,7 @@ public:
 
         // response_parser(response_parser&&)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, {});
             response_parser pr1(ctx);
             response_parser pr2(std::move(pr1));

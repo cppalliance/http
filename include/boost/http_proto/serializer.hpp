@@ -17,7 +17,7 @@
 
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/rts/context_fwd.hpp>
+#include <boost/rts/polystore_fwd.hpp>
 #include <boost/system/result.hpp>
 
 #include <type_traits>
@@ -171,7 +171,7 @@ public:
     BOOST_HTTP_PROTO_DECL
     explicit
     serializer(
-        const rts::context& ctx);
+        rts::polystore& ctx);
 
     /** Reset the serializer for a new message.
 
@@ -668,7 +668,7 @@ struct serializer::config
 BOOST_HTTP_PROTO_DECL
 void
 install_serializer_service(
-    rts::context& ctx,
+    rts::polystore& ctx,
     serializer::config const& cfg);
 
 //------------------------------------------------

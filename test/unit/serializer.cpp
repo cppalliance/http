@@ -17,7 +17,7 @@
 #include <boost/buffers/slice.hpp>
 #include <boost/buffers/string_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/rts/context.hpp>
+#include <boost/rts/polystore.hpp>
 
 #include "test_helpers.hpp"
 
@@ -180,7 +180,7 @@ struct serializer_test
     void
     testSyntax()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         install_serializer_service(ctx, {});
         serializer sr(ctx);
         response res;
@@ -213,7 +213,7 @@ struct serializer_test
     void
     testSpecial()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         install_serializer_service(ctx, {});
         response res;
         res.set_chunked(true);
@@ -281,7 +281,7 @@ struct serializer_test
             core::string_view expected)
         {
             response res(headers);
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             sr.start(res);
@@ -338,7 +338,7 @@ struct serializer_test
             body.remove_prefix(buf_size);
         }
 
-        rts::context ctx;
+        rts::polystore ctx;
         install_serializer_service(ctx, {});
         serializer sr(ctx);
         sr.start(res, buf);
@@ -364,7 +364,7 @@ struct serializer_test
         response res(headers);
         // we limit the buffer size of the serializer, requiring
         // it to make multiple calls to source::read
-        rts::context ctx;
+        rts::polystore ctx;
         install_serializer_service(ctx, {});
         serializer sr(ctx);
         sr.start<Source>(res, std::forward<
@@ -381,7 +381,7 @@ struct serializer_test
         F f)
     {
         response res(headers);
-        rts::context ctx;
+        rts::polystore ctx;
         install_serializer_service(ctx, {});
         serializer sr(ctx);
         auto stream = sr.start_stream(res);
@@ -569,7 +569,7 @@ struct serializer_test
             response res(
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n");
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
 
@@ -723,7 +723,7 @@ struct serializer_test
     {
         // request
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             request req(
@@ -769,7 +769,7 @@ struct serializer_test
 
         // empty body
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             request req(
@@ -814,7 +814,7 @@ struct serializer_test
                 "Expect: 100-continue\r\n"
                 "\r\n";
 
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             response res(sv);
@@ -844,7 +844,7 @@ struct serializer_test
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n";
             response res(sv);
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             auto stream = sr.start_stream(res);
@@ -896,7 +896,7 @@ struct serializer_test
                 "Transfer-Encoding: chunked\r\n"
                 "\r\n";
             response res(sv);
-            rts::context ctx;
+            rts::polystore ctx;
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             auto stream = sr.start_stream(res);
@@ -957,7 +957,7 @@ struct serializer_test
     void
     testOverConsume()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         install_serializer_service(ctx, {});
         serializer sr(ctx);
         request req;

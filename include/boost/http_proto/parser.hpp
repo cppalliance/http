@@ -21,7 +21,7 @@
 #include <boost/buffers/dynamic_buffer.hpp>
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/rts/context_fwd.hpp>
+#include <boost/rts/polystore_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -617,7 +617,7 @@ private:
     BOOST_HTTP_PROTO_DECL ~parser();
     BOOST_HTTP_PROTO_DECL parser() noexcept;
     BOOST_HTTP_PROTO_DECL parser(parser&& other) noexcept;
-    BOOST_HTTP_PROTO_DECL parser(rts::context const&, detail::kind);
+    BOOST_HTTP_PROTO_DECL parser(rts::polystore&, detail::kind);
     BOOST_HTTP_PROTO_DECL void assign(parser&& other) noexcept;
 
     BOOST_HTTP_PROTO_DECL
@@ -769,7 +769,7 @@ struct parser::config_base
 BOOST_HTTP_PROTO_DECL
 void
 install_parser_service(
-    rts::context& ctx,
+    rts::polystore& ctx,
     parser::config_base const& cfg);
 
 } // http_proto

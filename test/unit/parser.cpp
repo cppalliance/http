@@ -18,7 +18,7 @@
 #include <boost/buffers/make_buffer.hpp>
 #include <boost/buffers/string_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/rts/context.hpp>
+#include <boost/rts/polystore.hpp>
 
 #include "test_helpers.hpp"
 
@@ -194,13 +194,13 @@ struct parser_test
     using pieces = std::vector<
         core::string_view>;
 
-    rts::context ctx_;
+    rts::polystore ctx_;
     core::string_view sh_;
     core::string_view sb_;
     request_parser req_pr_;
     response_parser res_pr_;
     parser* pr_ = nullptr;
-    opt<rts::context> ctx_opt_;
+    opt<rts::polystore> ctx_opt_;
     opt<request_parser> req_pr_opt_;
     opt<response_parser> res_pr_opt_;
     pieces in_;
@@ -208,7 +208,7 @@ struct parser_test
     parser_test()
         : ctx_()
         , req_pr_(
-            [&]() -> rts::context&
+            [&]() -> rts::polystore&
             {
                 request_parser::config cfg;
                 cfg.body_limit = 5;
@@ -337,7 +337,7 @@ struct parser_test
     {
         // parser(parser&&)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, {});
         
             core::string_view header =
@@ -379,7 +379,7 @@ struct parser_test
     void
     testStart()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         request_parser::config_base cfg;
         install_parser_service(ctx, cfg);
 
@@ -460,7 +460,7 @@ struct parser_test
             request_parser::config const& cfg,
             std::size_t n)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, cfg);
 
             request_parser pr(ctx);
@@ -503,7 +503,7 @@ struct parser_test
             std::size_t n,
             core::string_view s)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, cfg);
             system::error_code ec;
             request_parser pr(ctx);
@@ -556,7 +556,7 @@ struct parser_test
             core::string_view s,
             system::error_code ex = error::need_data)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, cfg);
             system::error_code ec;
             request_parser req_pr(ctx);
@@ -673,7 +673,7 @@ struct parser_test
 
         {
             // fill capacity first
-            rts::context ctx;
+            rts::polystore ctx;
             request_parser::config cfg;
             install_parser_service(ctx, cfg);
             system::error_code ec;
@@ -718,7 +718,7 @@ struct parser_test
             request_parser::config cfg;
             pieces in({
                 "GET / HTTP/1.1\r\n\r\n"});
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, cfg);
             system::error_code ec;
             request_parser pr(ctx);
@@ -830,7 +830,7 @@ struct parser_test
         // VFALCO missing chunked implementation
         {
             // buffered payload
-            rts::context ctx;
+            rts::polystore ctx;
             request_parser::config cfg;
             install_parser_service(ctx, cfg);
             request_parser pr(ctx_);
@@ -852,7 +852,7 @@ struct parser_test
             bool is_complete,
             pieces&& in)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, cfg);
             system::error_code ec;
             response_parser pr(ctx);
@@ -917,7 +917,7 @@ struct parser_test
 
         {
             // no-op
-            rts::context ctx;
+            rts::polystore ctx;
             response_parser::config cfg;
             install_parser_service(ctx, cfg);
             system::error_code ec;
@@ -943,7 +943,7 @@ struct parser_test
 
         {
             // commit too large
-            rts::context ctx;
+            rts::polystore ctx;
             response_parser::config cfg;
             install_parser_service(ctx, cfg);
             system::error_code ec;
@@ -1142,7 +1142,7 @@ struct parser_test
             bool is_complete,
             pieces&& in)
         {
-            rts::context ctx;
+            rts::polystore ctx;
             install_parser_service(ctx, cfg);
             system::error_code ec;
             response_parser pr(ctx);
@@ -1625,7 +1625,7 @@ struct parser_test
     void
     testChunkedInPlace()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         response_parser::config cfg;
         install_parser_service(ctx, cfg);
 
@@ -1861,7 +1861,7 @@ struct parser_test
     testMultipleMessageInPlace()
     {
         request_parser::config cfg;
-        rts::context ctx;
+        rts::polystore ctx;
 
         cfg.headers.max_size = 500;
         cfg.min_buffer = 500;
@@ -1972,7 +1972,7 @@ struct parser_test
         };
 
         request_parser::config cfg;
-        rts::context ctx;
+        rts::polystore ctx;
 
         cfg.min_buffer = 500;
         cfg.headers.max_size = 500;
@@ -2052,7 +2052,7 @@ struct parser_test
     void
     testSetBodyLimit()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         response_parser::config cfg;
         cfg.body_limit = 7;
         install_parser_service(ctx, cfg);
@@ -2140,7 +2140,7 @@ struct parser_test
         // the parsed header must remain valid and
         // accessible if an error occurs during body parsing.
 
-        rts::context ctx;
+        rts::polystore ctx;
         response_parser::config cfg;
         install_parser_service(ctx, cfg);
         response_parser pr(ctx);

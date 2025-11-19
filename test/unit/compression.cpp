@@ -16,7 +16,7 @@
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
 #include <boost/rts/brotli.hpp>
-#include <boost/rts/context.hpp>
+#include <boost/rts/polystore.hpp>
 #include <boost/rts/zlib.hpp>
 
 #include "test_helpers.hpp"
@@ -55,7 +55,7 @@ struct zlib_test
     static
     std::string
     compress(
-        const rts::context& ctx,
+        const rts::polystore& ctx,
         core::string_view encoding,
         core::string_view body)
     {
@@ -65,7 +65,7 @@ struct zlib_test
         if(encoding == "deflate" || encoding == "gzip")
         {
             namespace zlib = rts::zlib;
-            auto& svc = ctx.get_service<zlib::deflate_service>();
+            auto& svc = ctx.get<zlib::deflate_service>();
             zlib::stream zs{};
 
             auto ret = static_cast<zlib::error>(
@@ -101,7 +101,7 @@ struct zlib_test
         else if(encoding == "br")
         {
             namespace brotli = rts::brotli;
-            auto& svc = ctx.get_service<brotli::encode_service>();
+            auto& svc = ctx.get<brotli::encode_service>();
 
             brotli::encoder_state* state =
                 svc.create_instance(nullptr, nullptr, nullptr);
@@ -145,7 +145,7 @@ struct zlib_test
     static
     void
     verify_compressed(
-        const rts::context& ctx,
+        const rts::polystore& ctx,
         core::string_view encoding,
         core::string_view compressed_body,
         core::string_view body)
@@ -153,7 +153,7 @@ struct zlib_test
         if(encoding == "deflate" || encoding == "gzip")
         {
             namespace zlib = rts::zlib;
-            auto& svc = ctx.get_service<zlib::inflate_service>();
+            auto& svc = ctx.get<zlib::inflate_service>();
             zlib::stream zs{};
 
             auto ret = static_cast<zlib::error>(
@@ -192,7 +192,7 @@ struct zlib_test
         else if(encoding == "br")
         {
             namespace brotli = rts::brotli;
-            auto& svc = ctx.get_service<brotli::decode_service>();
+            auto& svc = ctx.get<brotli::decode_service>();
 
             brotli::decoder_state* state =
                 svc.create_instance(nullptr, nullptr, nullptr);
@@ -376,7 +376,7 @@ struct zlib_test
     void
     test_serializer()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         std::vector<std::string> encodings;
         serializer::config cfg;
 
@@ -612,7 +612,7 @@ struct zlib_test
     void
     test_parser()
     {
-        rts::context ctx;
+        rts::polystore ctx;
         std::vector<std::string> encodings;
         response_parser::config cfg;
 

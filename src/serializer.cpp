@@ -24,7 +24,7 @@
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/rts/brotli/encode.hpp>
-#include <boost/rts/context.hpp>
+#include <boost/rts/polystore.hpp>
 #include <boost/rts/zlib/compression_method.hpp>
 #include <boost/rts/zlib/compression_strategy.hpp>
 #include <boost/rts/zlib/deflate.hpp>
@@ -94,13 +94,13 @@ class zlib_filter
 
 public:
     zlib_filter(
-        const rts::context& ctx,
+        const rts::polystore& ctx,
         http_proto::detail::workspace& ws,
         int comp_level,
         int window_bits,
         int mem_level)
         : zlib_filter_base(ws)
-        , svc_(ctx.get_service<rts::zlib::deflate_service>())
+        , svc_(ctx.get<rts::zlib::deflate_service>())
     {
         system::error_code ec = static_cast<rts::zlib::error>(svc_.init2(
             strm_,
@@ -160,11 +160,11 @@ class brotli_filter
 
 public:
     brotli_filter(
-        const rts::context& ctx,
+        const rts::polystore& ctx,
         http_proto::detail::workspace&,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
-        : svc_(ctx.get_service<rts::brotli::encode_service>())
+        : svc_(ctx.get<rts::brotli::encode_service>())
     {
         // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
@@ -231,14 +231,12 @@ clamp(
 }
 
 class serializer_service
-    : public rts::service
 {
 public:
     serializer::config cfg;
     std::size_t space_needed = 0;
 
     serializer_service(
-        const rts::context&,
         serializer::config const& cfg_)
         : cfg(cfg_)
     {
@@ -269,10 +267,10 @@ public:
 
 void
 install_serializer_service(
-    rts::context& ctx,
+    rts::polystore& ctx,
     serializer::config const& cfg)
 {
-    ctx.make_service<serializer_service>(cfg);
+    ctx.emplace<serializer_service>(cfg);
 }
 
 //------------------------------------------------
@@ -297,7 +295,7 @@ class serializer::impl
         stream
     };
 
-    const rts::context& ctx_;
+    const rts::polystore& ctx_;
     serializer_service& svc_;
     detail::workspace ws_;
 
@@ -319,9 +317,9 @@ class serializer::impl
     bool filter_done_ = false;
 
 public:
-    impl(const rts::context& ctx)
+    impl(const rts::polystore& ctx)
         : ctx_(ctx)
-        , svc_(ctx_.get_service<serializer_service>())
+        , svc_(ctx_.get<serializer_service>())
         , ws_(svc_.space_needed)
     {
     }
@@ -957,7 +955,7 @@ operator=(serializer&& other) noexcept
 }
 
 serializer::
-serializer(rts::context const& ctx)
+serializer(rts::polystore& ctx)
     : impl_(new impl(ctx))
 {
     // TODO: use a single allocation for

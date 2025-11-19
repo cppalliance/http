@@ -21,7 +21,7 @@
 #include <boost/buffers/front.hpp>
 #include <boost/buffers/slice.hpp>
 #include <boost/rts/brotli/decode.hpp>
-#include <boost/rts/context.hpp>
+#include <boost/rts/polystore.hpp>
 #include <boost/rts/zlib/error.hpp>
 #include <boost/rts/zlib/inflate.hpp>
 #include <boost/url/grammar/ci_string.hpp>
@@ -309,11 +309,11 @@ class zlib_filter
 
 public:
     zlib_filter(
-        const rts::context& ctx,
+        const rts::polystore& ctx,
         http_proto::detail::workspace& ws,
         int window_bits)
         : zlib_filter_base(ws)
-        , svc_(ctx.get_service<rts::zlib::inflate_service>())
+        , svc_(ctx.get<rts::zlib::inflate_service>())
     {
         system::error_code ec = static_cast<rts::zlib::error>(
             svc_.init2(strm_, window_bits));
@@ -359,9 +359,9 @@ class brotli_filter
 
 public:
     brotli_filter(
-        const rts::context& ctx,
+        const rts::polystore& ctx,
         http_proto::detail::workspace&)
-        : svc_(ctx.get_service<rts::brotli::decode_service>())
+        : svc_(ctx.get<rts::brotli::decode_service>())
     {
         // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
@@ -413,7 +413,6 @@ private:
 };
 
 class parser_service
-    : public rts::service
 {
 public:
     parser::config_base cfg;
@@ -421,7 +420,6 @@ public:
     std::size_t max_codec = 0;
 
     parser_service(
-        const rts::context&,
         parser::config_base const& cfg_)
         : cfg(cfg_)
     {
@@ -507,10 +505,10 @@ public:
 
 void
 install_parser_service(
-    rts::context& ctx,
+    rts::polystore& ctx,
     parser::config_base const& cfg)
 {
-    ctx.make_service<parser_service>(cfg);
+    ctx.emplace<parser_service>(cfg);
 }
 
 //------------------------------------------------
@@ -536,7 +534,7 @@ class parser::impl
         elastic,
     };
 
-    const rts::context& ctx_;
+    const rts::polystore& ctx_;
     parser_service& svc_;
 
     detail::workspace ws_;
@@ -569,9 +567,9 @@ class parser::impl
     bool chunked_body_ended;
 
 public:
-    impl(const rts::context& ctx, detail::kind k)
+    impl(const rts::polystore& ctx, detail::kind k)
         : ctx_(ctx)
-        , svc_(ctx.get_service<parser_service>())
+        , svc_(ctx.get<parser_service>())
         , ws_(svc_.space_needed)
         , m_(ws_.data(), ws_.size())
         , state_(state::reset)
@@ -1868,7 +1866,7 @@ parser(parser&& other) noexcept
 
 parser::
 parser(
-    rts::context const& ctx,
+    rts::polystore& ctx,
     detail::kind k)
     : impl_(new impl(ctx, k))
 {
