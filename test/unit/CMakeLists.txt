@@ -7,30 +7,22 @@
 # Official repository: https://github.com/cppalliance/http_proto
 #
 
-set(EXTRAFILES
-    ../../../url/extra/test_suite/test_main.cpp
-    ../../../url/extra/test_suite/test_suite.cpp
-    ../../../url/extra/test_suite/test_suite.hpp
-    ./test_helpers.hpp
-    ./test_helpers.cpp
-    )
+add_subdirectory(../../../url/extra/test_suite test_suite)
 
 file(GLOB_RECURSE PFILES CONFIGURE_DEPENDS *.cpp *.hpp)
 list(APPEND PFILES
     CMakeLists.txt
-    Jamfile
-    )
+    Jamfile)
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} PREFIX "" FILES ${PFILES})
-source_group("_extra" FILES ${EXTRAFILES})
-add_executable(boost_http_proto_tests ${PFILES} ${EXTRAFILES})
-target_include_directories(boost_http_proto_tests PRIVATE . ../../../url/extra/test_suite)
+
+add_executable(boost_http_proto_tests ${PFILES})
 target_include_directories(boost_http_proto_tests PRIVATE . ../../)
 target_link_libraries(
     boost_http_proto_tests PRIVATE
+    boost_url_test_suite_with_main
     Boost::http_proto
-    Boost::filesystem
-    )
+    Boost::filesystem)
 
 if (TARGET Boost::rts_zlib)
     target_link_libraries(boost_http_proto_tests PRIVATE Boost::rts_zlib)
@@ -40,5 +32,8 @@ if (TARGET Boost::rts_brotli)
     target_link_libraries(boost_http_proto_tests PRIVATE Boost::rts_brotli)
 endif ()
 
-add_test(NAME boost_http_proto_tests COMMAND boost_http_proto_tests)
+# Register individual tests with CTest
+boost_url_test_suite_discover_tests(boost_http_proto_tests)
+
+# Add the main test target to Boost's test suite
 add_dependencies(tests boost_http_proto_tests)

@@ -2,7 +2,7 @@
 * xref:2.messages.adoc[]
 * xref:sans_io_philosophy.adoc[]
 * xref:http_protocol_basics.adoc[]
-* xref:header_containers.adoc[]
+// * xref:header_containers.adoc[]
 * xref:message_bodies.adoc[]
 * Serializing
 * Parsing
