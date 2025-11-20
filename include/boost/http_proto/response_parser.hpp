@@ -27,22 +27,6 @@ class response_parser
     : public parser
 {
 public:
-    /** Configuration settings for response_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref response_parser.
-    */
-    struct config : config_base
-    {
-        /** Constructor.
-        */
-        config() noexcept
-        {
-            body_limit = 1024 * 1024;
-        }
-    };
-
     /** Destructor.
 
         Any views or buffers obtained from this
@@ -56,6 +40,41 @@ public:
         implementation and therefore must be assigned to before using.
     */
     response_parser() = default;
+
+    /** Constructor.
+
+        Constructs a parser that uses the @ref
+        config parameters installed on the
+        provided `ctx`.
+
+        The parser will attempt to allocate
+        the required space on startup, with the
+        amount depending on the @ref config
+        parameters, and will not perform any
+        further allocations, except for Brotli
+        decoder instances, if enabled.
+
+        Depending on which compression algorithms
+        are enabled in the @ref config, the parser
+        will attempt to access the corresponding
+        decoder services on the same `ctx`.
+
+        @par Example
+        @code
+        response_parser sr(ctx);
+        @endcode
+
+        @par Complexity
+        Constant.
+
+        @par Exception Safety
+        Calls to allocate may throw.
+
+        @param cfg Configuration settings.
+    */
+    BOOST_HTTP_PROTO_DECL
+    explicit
+    response_parser(prepared_parser_config cfg);
 
     /** Constructor.
 
@@ -99,48 +118,7 @@ public:
         return *this;
     }
 
-    /** Constructor.
-
-        Constructs a parser that uses the @ref
-        config parameters installed on the
-        provided `ctx`.
-
-        The parser will attempt to allocate
-        the required space on startup, with the
-        amount depending on the @ref config
-        parameters, and will not perform any
-        further allocations, except for Brotli
-        decoder instances, if enabled.
-
-        Depending on which compression algorithms
-        are enabled in the @ref config, the parser
-        will attempt to access the corresponding
-        decoder services on the same `ctx`.
-
-        @par Example
-        @code
-        response_parser sr(ctx);
-        @endcode
-
-        @par Complexity
-        Constant.
-
-        @par Exception Safety
-        Calls to allocate may throw.
-
-        @param ctx Context from which the
-        response_parser will access registered
-        services. The caller is responsible for
-        ensuring that the provided ctx remains
-        valid for the lifetime of the response_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref config.
-    */
-    BOOST_HTTP_PROTO_DECL
-    explicit
-    response_parser(capy::polystore& ctx);
+    //-------------------------------------------
 
     /** Prepare for the next message on the stream.
 

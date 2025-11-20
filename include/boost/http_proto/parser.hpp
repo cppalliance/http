@@ -12,10 +12,10 @@
 #define BOOST_HTTP_PROTO_PARSER_HPP
 
 #include <boost/http_proto/detail/config.hpp>
+#include <boost/http_proto/parser_config.hpp>
 #include <boost/http_proto/detail/header.hpp>
 #include <boost/http_proto/detail/type_traits.hpp>
 #include <boost/http_proto/detail/workspace.hpp>
-#include <boost/http_proto/header_limits.hpp>
 #include <boost/http_proto/sink.hpp>
 
 #include <boost/buffers/dynamic_buffer.hpp>
@@ -34,6 +34,8 @@ class request_parser;
 class response_parser;
 class static_request;
 class static_response;
+
+//-----------------------------------------------
 
 /** A parser for HTTP/1 messages.
 
@@ -73,8 +75,6 @@ class static_response;
 class parser
 {
 public:
-    struct config_base;
-
     /** The type of buffer returned from @ref prepare.
     */
     using mutable_buffers_type =
@@ -617,126 +617,22 @@ private:
     BOOST_HTTP_PROTO_DECL ~parser();
     BOOST_HTTP_PROTO_DECL parser() noexcept;
     BOOST_HTTP_PROTO_DECL parser(parser&& other) noexcept;
-    BOOST_HTTP_PROTO_DECL parser(capy::polystore&, detail::kind);
+    BOOST_HTTP_PROTO_DECL parser(detail::kind, prepared_parser_config);
     BOOST_HTTP_PROTO_DECL void assign(parser&& other) noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    void
-    start_impl(bool);
-
-    static_request const&
-    safe_get_request() const;
-
-    static_response const&
-    safe_get_response() const;
-
-    BOOST_HTTP_PROTO_DECL
-    detail::workspace&
-    ws() noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    bool
-    is_body_set() const noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    void
-    set_body_impl(buffers::any_dynamic_buffer&) noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    void
-    set_body_impl(sink&) noexcept;
+    BOOST_HTTP_PROTO_DECL void start_impl(bool);
+    static_request const& safe_get_request() const;
+    static_response const& safe_get_response() const;
+    BOOST_HTTP_PROTO_DECL detail::workspace& ws() noexcept;
+    BOOST_HTTP_PROTO_DECL bool is_body_set() const noexcept;
+    BOOST_HTTP_PROTO_DECL void set_body_impl(
+        buffers::any_dynamic_buffer&) noexcept;
+    BOOST_HTTP_PROTO_DECL void set_body_impl(sink&) noexcept;
 
     static constexpr unsigned buffers_N = 8;
     impl* impl_;
 };
 
 //------------------------------------------------
-
-/** Parser configuration settings.
-*/
-struct parser::config_base
-{
-    /** Configurable limits for HTTP headers.
-    */
-    header_limits headers;
-
-    /** Maximum allowed size of the content body.
-
-        Measured after decoding.
-    */
-    std::uint64_t body_limit = 64 * 1024;
-
-    /** Enable Brotli Content-Encoding decoding.
-
-        Requires `boost::capy::brotli::decode_service` to be
-        installed, otherwise an exception is thrown.
-    */
-    bool apply_brotli_decoder = false;
-
-    /** Enable Deflate Content-Encoding decoding.
-
-        Requires `boost::zlib::inflate_service` to be
-        installed, otherwise an exception is thrown.
-    */
-    bool apply_deflate_decoder = false;
-
-    /** Enable Gzip Content-Encoding decoding.
-
-        Requires `boost::zlib::inflate_service` to be
-        installed, otherwise an exception is thrown.
-    */
-    bool apply_gzip_decoder = false;
-
-    /** Zlib window bits (9–15).
-
-        Must be >= the value used during compression.
-        Larger windows improve decompression at the cost
-        of memory. If a larger window is required than
-        allowed, decoding fails with
-        `capy::zlib::error::data_err`.
-    */
-    int zlib_window_bits = 15;
-
-    /** Minimum space for payload buffering.
-
-        This value controls the following
-        settings:
-
-        @li The smallest allocated size of
-            the buffers used for reading
-            and decoding the payload.
-
-        @li The lowest guaranteed size of
-            an in-place body.
-
-        @li The largest size used to reserve
-            space in dynamic buffer bodies
-            when the payload size is not
-            known ahead of time.
-
-        This cannot be zero.
-    */
-    std::size_t min_buffer = 4096;
-
-    /** Largest permissible output size in prepare.
-
-        This cannot be zero.
-    */
-    std::size_t max_prepare = std::size_t(-1);
-
-    /** Space to reserve for type-erasure.
-
-        This space is used for the following
-        purposes:
-
-        @li Storing an instance of the user-provided
-            @ref sink objects.
-
-        @li Storing an instance of the user-provided
-            ElasticBuffer.
-    */
-    std::size_t max_type_erase = 1024;
-};
 
 /** Install the parser service.
 
@@ -770,7 +666,7 @@ BOOST_HTTP_PROTO_DECL
 void
 install_parser_service(
     capy::polystore& ctx,
-    parser::config_base const& cfg);
+    parser_config const& cfg);
 
 } // http_proto
 } // boost

@@ -27,22 +27,6 @@ class request_parser
     : public parser
 {
 public:
-    /** Configuration settings for request_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref request_parser.
-    */
-    struct config : config_base
-    {
-        /** Constructor
-        */
-        config() noexcept
-        {
-            body_limit = 64 * 1024;
-        }
-    };
-
     /** Destructor.
 
         Any views or buffers obtained from this
@@ -128,11 +112,7 @@ public:
         @par Exception Safety
         Calls to allocate may throw.
 
-        @param ctx Context from which the
-        request_parser will access registered
-        services. The caller is responsible for
-        ensuring that the provided ctx remains
-        valid for the lifetime of the request_parser.
+        @param cfg Configuration settings.
 
         @see
             @ref install_parser_service,
@@ -140,7 +120,8 @@ public:
     */
     BOOST_HTTP_PROTO_DECL
     explicit
-    request_parser(capy::polystore& ctx);
+    request_parser(
+        prepared_parser_config cfg);
 
     /** Return a reference to the parsed request headers.
 

@@ -96,6 +96,11 @@ namespace http_proto {
 
 struct parser_test
 {
+    // default objects for ease of use
+    capy::polystore ctx_;
+    parser_config const cfg_;
+    prepared_parser_config pcfg_;
+
     template<class T>
     class opt
     {
@@ -194,7 +199,6 @@ struct parser_test
     using pieces = std::vector<
         core::string_view>;
 
-    capy::polystore ctx_;
     core::string_view sh_;
     core::string_view sb_;
     request_parser req_pr_;
@@ -206,17 +210,17 @@ struct parser_test
     pieces in_;
 
     parser_test()
-        : ctx_()
+        : cfg_(role::client, ctx_)
+        , pcfg_(cfg_.prepare())
         , req_pr_(
-            [&]() -> capy::polystore&
+            [&]()
             {
-                request_parser::config cfg;
+                parser_config cfg(cfg_);
                 cfg.body_limit = 5;
                 cfg.min_buffer = 3;
-                install_parser_service(ctx_, cfg);
-                return ctx_;
+                return cfg.prepare();
             }())
-        , res_pr_(ctx_)
+        , res_pr_(pcfg_)
     {
         in_.reserve(5);
         req_pr_.reset();
@@ -323,10 +327,7 @@ struct parser_test
         in_ = init;
         BOOST_ASSERT(init.size() > 0);
         BOOST_ASSERT(! init.begin()->empty());
-        request_parser::config cfg;
-        ctx_opt_.emplace();
-        install_parser_service(*ctx_opt_, cfg);
-        req_pr_opt_.emplace(*ctx_opt_);
+        req_pr_opt_.emplace(pcfg_);
         return *req_pr_opt_;
     }
 
@@ -337,9 +338,6 @@ struct parser_test
     {
         // parser(parser&&)
         {
-            capy::polystore ctx;
-            install_parser_service(ctx, {});
-        
             core::string_view header =
                 "POST / HTTP/1.1\r\n"
                 "Content-Length: 3\r\n"
@@ -347,7 +345,7 @@ struct parser_test
             core::string_view body = "123";
             pieces in = { header, body };
 
-            request_parser pr1(ctx);
+            request_parser pr1(pcfg_);
             pr1.reset();
             pr1.start();
             system::error_code ec;
@@ -364,10 +362,10 @@ struct parser_test
 
         // ~parser
         {
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
         }
         {
-            response_parser pr(ctx_);
+            response_parser pr(pcfg_);
         }
     }
 
@@ -379,13 +377,9 @@ struct parser_test
     void
     testStart()
     {
-        capy::polystore ctx;
-        request_parser::config_base cfg;
-        install_parser_service(ctx, cfg);
-
         {
             // missing reset
-            request_parser pr(ctx);
+            request_parser pr(pcfg_);
             BOOST_TEST_THROWS(
                 pr.start(),
                 std::logic_error);
@@ -393,7 +387,7 @@ struct parser_test
 
         {
             // missing reset
-            request_parser pr(ctx);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             pr.commit_eof();
@@ -404,7 +398,7 @@ struct parser_test
 
         {
             // start called twice
-            request_parser pr(ctx);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             BOOST_TEST_THROWS(
@@ -414,7 +408,7 @@ struct parser_test
 
         {
             // incomplete message
-            request_parser pr(ctx);
+            request_parser pr(pcfg_);
             prep(pr, "GET /");
             BOOST_TEST_THROWS(
                 pr.start(),
@@ -423,7 +417,7 @@ struct parser_test
 
         {
             // incomplete message
-            request_parser pr(ctx);
+            request_parser pr(pcfg_);
             prep(pr,
                 "POST / HTTP/1.1\r\n"
                 "Content-Length: 5\r\n"
@@ -441,7 +435,7 @@ struct parser_test
     {
         {
             // missing reset
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             BOOST_TEST_THROWS(
                 pr.prepare(),
                 std::logic_error);
@@ -449,7 +443,7 @@ struct parser_test
 
         {
             // missing start
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             BOOST_TEST_THROWS(
                 pr.prepare(),
@@ -457,13 +451,10 @@ struct parser_test
         }
 
         auto const check_header = [](
-            request_parser::config const& cfg,
+            parser_config const& cfg,
             std::size_t n)
         {
-            capy::polystore ctx;
-            install_parser_service(ctx, cfg);
-
-            request_parser pr(ctx);
+            request_parser pr(cfg.prepare());
             pr.reset();
             pr.start();
             parser::mutable_buffers_type dest;
@@ -479,7 +470,7 @@ struct parser_test
 
         {
             // normal
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.headers.max_size = 40;
             cfg.min_buffer = 3;
             check_header(cfg,
@@ -489,7 +480,7 @@ struct parser_test
 
         {
             // max_prepare
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.max_prepare = 2;
             check_header(cfg, cfg.max_prepare);
         }
@@ -498,18 +489,16 @@ struct parser_test
         // in_place body
         //
 
-        auto const check_in_place = [](
-            request_parser::config const& cfg,
+        auto const check_in_place = [&](
+            parser_config const& cfg,
             std::size_t n,
             core::string_view s)
         {
-            capy::polystore ctx;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            request_parser pr(ctx);
+            request_parser pr(cfg.prepare());
             pr.reset();
             pr.start();
             pieces in({ s });
+            system::error_code ec;
             read_header(pr, in, ec);
             if( ! BOOST_TEST(! ec.failed()) ||
                 ! BOOST_TEST(pr.got_header()) ||
@@ -526,8 +515,7 @@ struct parser_test
 
         {
             // normal
-            request_parser::config cfg;
-            check_in_place(cfg, 12291,
+            check_in_place(cfg_, 12291,
                 "POST / HTTP/1.1\r\n"
                 "Content-Length: 3\r\n"
                 "\r\n");
@@ -535,7 +523,7 @@ struct parser_test
 
         {
             // max_prepare
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.max_prepare = 10;
             check_in_place(cfg, 10,
                 "POST / HTTP/1.1\r\n"
@@ -551,17 +539,15 @@ struct parser_test
             dynamic_max_size = 7;
 
         auto const check_dynamic = [&](
-            request_parser::config const& cfg,
+            parser_config const& cfg,
             std::size_t n,
             core::string_view s,
             system::error_code ex = error::need_data)
         {
-            capy::polystore ctx;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            request_parser req_pr(ctx);
-            response_parser res_pr(ctx);
+            request_parser req_pr(cfg.prepare());
+            response_parser res_pr(cfg.prepare());
             BOOST_ASSERT(! s.empty());
+            system::error_code ec;
             parser* pr;
             if(s.front() != 'H')
             {
@@ -611,8 +597,7 @@ struct parser_test
 
         {
             // Content-Length
-            request_parser::config cfg;
-            check_dynamic(cfg, 3,
+            check_dynamic(cfg_, 3,
                 "POST / HTTP/1.1\r\n"
                 "Content-Length: 3\r\n"
                 "\r\n");
@@ -620,7 +605,7 @@ struct parser_test
 
         {
             // Content-Length, no overread
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.max_prepare = 10;
             check_dynamic(cfg, 5,
                 "POST / HTTP/1.1\r\n"
@@ -630,7 +615,7 @@ struct parser_test
 
         {
             // Content-Length, max_prepare
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.max_prepare = 3;
             check_dynamic(cfg, 3,
                 "POST / HTTP/1.1\r\n"
@@ -640,8 +625,7 @@ struct parser_test
 
         {
             // to_eof
-            request_parser::config cfg;
-            check_dynamic(cfg,
+            check_dynamic(cfg_,
                 dynamic_max_size,
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n");
@@ -649,7 +633,7 @@ struct parser_test
 
         {
             // to_eof, max_prepare
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.max_prepare = 3;
             BOOST_TEST(cfg.max_prepare <
                 dynamic_max_size);
@@ -661,7 +645,7 @@ struct parser_test
 
         {
             // to_eof, max_prepare
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             BOOST_TEST(
                 dynamic_max_size == 7);
             check_dynamic(cfg,
@@ -673,16 +657,13 @@ struct parser_test
 
         {
             // fill capacity first
-            capy::polystore ctx;
-            request_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
+            response_parser pr(pcfg_);
             pr.reset();
             pr.start();
             pieces in({
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n" });
+            system::error_code ec;
             read_header(pr, in, ec);
             std::unique_ptr<std::string> ps(new std::string());
             auto &s = *ps;
@@ -701,10 +682,9 @@ struct parser_test
 
         {
             // set_body, no room
-            request_parser::config cfg;
-            BOOST_TEST(
-                dynamic_max_size == 7);
-            check_dynamic(cfg,
+            // VFALCO dynamic_max_size is a constant?
+            BOOST_TEST(dynamic_max_size == 7);
+            check_dynamic(cfg_,
                 0,
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 10\r\n"
@@ -715,15 +695,12 @@ struct parser_test
 
         // prepare when complete
         {
-            request_parser::config cfg;
             pieces in({
                 "GET / HTTP/1.1\r\n\r\n"});
-            capy::polystore ctx;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            request_parser pr(ctx);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
+            system::error_code ec;
             read_header(pr, in, ec);
             BOOST_TEST(! ec.failed());
             BOOST_TEST(pr.is_complete());
@@ -739,7 +716,7 @@ struct parser_test
     {
         {
             // missing reset
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             BOOST_TEST_THROWS(
                 pr.commit(0),
                 std::logic_error);
@@ -747,7 +724,7 @@ struct parser_test
 
         {
             // missing start
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             BOOST_TEST_THROWS(
                 pr.commit(0),
@@ -760,7 +737,7 @@ struct parser_test
 
         {
             // commit too large
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             auto dest = pr.prepare();
@@ -772,7 +749,7 @@ struct parser_test
 
         {
             // commit after EOF
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             pr.commit_eof();
@@ -783,7 +760,7 @@ struct parser_test
 
         {
             // 0-byte commit
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             BOOST_TEST_NO_THROW(
@@ -792,7 +769,7 @@ struct parser_test
 
         {
             // 1-byte commit
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             auto dest = pr.prepare();
@@ -808,7 +785,7 @@ struct parser_test
 
         {
             // commit too large
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             system::error_code ec;
@@ -826,38 +803,20 @@ struct parser_test
                 std::invalid_argument);
         }
 
-#if 0
-        // VFALCO missing chunked implementation
-        {
-            // buffered payload
-            capy::polystore ctx;
-            request_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            request_parser pr(ctx_);
-
-            check_body(pr,
-                "POST / HTTP/1.1\r\n"
-                "Transfer-Encoding: chunked\r\n"
-                "\r\n");
-        }
-#endif
-
         //
         // in-place
         //
 
         auto const check_in_place = [](
-            request_parser::config const& cfg,
+            parser_config const& cfg,
             system::error_code ex,
             bool is_complete,
             pieces&& in)
         {
-            capy::polystore ctx;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
+            response_parser pr(cfg.prepare());
             pr.reset();
             pr.start();
+            system::error_code ec;
             read_header(pr, in, ec);
             if(ex.failed() && ec == ex)
             {
@@ -872,8 +831,7 @@ struct parser_test
 
         // Content-Length, incomplete
         {
-            request_parser::config cfg;
-            check_in_place(cfg,
+            check_in_place(cfg_,
                 error::need_data, false, {
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 3\r\n"
@@ -883,8 +841,7 @@ struct parser_test
 
         // Content-Length, complete
         {
-            request_parser::config cfg;
-            check_in_place(cfg,
+            check_in_place(cfg_,
                 {}, true, {
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 3\r\n"
@@ -894,7 +851,7 @@ struct parser_test
 
         // to_eof
         {
-            request_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.min_buffer = 3;
             check_in_place(cfg,
                 error::need_data, false, {
@@ -917,13 +874,10 @@ struct parser_test
 
         {
             // no-op
-            capy::polystore ctx;
-            response_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
+            response_parser pr(pcfg_);
             pr.reset();
             pr.start();
+            system::error_code ec;
             pieces in = {
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 3\r\n"
@@ -943,11 +897,7 @@ struct parser_test
 
         {
             // commit too large
-            capy::polystore ctx;
-            response_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
+            response_parser pr(pcfg_);
             pr.reset();
             pr.start();
             pieces in = {
@@ -955,6 +905,7 @@ struct parser_test
                 "Content-Length: 3\r\n"
                 "\r\n"
                 "123" };
+            system::error_code ec;
             read(pr, in, ec);
             BOOST_TEST(! ec.failed());
             BOOST_TEST(pr.is_complete());
@@ -975,7 +926,7 @@ struct parser_test
 
         {
             // 0-byte commit
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             system::error_code ec;
@@ -996,7 +947,7 @@ struct parser_test
 
         {
             // commit too large
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             system::error_code ec;
@@ -1024,7 +975,7 @@ struct parser_test
     {
         {
             // missing reset
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             BOOST_TEST_THROWS(
                 pr.commit_eof(),
                 std::logic_error);
@@ -1032,7 +983,7 @@ struct parser_test
 
         {
             // missing start
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             BOOST_TEST_THROWS(
                 pr.commit_eof(),
@@ -1041,7 +992,7 @@ struct parser_test
 
         {
             // empty stream
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             BOOST_TEST_NO_THROW(
@@ -1051,7 +1002,7 @@ struct parser_test
 
         {
             // body
-            response_parser pr(ctx_);
+            response_parser pr(pcfg_);
             pr.reset();
             pr.start();
             system::error_code ec;
@@ -1070,7 +1021,7 @@ struct parser_test
 
         {
             // set_body
-            response_parser pr(ctx_);
+            response_parser pr(pcfg_);
             pr.reset();
             pr.start();
             system::error_code ec;
@@ -1093,7 +1044,7 @@ struct parser_test
 
         {
             // complete
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             pr.start();
             system::error_code ec;
@@ -1114,7 +1065,7 @@ struct parser_test
     {
         {
             // missing reset
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             system::error_code ec;
             BOOST_TEST_THROWS(
                 pr.parse(ec),
@@ -1123,7 +1074,7 @@ struct parser_test
 
         {
             // missing start
-            request_parser pr(ctx_);
+            request_parser pr(pcfg_);
             pr.reset();
             system::error_code ec;
             BOOST_TEST_THROWS(
@@ -1136,18 +1087,16 @@ struct parser_test
         //
 
         auto const check_in_place = [](
-            response_parser::config const& cfg,
+            parser_config const& cfg,
             bool some,
             system::error_code ex,
             bool is_complete,
             pieces&& in)
         {
-            capy::polystore ctx;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
+            response_parser pr(cfg.prepare());
             pr.reset();
             pr.start();
+            system::error_code ec;
             read_header(pr, in, ec);
             if(ex.failed() && ec == ex)
             {
@@ -1165,7 +1114,7 @@ struct parser_test
 
         {
             // Content-Length, incomplete
-            response_parser::config cfg;
+            parser_config cfg(cfg_);
             core::string_view const h =
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 5\r\n"
@@ -1179,7 +1128,7 @@ struct parser_test
 
         {
             // Content-Length, in_place limit
-            response_parser::config cfg;
+            parser_config cfg(cfg_);
             core::string_view const h =
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 10\r\n"
@@ -1193,8 +1142,7 @@ struct parser_test
 
         {
             // Content-Length, need data
-            response_parser::config cfg;
-            check_in_place(cfg, true,
+            check_in_place(cfg_, true,
                 error::need_data, false, {
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 10\r\n"
@@ -1204,8 +1152,7 @@ struct parser_test
 
         {
             // Content-Length, complete
-            response_parser::config cfg;
-            check_in_place(cfg, false,
+            check_in_place(cfg_, false,
                 {}, true, {
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Length: 3\r\n"
@@ -1215,7 +1162,7 @@ struct parser_test
 
         {
             // to_eof, body too large
-            response_parser::config cfg;
+            parser_config cfg(cfg_);
             cfg.body_limit = 3;
             cfg.min_buffer = 3;
             check_in_place(cfg, true,
@@ -1227,8 +1174,7 @@ struct parser_test
 
         {
             // chunked, need data
-            response_parser::config cfg;
-            check_in_place(cfg, true,
+            check_in_place(cfg_, true,
                 error::need_data, false, {
                 "HTTP/1.1 200 OK\r\n"
                 "Transfer-Encoding: chunked\r\n"
@@ -1238,8 +1184,7 @@ struct parser_test
 
         {
             // to_eof, complete
-            response_parser::config cfg;
-            check_in_place(cfg, false,
+            check_in_place(cfg_, false,
                 {}, true, {
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n",
@@ -1625,11 +1570,7 @@ struct parser_test
     void
     testChunkedInPlace()
     {
-        capy::polystore ctx;
-        response_parser::config cfg;
-        install_parser_service(ctx, cfg);
-
-        response_parser pr(ctx);
+        response_parser pr(pcfg_);
 
         {
             // initial hello world parse for chunked
@@ -1860,16 +1801,11 @@ struct parser_test
     void
     testMultipleMessageInPlace()
     {
-        request_parser::config cfg;
-        capy::polystore ctx;
-
+        parser_config cfg(cfg_);
         cfg.headers.max_size = 500;
         cfg.min_buffer = 500;
-
-        install_parser_service(ctx, cfg);
+        request_parser pr(cfg.prepare());
         system::error_code ec;
-
-        request_parser pr(ctx);
 
         auto make_header = [](std::size_t n) -> std::string
         {
@@ -1971,17 +1907,14 @@ struct parser_test
             return header;
         };
 
-        request_parser::config cfg;
+        parser_config cfg(cfg_);
         capy::polystore ctx;
-
         cfg.min_buffer = 500;
         cfg.headers.max_size = 500;
-
-        install_parser_service(ctx, cfg);
-        system::error_code ec;
-        request_parser pr(ctx);
+        request_parser pr(cfg.prepare());
         pr.reset();
 
+        system::error_code ec;
         for( size_t i = 0; i < 2000  ; i += 1 )
         {
             pr.start();
@@ -2053,11 +1986,9 @@ struct parser_test
     testSetBodyLimit()
     {
         capy::polystore ctx;
-        response_parser::config cfg;
+        parser_config cfg(cfg_);
         cfg.body_limit = 7;
-        install_parser_service(ctx, cfg);
-
-        response_parser pr(ctx);
+        response_parser pr(cfg.prepare());
 
         // before reset
         BOOST_TEST_THROWS(
@@ -2140,10 +2071,7 @@ struct parser_test
         // the parsed header must remain valid and
         // accessible if an error occurs during body parsing.
 
-        capy::polystore ctx;
-        response_parser::config cfg;
-        install_parser_service(ctx, cfg);
-        response_parser pr(ctx);
+        response_parser pr(pcfg_);
 
         pr.reset();
         pr.start();

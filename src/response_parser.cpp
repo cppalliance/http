@@ -14,10 +14,10 @@ namespace http_proto {
 
 response_parser::
 response_parser(
-    capy::polystore& ctx)
+    prepared_parser_config cfg)
     : parser(
-        ctx,
-        detail::kind::response)
+        detail::kind::response,
+        std::move(cfg))
 {
 }
 
