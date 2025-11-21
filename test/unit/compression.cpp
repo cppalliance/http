@@ -15,9 +15,9 @@
 #include <boost/buffers.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
-#include <boost/rts/brotli.hpp>
-#include <boost/rts/polystore.hpp>
-#include <boost/rts/zlib.hpp>
+#include <boost/capy/brotli.hpp>
+#include <boost/capy/polystore.hpp>
+#include <boost/capy/zlib.hpp>
 
 #include "test_helpers.hpp"
 
@@ -55,7 +55,7 @@ struct zlib_test
     static
     std::string
     compress(
-        const rts::polystore& ctx,
+        const capy::polystore& ctx,
         core::string_view encoding,
         core::string_view body)
     {
@@ -64,7 +64,7 @@ struct zlib_test
 
         if(encoding == "deflate" || encoding == "gzip")
         {
-            namespace zlib = rts::zlib;
+            namespace zlib = capy::zlib;
             auto& svc = ctx.get<zlib::deflate_service>();
             zlib::stream zs{};
 
@@ -100,7 +100,7 @@ struct zlib_test
         }
         else if(encoding == "br")
         {
-            namespace brotli = rts::brotli;
+            namespace brotli = capy::brotli;
             auto& svc = ctx.get<brotli::encode_service>();
 
             brotli::encoder_state* state =
@@ -145,14 +145,14 @@ struct zlib_test
     static
     void
     verify_compressed(
-        const rts::polystore& ctx,
+        const capy::polystore& ctx,
         core::string_view encoding,
         core::string_view compressed_body,
         core::string_view body)
     {
         if(encoding == "deflate" || encoding == "gzip")
         {
-            namespace zlib = rts::zlib;
+            namespace zlib = capy::zlib;
             auto& svc = ctx.get<zlib::inflate_service>();
             zlib::stream zs{};
 
@@ -191,7 +191,7 @@ struct zlib_test
         }
         else if(encoding == "br")
         {
-            namespace brotli = rts::brotli;
+            namespace brotli = capy::brotli;
             auto& svc = ctx.get<brotli::decode_service>();
 
             brotli::decoder_state* state =
@@ -376,22 +376,22 @@ struct zlib_test
     void
     test_serializer()
     {
-        rts::polystore ctx;
+        capy::polystore ctx;
         std::vector<std::string> encodings;
         serializer::config cfg;
 
-        #ifdef BOOST_RTS_HAS_ZLIB
+        #ifdef BOOST_CAPY_HAS_ZLIB
             cfg.apply_deflate_encoder = true;
             cfg.apply_gzip_encoder = true;
-            rts::zlib::install_deflate_service(ctx);
-            rts::zlib::install_inflate_service(ctx);
+            capy::zlib::install_deflate_service(ctx);
+            capy::zlib::install_inflate_service(ctx);
             encodings.push_back("gzip");
             encodings.push_back("deflate");
         #endif
-        #ifdef BOOST_RTS_HAS_BROTLI
+        #ifdef BOOST_CAPY_HAS_BROTLI
             cfg.apply_brotli_encoder = true;
-            rts::brotli::install_encode_service(ctx);
-            rts::brotli::install_decode_service(ctx);
+            capy::brotli::install_encode_service(ctx);
+            capy::brotli::install_decode_service(ctx);
             encodings.push_back("br");
         #endif
 
@@ -612,22 +612,22 @@ struct zlib_test
     void
     test_parser()
     {
-        rts::polystore ctx;
+        capy::polystore ctx;
         std::vector<std::string> encodings;
         response_parser::config cfg;
 
-        #ifdef BOOST_RTS_HAS_ZLIB
+        #ifdef BOOST_CAPY_HAS_ZLIB
             cfg.apply_deflate_decoder = true;
             cfg.apply_gzip_decoder = true;
-            rts::zlib::install_deflate_service(ctx);
-            rts::zlib::install_inflate_service(ctx);
+            capy::zlib::install_deflate_service(ctx);
+            capy::zlib::install_inflate_service(ctx);
             encodings.push_back("gzip");
             encodings.push_back("deflate");
         #endif
-        #ifdef BOOST_RTS_HAS_BROTLI
+        #ifdef BOOST_CAPY_HAS_BROTLI
             cfg.apply_brotli_decoder = true;
-            rts::brotli::install_encode_service(ctx);
-            rts::brotli::install_decode_service(ctx);
+            capy::brotli::install_encode_service(ctx);
+            capy::brotli::install_decode_service(ctx);
             encodings.push_back("br");
         #endif
 

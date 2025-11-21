@@ -23,13 +23,13 @@
 #include <boost/buffers/copy.hpp>
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/rts/brotli/encode.hpp>
-#include <boost/rts/polystore.hpp>
-#include <boost/rts/zlib/compression_method.hpp>
-#include <boost/rts/zlib/compression_strategy.hpp>
-#include <boost/rts/zlib/deflate.hpp>
-#include <boost/rts/zlib/error.hpp>
-#include <boost/rts/zlib/flush.hpp>
+#include <boost/capy/brotli/encode.hpp>
+#include <boost/capy/polystore.hpp>
+#include <boost/capy/zlib/compression_method.hpp>
+#include <boost/capy/zlib/compression_strategy.hpp>
+#include <boost/capy/zlib/deflate.hpp>
+#include <boost/capy/zlib/error.hpp>
+#include <boost/capy/zlib/flush.hpp>
 
 #include <stddef.h>
 
@@ -90,26 +90,26 @@ write_chunk_header(
 class zlib_filter
     : public detail::zlib_filter_base
 {
-    rts::zlib::deflate_service& svc_;
+    capy::zlib::deflate_service& svc_;
 
 public:
     zlib_filter(
-        const rts::polystore& ctx,
+        const capy::polystore& ctx,
         http_proto::detail::workspace& ws,
         int comp_level,
         int window_bits,
         int mem_level)
         : zlib_filter_base(ws)
-        , svc_(ctx.get<rts::zlib::deflate_service>())
+        , svc_(ctx.get<capy::zlib::deflate_service>())
     {
-        system::error_code ec = static_cast<rts::zlib::error>(svc_.init2(
+        system::error_code ec = static_cast<capy::zlib::error>(svc_.init2(
             strm_,
             comp_level,
-            rts::zlib::deflated,
+            capy::zlib::deflated,
             window_bits,
             mem_level,
-            rts::zlib::default_strategy));
-        if(ec != rts::zlib::error::ok)
+            capy::zlib::default_strategy));
+        if(ec != capy::zlib::error::ok)
             detail::throw_system_error(ec);
     }
 
@@ -135,17 +135,17 @@ private:
         strm_.next_in   = static_cast<unsigned char*>(const_cast<void *>(in.data()));
         strm_.avail_in  = saturate_cast(in.size());
 
-        auto rs = static_cast<rts::zlib::error>(
+        auto rs = static_cast<capy::zlib::error>(
             svc_.deflate(
                 strm_,
-                more ? rts::zlib::no_flush : rts::zlib::finish));
+                more ? capy::zlib::no_flush : capy::zlib::finish));
 
         results rv;
         rv.out_bytes = saturate_cast(out.size()) - strm_.avail_out;
         rv.in_bytes  = saturate_cast(in.size()) - strm_.avail_in;
-        rv.finished  = (rs == rts::zlib::error::stream_end);
+        rv.finished  = (rs == capy::zlib::error::stream_end);
 
-        if(rs < rts::zlib::error::ok && rs != rts::zlib::error::buf_err)
+        if(rs < capy::zlib::error::ok && rs != capy::zlib::error::buf_err)
             rv.ec = rs;
 
         return rv;
@@ -155,22 +155,22 @@ private:
 class brotli_filter
     : public detail::brotli_filter_base
 {
-    rts::brotli::encode_service& svc_;
-    rts::brotli::encoder_state* state_;
+    capy::brotli::encode_service& svc_;
+    capy::brotli::encoder_state* state_;
 
 public:
     brotli_filter(
-        const rts::polystore& ctx,
+        const capy::polystore& ctx,
         http_proto::detail::workspace&,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
-        : svc_(ctx.get<rts::brotli::encode_service>())
+        : svc_(ctx.get<capy::brotli::encode_service>())
     {
         // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
         if(!state_)
             detail::throw_bad_alloc();
-        using encoder_parameter = rts::brotli::encoder_parameter;
+        using encoder_parameter = capy::brotli::encoder_parameter;
         svc_.set_parameter(state_, encoder_parameter::quality, comp_quality);
         svc_.set_parameter(state_, encoder_parameter::lgwin, comp_window);
     }
@@ -194,7 +194,7 @@ private:
         auto available_out = out.size();
 
         using encoder_operation = 
-            rts::brotli::encoder_operation;
+            capy::brotli::encoder_operation;
 
         bool rs = svc_.compress_stream(
             state_,
@@ -267,7 +267,7 @@ public:
 
 void
 install_serializer_service(
-    rts::polystore& ctx,
+    capy::polystore& ctx,
     serializer::config const& cfg)
 {
     ctx.emplace<serializer_service>(cfg);
@@ -295,7 +295,7 @@ class serializer::impl
         stream
     };
 
-    const rts::polystore& ctx_;
+    const capy::polystore& ctx_;
     serializer_service& svc_;
     detail::workspace ws_;
 
@@ -317,7 +317,7 @@ class serializer::impl
     bool filter_done_ = false;
 
 public:
-    impl(const rts::polystore& ctx)
+    impl(const capy::polystore& ctx)
         : ctx_(ctx)
         , svc_(ctx_.get<serializer_service>())
         , ws_(svc_.space_needed)
@@ -955,7 +955,7 @@ operator=(serializer&& other) noexcept
 }
 
 serializer::
-serializer(rts::polystore& ctx)
+serializer(capy::polystore& ctx)
     : impl_(new impl(ctx))
 {
     // TODO: use a single allocation for

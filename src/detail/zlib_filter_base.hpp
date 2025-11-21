@@ -15,8 +15,8 @@
 
 #include "src/detail/filter.hpp"
 
-#include <boost/rts/zlib/stream.hpp>
-#include <boost/rts/zlib/flush.hpp>
+#include <boost/capy/zlib/stream.hpp>
+#include <boost/capy/zlib/flush.hpp>
 
 namespace boost {
 namespace http_proto {
@@ -35,7 +35,7 @@ public:
     }
 
 protected:
-    rts::zlib::stream strm_;
+    capy::zlib::stream strm_;
 
     static
     unsigned int

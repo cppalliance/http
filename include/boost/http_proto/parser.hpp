@@ -21,7 +21,7 @@
 #include <boost/buffers/dynamic_buffer.hpp>
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/rts/polystore_fwd.hpp>
+#include <boost/capy/polystore_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -617,7 +617,7 @@ private:
     BOOST_HTTP_PROTO_DECL ~parser();
     BOOST_HTTP_PROTO_DECL parser() noexcept;
     BOOST_HTTP_PROTO_DECL parser(parser&& other) noexcept;
-    BOOST_HTTP_PROTO_DECL parser(rts::polystore&, detail::kind);
+    BOOST_HTTP_PROTO_DECL parser(capy::polystore&, detail::kind);
     BOOST_HTTP_PROTO_DECL void assign(parser&& other) noexcept;
 
     BOOST_HTTP_PROTO_DECL
@@ -668,7 +668,7 @@ struct parser::config_base
 
     /** Enable Brotli Content-Encoding decoding.
 
-        Requires `boost::rts::brotli::decode_service` to be
+        Requires `boost::capy::brotli::decode_service` to be
         installed, otherwise an exception is thrown.
     */
     bool apply_brotli_decoder = false;
@@ -693,7 +693,7 @@ struct parser::config_base
         Larger windows improve decompression at the cost
         of memory. If a larger window is required than
         allowed, decoding fails with
-        `rts::zlib::error::data_err`.
+        `capy::zlib::error::data_err`.
     */
     int zlib_window_bits = 15;
 
@@ -769,7 +769,7 @@ struct parser::config_base
 BOOST_HTTP_PROTO_DECL
 void
 install_parser_service(
-    rts::polystore& ctx,
+    capy::polystore& ctx,
     parser::config_base const& cfg);
 
 } // http_proto

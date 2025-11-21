@@ -56,9 +56,9 @@ set(BOOST_SRC_DIR ${DEFAULT_BOOST_SRC_DIR} CACHE STRING "Boost source dir to use
 set(BOOST_HTTP_PROTO_DEPENDENCIES
     Boost::assert
     Boost::buffers
+    Boost::capy
     Boost::config
     Boost::core
-    Boost::rts
     Boost::static_assert
     Boost::system
     Boost::throw_exception

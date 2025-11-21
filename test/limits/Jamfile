@@ -19,7 +19,7 @@ project
       <include>../..
       <include>../../../url/extra/test_suite
       <library>/boost//buffers
-      <library>/boost//rts
+      <library>/boost//capy
       <library>/boost//url
     ;
 

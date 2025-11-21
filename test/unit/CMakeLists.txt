@@ -24,12 +24,12 @@ target_link_libraries(
     Boost::http_proto
     Boost::filesystem)
 
-if (TARGET Boost::rts_zlib)
-    target_link_libraries(boost_http_proto_tests PRIVATE Boost::rts_zlib)
+if (TARGET Boost::capy_zlib)
+    target_link_libraries(boost_http_proto_tests PRIVATE Boost::capy_zlib)
 endif ()
 
-if (TARGET Boost::rts_brotli)
-    target_link_libraries(boost_http_proto_tests PRIVATE Boost::rts_brotli)
+if (TARGET Boost::capy_brotli)
+    target_link_libraries(boost_http_proto_tests PRIVATE Boost::capy_brotli)
 endif ()
 
 # Register individual tests with CTest
