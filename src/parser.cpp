@@ -20,10 +20,10 @@
 #include <boost/buffers/flat_buffer.hpp>
 #include <boost/buffers/front.hpp>
 #include <boost/buffers/slice.hpp>
-#include <boost/rts/brotli/decode.hpp>
-#include <boost/rts/polystore.hpp>
-#include <boost/rts/zlib/error.hpp>
-#include <boost/rts/zlib/inflate.hpp>
+#include <boost/capy/brotli/decode.hpp>
+#include <boost/capy/polystore.hpp>
+#include <boost/capy/zlib/error.hpp>
+#include <boost/capy/zlib/inflate.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/error.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>
@@ -305,19 +305,19 @@ clamp(
 class zlib_filter
     : public detail::zlib_filter_base
 {
-    rts::zlib::inflate_service& svc_;
+    capy::zlib::inflate_service& svc_;
 
 public:
     zlib_filter(
-        const rts::polystore& ctx,
+        const capy::polystore& ctx,
         http_proto::detail::workspace& ws,
         int window_bits)
         : zlib_filter_base(ws)
-        , svc_(ctx.get<rts::zlib::inflate_service>())
+        , svc_(ctx.get<capy::zlib::inflate_service>())
     {
-        system::error_code ec = static_cast<rts::zlib::error>(
+        system::error_code ec = static_cast<capy::zlib::error>(
             svc_.init2(strm_, window_bits));
-        if(ec != rts::zlib::error::ok)
+        if(ec != capy::zlib::error::ok)
             detail::throw_system_error(ec);
     }
 
@@ -334,17 +334,17 @@ private:
         strm_.next_in   = static_cast<unsigned char*>(const_cast<void *>(in.data()));
         strm_.avail_in  = saturate_cast(in.size());
 
-        auto rs = static_cast<rts::zlib::error>(
+        auto rs = static_cast<capy::zlib::error>(
             svc_.inflate(
                 strm_,
-                more ? rts::zlib::no_flush : rts::zlib::finish));
+                more ? capy::zlib::no_flush : capy::zlib::finish));
 
         results rv;
         rv.out_bytes = saturate_cast(out.size()) - strm_.avail_out;
         rv.in_bytes  = saturate_cast(in.size()) - strm_.avail_in;
-        rv.finished  = (rs == rts::zlib::error::stream_end);
+        rv.finished  = (rs == capy::zlib::error::stream_end);
 
-        if(rs < rts::zlib::error::ok && rs != rts::zlib::error::buf_err)
+        if(rs < capy::zlib::error::ok && rs != capy::zlib::error::buf_err)
             rv.ec = rs;
 
         return rv;
@@ -354,14 +354,14 @@ private:
 class brotli_filter
     : public detail::brotli_filter_base
 {
-    rts::brotli::decode_service& svc_;
-    rts::brotli::decoder_state* state_;
+    capy::brotli::decode_service& svc_;
+    capy::brotli::decoder_state* state_;
 
 public:
     brotli_filter(
-        const rts::polystore& ctx,
+        const capy::polystore& ctx,
         http_proto::detail::workspace&)
-        : svc_(ctx.get<rts::brotli::decode_service>())
+        : svc_(ctx.get<capy::brotli::decode_service>())
     {
         // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
@@ -401,10 +401,10 @@ private:
         rv.out_bytes = out.size() - available_out;
         rv.finished  = svc_.is_finished(state_);
 
-        if(!more && rs == rts::brotli::decoder_result::needs_more_input)
+        if(!more && rs == capy::brotli::decoder_result::needs_more_input)
             rv.ec = BOOST_HTTP_PROTO_ERR(error::bad_payload);
 
-        if(rs == rts::brotli::decoder_result::error)
+        if(rs == capy::brotli::decoder_result::error)
             rv.ec = BOOST_HTTP_PROTO_ERR(
                 svc_.get_error_code(state_));
 
@@ -505,7 +505,7 @@ public:
 
 void
 install_parser_service(
-    rts::polystore& ctx,
+    capy::polystore& ctx,
     parser::config_base const& cfg)
 {
     ctx.emplace<parser_service>(cfg);
@@ -534,7 +534,7 @@ class parser::impl
         elastic,
     };
 
-    const rts::polystore& ctx_;
+    const capy::polystore& ctx_;
     parser_service& svc_;
 
     detail::workspace ws_;
@@ -567,7 +567,7 @@ class parser::impl
     bool chunked_body_ended;
 
 public:
-    impl(const rts::polystore& ctx, detail::kind k)
+    impl(const capy::polystore& ctx, detail::kind k)
         : ctx_(ctx)
         , svc_(ctx.get<parser_service>())
         , ws_(svc_.space_needed)
@@ -1866,7 +1866,7 @@ parser(parser&& other) noexcept
 
 parser::
 parser(
-    rts::polystore& ctx,
+    capy::polystore& ctx,
     detail::kind k)
     : impl_(new impl(ctx, k))
 {

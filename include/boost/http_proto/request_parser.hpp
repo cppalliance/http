@@ -140,7 +140,7 @@ public:
     */
     BOOST_HTTP_PROTO_DECL
     explicit
-    request_parser(rts::polystore& ctx);
+    request_parser(capy::polystore& ctx);
 
     /** Return a reference to the parsed request headers.
 

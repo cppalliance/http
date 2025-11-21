@@ -140,7 +140,7 @@ public:
     */
     BOOST_HTTP_PROTO_DECL
     explicit
-    response_parser(rts::polystore& ctx);
+    response_parser(capy::polystore& ctx);
 
     /** Prepare for the next message on the stream.
 

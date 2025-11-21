@@ -17,7 +17,7 @@
 
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/rts/polystore_fwd.hpp>
+#include <boost/capy/polystore_fwd.hpp>
 #include <boost/system/result.hpp>
 
 #include <type_traits>
@@ -171,7 +171,7 @@ public:
     BOOST_HTTP_PROTO_DECL
     explicit
     serializer(
-        rts::polystore& ctx);
+        capy::polystore& ctx);
 
     /** Reset the serializer for a new message.
 
@@ -574,7 +574,7 @@ struct serializer::config
 {
     /** Enable Brotli Content-Encoding.
 
-        Requires `boost::rts::brotli::encode_service` to be
+        Requires `boost::capy::brotli::encode_service` to be
         installed, otherwise an exception is thrown.
     */
     bool apply_brotli_encoder = false;
@@ -668,7 +668,7 @@ struct serializer::config
 BOOST_HTTP_PROTO_DECL
 void
 install_serializer_service(
-    rts::polystore& ctx,
+    capy::polystore& ctx,
     serializer::config const& cfg);
 
 //------------------------------------------------

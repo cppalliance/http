@@ -28,7 +28,7 @@ target_link_libraries(boost_http_proto_limits PRIVATE
     Boost::buffers
     Boost::config
     Boost::container_hash
-    Boost::rts
+    Boost::capy
     Boost::system
     Boost::throw_exception
     Boost::url

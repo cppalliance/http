@@ -11,7 +11,7 @@
 #include <boost/http_proto/request_parser.hpp>
 #include <boost/http_proto/rfc/combine_field_values.hpp>
 
-#include <boost/rts/polystore.hpp>
+#include <boost/capy/polystore.hpp>
 
 #include "test_suite.hpp"
 
@@ -86,7 +86,7 @@ struct request_parser_test
 
     void
     good(
-        rts::polystore& ctx,
+        capy::polystore& ctx,
         core::string_view s,
         core::string_view expected = {})
     {
@@ -107,7 +107,7 @@ struct request_parser_test
     }
 
     void
-    bad(rts::polystore& ctx, core::string_view s)
+    bad(capy::polystore& ctx, core::string_view s)
     {
         for(std::size_t nmax = 1;
             nmax < s.size(); ++nmax)
@@ -135,7 +135,7 @@ struct request_parser_test
             BOOST_TEST(req.version() == v);
         };
 
-        rts::polystore ctx;
+        capy::polystore ctx;
         request_parser::config cfg;
         install_parser_service(ctx, cfg);
 
@@ -213,16 +213,16 @@ struct request_parser_test
         {
             request_parser pr;
 
-            rts::polystore ctx;
+            capy::polystore ctx;
             request_parser::config cfg;
             install_parser_service(ctx, cfg);
 
             BOOST_TEST_NO_THROW(pr = request_parser(ctx));
         }
 
-        // request_parser(rts::polystore&)
+        // request_parser(capy::polystore&)
         {
-            rts::polystore ctx;
+            capy::polystore ctx;
             request_parser::config cfg;
             install_parser_service(ctx, cfg);
             request_parser pr(ctx);
@@ -230,7 +230,7 @@ struct request_parser_test
 
         // request_parser(request_parser&&)
         {
-            rts::polystore ctx;
+            capy::polystore ctx;
             install_parser_service(ctx, {});
             request_parser pr1(ctx);
             request_parser pr2(std::move(pr1));
@@ -266,7 +266,7 @@ struct request_parser_test
                 "\r\n\r\n";
         };
 
-        rts::polystore ctx;
+        capy::polystore ctx;
         request_parser::config cfg;
         install_parser_service(ctx, cfg);
 
@@ -325,7 +325,7 @@ struct request_parser_test
     void
     testGet()
     {
-        rts::polystore ctx;
+        capy::polystore ctx;
         request_parser::config cfg;
         install_parser_service(ctx, cfg);
         request_parser pr(ctx);
