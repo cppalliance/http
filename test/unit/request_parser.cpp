@@ -86,14 +86,14 @@ struct request_parser_test
 
     void
     good(
-        prepared_parser_config cfg,
+        capy::polystore& ctx,
         core::string_view s,
         core::string_view expected = {})
     {
         for(std::size_t nmax = 1;
             nmax < s.size(); ++nmax)
         {
-            request_parser pr(cfg);
+            request_parser pr(ctx);
             if( BOOST_TEST(valid(pr, s, nmax)) )
             {
                 BOOST_TEST( pr.got_header() );
@@ -107,12 +107,12 @@ struct request_parser_test
     }
 
     void
-    bad(prepared_parser_config cfg, core::string_view s)
+    bad(capy::polystore& ctx, core::string_view s)
     {
         for(std::size_t nmax = 1;
             nmax < s.size(); ++nmax)
         {
-            request_parser pr(cfg);
+            request_parser pr(ctx);
             BOOST_TEST(! valid(pr, s, nmax));
         }
     }
@@ -135,12 +135,13 @@ struct request_parser_test
             BOOST_TEST(req.version() == v);
         };
 
-        capy::polystore ps;
-        auto cfg = parser_config(role::client, ps).prepare();
+        capy::polystore ctx;
+        request_parser::config cfg;
+        install_parser_service(ctx, cfg);
 
         // single buffer
         {
-            request_parser pr(cfg);
+            request_parser pr(ctx);
             pr.reset();
             pr.start();
             auto const b = *pr.prepare().begin();
@@ -162,7 +163,7 @@ struct request_parser_test
         for(std::size_t i = 1;
             i < s.size(); ++i)
         {
-            request_parser pr(cfg);
+            request_parser pr(ctx);
             pr.reset();
             pr.start();
             // first buffer
@@ -199,38 +200,44 @@ struct request_parser_test
     void
     testSpecial()
     {
-        capy::polystore ctx;
-        auto cfg = parser_config(role::server, ctx).prepare();
-
-        // ~request_parser()
         // request_parser()
         {
             BOOST_TEST_NO_THROW(request_parser());
         }
 
-        // request_parser(prepared_parser_config)
+        // operator=(request_parser&&)
         {
-            request_parser pr(cfg);
+            request_parser pr;
+            BOOST_TEST_NO_THROW(pr = request_parser());
+        }
+        {
+            request_parser pr;
+
+            capy::polystore ctx;
+            request_parser::config cfg;
+            install_parser_service(ctx, cfg);
+
+            BOOST_TEST_NO_THROW(pr = request_parser(ctx));
+        }
+
+        // request_parser(capy::polystore&)
+        {
+            capy::polystore ctx;
+            request_parser::config cfg;
+            install_parser_service(ctx, cfg);
+            request_parser pr(ctx);
         }
 
         // request_parser(request_parser&&)
         {
-            request_parser pr1(cfg);
+            capy::polystore ctx;
+            install_parser_service(ctx, {});
+            request_parser pr1(ctx);
             request_parser pr2(std::move(pr1));
         }
         {
             BOOST_TEST_NO_THROW(
                 request_parser(request_parser()));
-        }
-
-        // operator=(request_parser&&)
-        {
-            request_parser pr;
-            BOOST_TEST_NO_THROW(pr = request_parser(cfg));
-        }
-        {
-            request_parser pr;
-            BOOST_TEST_NO_THROW(pr = request_parser());
         }
     }
 
@@ -260,67 +267,68 @@ struct request_parser_test
         };
 
         capy::polystore ctx;
-        
-        auto cfg = parser_config(role::server, ctx).prepare();
+        request_parser::config cfg;
+        install_parser_service(ctx, cfg);
 
-        bad(cfg, f(":"));
-        bad(cfg, f(" :"));
-        bad(cfg, f(" x:"));
-        bad(cfg, f("x :"));
-        bad(cfg, f("x@"));
-        bad(cfg, f("x@:"));
-        bad(cfg, f("\ra"));
-        bad(cfg, f("x:   \r"));
-        bad(cfg, f("x:   \ra"));
-        bad(cfg, f("x:   \r\nabcd"));
-        bad(cfg, f("x:   a\x01""bcd"));
+        bad(ctx, f(":"));
+        bad(ctx, f(" :"));
+        bad(ctx, f(" x:"));
+        bad(ctx, f("x :"));
+        bad(ctx, f("x@"));
+        bad(ctx, f("x@:"));
+        bad(ctx, f("\ra"));
+        bad(ctx, f("x:   \r"));
+        bad(ctx, f("x:   \ra"));
+        bad(ctx, f("x:   \r\nabcd"));
+        bad(ctx, f("x:   a\x01""bcd"));
 
-        good(cfg, f(""));
-        good(cfg, f("x:"));
-        good(cfg, f("x: "));
-        good(cfg, f("x:\t "));
-        good(cfg, f("x:y"));
-        good(cfg, f("x: y"));
-        good(cfg, f("x:y "));
-        good(cfg, f("x: y "));
-        good(cfg, f("x:yy"));
-        good(cfg, f("x: yy"));
-        good(cfg, f("x:yy "));
-        good(cfg, f("x: y y "));
-        good(cfg, f("x:"));
-        good(cfg, f("x:   \r\n"),
+        good(ctx, f(""));
+        good(ctx, f("x:"));
+        good(ctx, f("x: "));
+        good(ctx, f("x:\t "));
+        good(ctx, f("x:y"));
+        good(ctx, f("x: y"));
+        good(ctx, f("x:y "));
+        good(ctx, f("x: y "));
+        good(ctx, f("x:yy"));
+        good(ctx, f("x: yy"));
+        good(ctx, f("x:yy "));
+        good(ctx, f("x: y y "));
+        good(ctx, f("x:"));
+        good(ctx, f("x:   \r\n"),
                   f("x:   "));
-        good(cfg, f("x:\r\n"),
+        good(ctx, f("x:\r\n"),
                   f("x:"));
 
         // obs-fold handling
-        good(cfg, f("x: \r\n "),
+        good(ctx, f("x: \r\n "),
                   f("x:    "));
-        good(cfg, f("x: \r\n x"),
+        good(ctx, f("x: \r\n x"),
                   f("x:    x"));
-        good(cfg, f("x: \r\n \t\r\n \r\n\t "),
+        good(ctx, f("x: \r\n \t\r\n \r\n\t "),
                   f("x:    \t     \t "));
-        good(cfg, f("x: \r\n \t\r\n x"),
+        good(ctx, f("x: \r\n \t\r\n x"),
                   f("x:    \t   x"));
-        good(cfg, f("x: y \r\n "),
+        good(ctx, f("x: y \r\n "),
                   f("x: y    "));
-        good(cfg, f("x: \t\r\n abc def \r\n\t "),
+        good(ctx, f("x: \t\r\n abc def \r\n\t "),
                   f("x: \t   abc def   \t "));
-        good(cfg, f("x: abc\r\n def"),
+        good(ctx, f("x: abc\r\n def"),
                   f("x: abc   def"));
 
         // errata eid4189
-        good(cfg, f("x: , , ,"));
-        good(cfg, f("x: abrowser/0.001 (C O M M E N T)"));
-        good(cfg, f("x: gzip , chunked"));
+        good(ctx, f("x: , , ,"));
+        good(ctx, f("x: abrowser/0.001 (C O M M E N T)"));
+        good(ctx, f("x: gzip , chunked"));
     }
 
     void
     testGet()
     {
         capy::polystore ctx;
-        auto cfg = parser_config(role::server, ctx).prepare();
-        request_parser pr(cfg);
+        request_parser::config cfg;
+        install_parser_service(ctx, cfg);
+        request_parser pr(ctx);
         core::string_view s =
             "GET / HTTP/1.1\r\n"
             "Accept: *\r\n"

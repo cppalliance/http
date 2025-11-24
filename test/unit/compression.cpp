@@ -614,7 +614,7 @@ struct zlib_test
     {
         capy::polystore ctx;
         std::vector<std::string> encodings;
-        parser_config cfg(role::server, ctx);
+        response_parser::config cfg;
 
         #ifdef BOOST_CAPY_HAS_ZLIB
             cfg.apply_deflate_decoder = true;
@@ -632,7 +632,8 @@ struct zlib_test
         #endif
 
         cfg.body_limit = 1024 * 1024;
-        response_parser pr(cfg.prepare());
+        install_parser_service(ctx, cfg);
+        response_parser pr(ctx);
         pr.reset();
 
         auto append_chunked = [](

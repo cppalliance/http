@@ -23,38 +23,44 @@ public:
     void
     testSpecial()
     {
-        capy::polystore ctx;
-        auto cfg = parser_config(role::server, ctx).prepare();
-
-        // ~response_parser()
         // response_parser()
         {
             BOOST_TEST_NO_THROW(response_parser());
         }
 
-        // response_parser(prepared_parser_config)
+        // operator=(response_parser&&)
         {
-            response_parser pr(cfg);
+            response_parser pr;
+
+            capy::polystore ctx;
+            response_parser::config cfg;
+            install_parser_service(ctx, cfg);
+
+            BOOST_TEST_NO_THROW(pr = response_parser(ctx));
+        }
+        {
+            response_parser pr;
+            BOOST_TEST_NO_THROW(pr = response_parser());
+        }
+
+        // response_parser(capy::polystore&)
+        {
+            capy::polystore ctx;
+            response_parser::config cfg;
+            install_parser_service(ctx, cfg);
+            response_parser pr(ctx);
         }
 
         // response_parser(response_parser&&)
         {
-            response_parser pr1(cfg);
+            capy::polystore ctx;
+            install_parser_service(ctx, {});
+            response_parser pr1(ctx);
             response_parser pr2(std::move(pr1));
         }
         {
             BOOST_TEST_NO_THROW(
                 response_parser(response_parser()));
-        }
-
-        // operator=(response_parser&&)
-        {
-            response_parser pr;
-            BOOST_TEST_NO_THROW(pr = response_parser(cfg));
-        }
-        {
-            response_parser pr;
-            BOOST_TEST_NO_THROW(pr = response_parser());
         }
     }
 

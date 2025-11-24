@@ -28,7 +28,6 @@
 #include <boost/url/grammar/error.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>
 
-#include "src/zlib_filter.hpp"
 #include "src/detail/brotli_filter_base.hpp"
 #include "src/detail/buffer_utils.hpp"
 #include "src/detail/zlib_filter_base.hpp"
@@ -303,6 +302,55 @@ clamp(
     return static_cast<std::size_t>(x);
 }
 
+class zlib_filter
+    : public detail::zlib_filter_base
+{
+    capy::zlib::inflate_service& svc_;
+
+public:
+    zlib_filter(
+        const capy::polystore& ctx,
+        http_proto::detail::workspace& ws,
+        int window_bits)
+        : zlib_filter_base(ws)
+        , svc_(ctx.get<capy::zlib::inflate_service>())
+    {
+        system::error_code ec = static_cast<capy::zlib::error>(
+            svc_.init2(strm_, window_bits));
+        if(ec != capy::zlib::error::ok)
+            detail::throw_system_error(ec);
+    }
+
+private:
+    virtual
+    results
+    do_process(
+        buffers::mutable_buffer out,
+        buffers::const_buffer in,
+        bool more) noexcept override
+    {
+        strm_.next_out  = static_cast<unsigned char*>(out.data());
+        strm_.avail_out = saturate_cast(out.size());
+        strm_.next_in   = static_cast<unsigned char*>(const_cast<void *>(in.data()));
+        strm_.avail_in  = saturate_cast(in.size());
+
+        auto rs = static_cast<capy::zlib::error>(
+            svc_.inflate(
+                strm_,
+                more ? capy::zlib::no_flush : capy::zlib::finish));
+
+        results rv;
+        rv.out_bytes = saturate_cast(out.size()) - strm_.avail_out;
+        rv.in_bytes  = saturate_cast(in.size()) - strm_.avail_in;
+        rv.finished  = (rs == capy::zlib::error::stream_end);
+
+        if(rs < capy::zlib::error::ok && rs != capy::zlib::error::buf_err)
+            rv.ec = rs;
+
+        return rv;
+    }
+};
+
 class brotli_filter
     : public detail::brotli_filter_base
 {
@@ -367,12 +415,12 @@ private:
 class parser_service
 {
 public:
-    parser_config cfg;
+    parser::config_base cfg;
     std::size_t space_needed = 0;
-    std::size_t max_codec = 0; 
+    std::size_t max_codec = 0;
 
     parser_service(
-        parser_config const& cfg_)
+        parser::config_base const& cfg_)
         : cfg(cfg_)
     {
     /*
@@ -396,9 +444,9 @@ public:
         // VFALCO TODO OVERFLOW CHECING
         {
             //fb_.size() - h_.size +
-            //cfg_->min_buffer +
-            //cfg_->min_buffer +
-            //cfg_->max_codec;
+            //svc_.cfg.min_buffer +
+            //svc_.cfg.min_buffer +
+            //svc_.max_codec;
         }
 
         // VFALCO OVERFLOW CHECKING ON THIS
@@ -458,7 +506,7 @@ public:
 void
 install_parser_service(
     capy::polystore& ctx,
-    parser_config const& cfg)
+    parser::config_base const& cfg)
 {
     ctx.emplace<parser_service>(cfg);
 }
@@ -486,7 +534,8 @@ class parser::impl
         elastic,
     };
 
-    prepared_parser_config cfg_;
+    const capy::polystore& ctx_;
+    parser_service& svc_;
 
     detail::workspace ws_;
     static_request m_;
@@ -518,11 +567,10 @@ class parser::impl
     bool chunked_body_ended;
 
 public:
-    impl(
-        detail::kind k,
-        prepared_parser_config cfg)
-        : cfg_(std::move(cfg))
-        , ws_(cfg_->space_needed)
+    impl(const capy::polystore& ctx, detail::kind k)
+        : ctx_(ctx)
+        , svc_(ctx.get<parser_service>())
+        , ws_(svc_.space_needed)
         , m_(ws_.data(), ws_.size())
         , state_(state::reset)
         , got_header_(false)
@@ -666,11 +714,11 @@ public:
 
         fb_ = {
             ws_.data(),
-            cfg_->headers.max_size + cfg_->min_buffer,
+            svc_.cfg.headers.max_size + svc_.cfg.min_buffer,
             leftover };
 
         BOOST_ASSERT(
-            fb_.capacity() == cfg_->max_overread() - leftover);
+            fb_.capacity() == svc_.max_overread() - leftover);
 
         BOOST_ASSERT(
             head_response == false ||
@@ -685,7 +733,7 @@ public:
         style_ = style::in_place;
 
         // reset to the configured default
-        body_limit_ = cfg_->body_limit;
+        body_limit_ = svc_.cfg.body_limit;
 
         body_total_ = 0;
         payload_remain_ = 0;
@@ -724,10 +772,10 @@ public:
         case state::header:
         {
             BOOST_ASSERT(
-                m_.h_.size < cfg_->headers.max_size);
+                m_.h_.size < svc_.cfg.headers.max_size);
             std::size_t n = fb_.capacity() - fb_.size();
-            BOOST_ASSERT(n <= cfg_->max_overread());
-            n = clamp(n, cfg_->max_prepare);
+            BOOST_ASSERT(n <= svc_.max_overread());
+            n = clamp(n, svc_.cfg.max_prepare);
             mbp_[0] = fb_.prepare(n);
             nprepare_ = n;
             return mutable_buffers_type(&mbp_[0], 1);
@@ -749,7 +797,7 @@ public:
             {
                 // buffered payload
                 std::size_t n = cb0_.capacity();
-                n = clamp(n, cfg_->max_prepare);
+                n = clamp(n, svc_.cfg.max_prepare);
                 nprepare_ = n;
                 mbp_ = cb0_.prepare(n);
                 return detail::make_span(mbp_);
@@ -763,7 +811,7 @@ public:
                 case style::sink:
                 {
                     std::size_t n = cb0_.capacity();
-                    n = clamp(n, cfg_->max_prepare);
+                    n = clamp(n, svc_.cfg.max_prepare);
 
                     if(m_.payload() == payload::size)
                     {
@@ -771,9 +819,9 @@ public:
                         {
                             std::size_t overread =
                                 n - static_cast<std::size_t>(payload_remain_);
-                            if(overread > cfg_->max_overread())
+                            if(overread > svc_.max_overread())
                                 n = static_cast<std::size_t>(payload_remain_) +
-                                    cfg_->max_overread();
+                                    svc_.max_overread();
                         }
                     }
                     else
@@ -799,7 +847,7 @@ public:
                     BOOST_ASSERT(cb0_.size() == 0);
                     BOOST_ASSERT(body_avail_ == 0);
 
-                    std::size_t n = cfg_->min_buffer;
+                    std::size_t n = svc_.cfg.min_buffer;
 
                     if(m_.payload() == payload::size)
                     {
@@ -838,7 +886,7 @@ public:
                         }
                     }
 
-                    n = clamp(n, cfg_->max_prepare);
+                    n = clamp(n, svc_.cfg.max_prepare);
                     BOOST_ASSERT(n != 0);
                     nprepare_ = n;
                     return eb_->prepare(n);
@@ -1019,7 +1067,7 @@ public:
             BOOST_ASSERT(m_.h_.cbuf == static_cast<
                 void const*>(ws_.data()));
 
-            m_.h_.parse(fb_.size(), cfg_->headers, ec);
+            m_.h_.parse(fb_.size(), svc_.cfg.headers, ec);
 
             if(ec == condition::need_more_input)
             {
@@ -1096,10 +1144,10 @@ public:
             // current message or octets of the next message in the
             // stream, e.g. pipelining is being used
             auto const overread = fb_.size() - m_.h_.size;
-            BOOST_ASSERT(overread <= cfg_->max_overread());
+            BOOST_ASSERT(overread <= svc_.max_overread());
 
             auto cap = fb_.capacity() + overread +
-                cfg_->min_buffer;
+                svc_.cfg.min_buffer;
 
             // reserve body buffers first, as the decoder
             // must be installed after them.
@@ -1108,30 +1156,30 @@ public:
             switch(m_.metadata().content_encoding.coding)
             {
             case content_coding::deflate:
-                if(!cfg_->apply_deflate_decoder)
+                if(!svc_.cfg.apply_deflate_decoder)
                     goto no_filter;
                 filter_ = &ws_.emplace<zlib_filter>(
-                    cfg_->ps_, ws_, cfg_->zlib_window_bits);
+                    ctx_, ws_, svc_.cfg.zlib_window_bits);
                 break;
 
             case content_coding::gzip:
-                if(!cfg_->apply_gzip_decoder)
+                if(!svc_.cfg.apply_gzip_decoder)
                     goto no_filter;
                 filter_ = &ws_.emplace<zlib_filter>(
-                    cfg_->ps_, ws_, cfg_->zlib_window_bits + 16);
+                    ctx_, ws_, svc_.cfg.zlib_window_bits + 16);
                 break;
 
             case content_coding::br:
-                if(!cfg_->apply_brotli_decoder)
+                if(!svc_.cfg.apply_brotli_decoder)
                     goto no_filter;
                 filter_ = &ws_.emplace<brotli_filter>(
-                    cfg_->ps_, ws_);
+                    ctx_, ws_);
                 break;
 
             no_filter:
             default:
-                cap += cfg_->max_codec;
-                ws_.reserve_front(cfg_->max_codec);
+                cap += svc_.max_codec;
+                ws_.reserve_front(svc_.max_codec);
                 break;
             }
 
@@ -1143,10 +1191,10 @@ public:
             else
             {
                 // buffered payload
-                std::size_t n0 = (overread > cfg_->min_buffer)
+                std::size_t n0 = (overread > svc_.cfg.min_buffer)
                     ? overread
-                    : cfg_->min_buffer;
-                std::size_t n1 = cfg_->min_buffer;
+                    : svc_.cfg.min_buffer;
+                std::size_t n1 = svc_.cfg.min_buffer;
 
                 cb0_ = { p      , n0, overread };
                 cb1_ = { p + n0 , n1 };
@@ -1683,7 +1731,7 @@ private:
                 if(style_ == style::elastic)
                 {
                     std::size_t n = clamp(body_limit_remain());
-                    n = clamp(n, cfg_->min_buffer);
+                    n = clamp(n, svc_.cfg.min_buffer);
                     n = clamp(n, eb_->max_size() - eb_->size());
 
                     // fill capacity first to avoid
@@ -1818,9 +1866,9 @@ parser(parser&& other) noexcept
 
 parser::
 parser(
-    detail::kind k,
-    prepared_parser_config cfg)
-    : impl_(new impl(k, std::move(cfg)))
+    capy::polystore& ctx,
+    detail::kind k)
+    : impl_(new impl(ctx, k))
 {
     // TODO: use a single allocation for
     // impl and workspace buffer.
