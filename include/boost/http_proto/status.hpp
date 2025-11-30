@@ -176,7 +176,7 @@ to_status_class(status v);
 */
 BOOST_HTTP_PROTO_DECL
 core::string_view
-obsolete_reason(status v);
+to_string(status v);
 
 /** Outputs the reason-phrase of a status code to a stream.
 

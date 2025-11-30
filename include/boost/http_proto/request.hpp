@@ -161,7 +161,7 @@ public:
         @endcode
 
         @par Complexity
-        Linear in `obsolete_reason(s).size()`.
+        Linear in `to_string(s).size()`.
 
         @par Exception Safety
         Calls to allocate may throw.

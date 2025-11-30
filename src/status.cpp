@@ -125,7 +125,7 @@ to_status_class(status v)
 }
 
 core::string_view
-obsolete_reason(
+to_string(
     status v)
 {
     switch(static_cast<status>(v))
@@ -210,7 +210,7 @@ obsolete_reason(
 std::ostream&
 operator<<(std::ostream& os, status v)
 {
-    return os << obsolete_reason(v);
+    return os << to_string(v);
 }
 
 } // http_proto

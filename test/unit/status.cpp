@@ -99,7 +99,7 @@ public:
         auto const good =
             [&](status v)
             {
-                BOOST_TEST(obsolete_reason(v) != "Unknown Status");
+                BOOST_TEST(to_string(v) != "Unknown Status");
             };
         good(status::continue_);
         good(status::switching_protocols);

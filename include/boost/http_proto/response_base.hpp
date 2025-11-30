@@ -126,7 +126,7 @@ public:
     {
         set_start_line_impl(sc,
             static_cast<unsigned short>(sc),
-                obsolete_reason(sc), v);
+                to_string(sc), v);
     }
 
     /** Set the HTTP version of the response
@@ -173,7 +173,7 @@ public:
             detail::throw_invalid_argument();
         set_start_line_impl(sc,
             static_cast<unsigned short>(sc),
-            obsolete_reason(sc),
+            to_string(sc),
             version());
     }
 
