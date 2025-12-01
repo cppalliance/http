@@ -70,6 +70,18 @@ template<class T>
 using is_reference_wrapper =
     is_reference_wrapper_impl<remove_cvref_t<T>>;
 
+template<class Base, class Derived>
+using derived_from = std::integral_constant<bool,
+    std::is_base_of<Base, Derived>::value &&
+    std::is_convertible<
+        Derived const volatile*,
+        Base const volatile*>::value>;
+
+template<bool...> struct bool_pack {};
+template<bool... Bs>
+struct all_true : std::is_same<bool_pack<
+    true, Bs...>, bool_pack<Bs..., true>> {};
+
 } // detail
 } // http_proto
 } // boost
