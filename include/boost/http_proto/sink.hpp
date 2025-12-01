@@ -36,7 +36,7 @@ namespace http_proto {
         @ref source,
         @ref parser.
 */
-struct BOOST_SYMBOL_VISIBLE
+struct BOOST_HTTP_PROTO_DECL
     sink
 {
     /** The results of consuming data.
@@ -188,7 +188,6 @@ protected:
         @param more `true` if there will be one
         or more subsequent calls.
     */
-    BOOST_HTTP_PROTO_DECL
     virtual
     results
     on_write(
