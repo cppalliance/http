@@ -16,6 +16,11 @@ namespace boost {
 namespace http_proto {
 
 Response::
+Response()
+{
+}
+
+Response::
 ~Response()
 {
 }

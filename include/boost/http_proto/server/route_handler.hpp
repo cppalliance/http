@@ -87,16 +87,23 @@ struct BOOST_SYMBOL_VISIBLE
     */
     capy::datastore data;
 
+    /** Constructor.
+    */
+    BOOST_HTTP_PROTO_DECL
+    Response();
+
     /** Destructor.
     */
-    BOOST_HTTP_PROTO_DECL virtual ~Response();
+    BOOST_HTTP_PROTO_DECL
+    virtual ~Response();
 
     /** Reset the object for a new request.
         This clears any state associated with
         the previous request, preparing the object
         for use with a new request.
     */
-    BOOST_HTTP_PROTO_DECL void reset();
+    BOOST_HTTP_PROTO_DECL
+    void reset();
 
     /** Set the status code of the response.
         @par Example
