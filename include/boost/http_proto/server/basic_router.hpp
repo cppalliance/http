@@ -142,9 +142,9 @@ private:
     friend class http_proto::basic_router;
     using opt_flags = unsigned int;
 
-    struct BOOST_SYMBOL_VISIBLE any_handler
+    struct BOOST_HTTP_PROTO_DECL any_handler
     {
-        BOOST_HTTP_PROTO_DECL virtual ~any_handler();
+        virtual ~any_handler() = default;
         virtual std::size_t count() const noexcept = 0;
         virtual route_result invoke(
             basic_request&, basic_response&) const = 0;
