@@ -68,7 +68,7 @@ public:
     void
     run()
     {
-        char const* const n = "boost.http.proto";
+        char const* const n = "boost.http";
 
         check(n, error::expect_100_continue);
         check(n, error::end_of_message);

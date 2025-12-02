@@ -661,7 +661,17 @@ dispatch_impl(
     // we cannot do anything after do_dispatch returns,
     // other than return the route_result, or else we
     // could race with the detached operation trying to resume.
-    return do_dispatch(req, res);
+    auto rv = do_dispatch(req, res);
+    if(rv == route::detach)
+        return rv;
+    if(res.ep_)
+    {
+        res.ep_ = nullptr;
+        return error::unhandled_exception;
+    }
+    if( res.ec_.failed())
+        res.ec_ = {};
+    return rv;
 }
 
 // recursive dispatch
@@ -714,9 +724,6 @@ dispatch_impl(
         req.strict = true;
     else if((impl_->opt & 16) != 0)
         req.strict = false;
-
-    // nested routers count as 1 call
-    //++res.pos_;
 
     match_result mr;
     for(auto const& i : impl_->layers)
@@ -779,7 +786,24 @@ dispatch_impl(
             if(res.pos_ != res.resume_)
             {
                 // call the handler
+            #ifdef BOOST_NO_EXCEPTIONS
                 rv = e.handler->invoke(req, res);
+            #else
+                try
+                {
+                    rv = e.handler->invoke(req, res);
+                    if(res.ec_.failed())
+                        res.ep_ = {}; // transition to error mode
+                }
+                catch(...)
+                {
+                    if(res.ec_.failed())
+                        res.ec_ = {}; // transition to except mode
+                    res.ep_ = std::current_exception();
+                    rv = route::next;
+                }
+            #endif
+
                 // res.pos_ can be incremented further
                 // inside the above call to invoke.
                 if(rv == route::detach)
@@ -807,7 +831,13 @@ dispatch_impl(
             if( rv == route::send ||
                 rv == route::complete ||
                 rv == route::close)
+            {
+                if( res.ec_.failed())
+                    res.ec_ = {};
+                if( res.ep_)
+                    res.ep_ = nullptr;
                 return rv;
+            }
             if(rv == route::next)
                 continue; // next entry
             if(rv == route::next_route)
