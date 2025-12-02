@@ -953,6 +953,8 @@ private:
             if( ! res_.ec_.failed() &&
                 ! res_.ep_)
                 return http_proto::route::next;
+            volatile int dummy = sizeof(E);
+            (void)(dummy);
             try
             {
                 std::rethrow_exception(res_.ep_);
