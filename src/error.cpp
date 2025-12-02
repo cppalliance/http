@@ -21,7 +21,7 @@ const char*
 error_cat_type::
 name() const noexcept
 {
-    return "boost.http.proto";
+    return "boost.http";
 }
 
 std::string
@@ -75,6 +75,7 @@ message(
     case error::numeric_overflow: return "numeric overflow";
     case error::multiple_content_length: return "multiple Content-Length";
     case error::buffer_overflow: return "buffer overflow";
+    case error::unhandled_exception: return "unhandled exception";
     default:
         return "unknown";
     }
@@ -86,7 +87,7 @@ const char*
 condition_cat_type::
 name() const noexcept
 {
-    return "boost.http.proto";
+    return "boost.http";
 }
 
 std::string

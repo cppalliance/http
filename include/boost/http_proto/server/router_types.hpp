@@ -15,6 +15,7 @@
 #include <boost/http_proto/detail/except.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/system/error_code.hpp>
+#include <exception>
 #include <string>
 #include <type_traits>
 
@@ -340,7 +341,7 @@ private:
     std::size_t pos_ = 0;
     std::size_t resume_ = 0;
     system::error_code ec_;
-    unsigned int opt_ = 0;
+    std::exception_ptr ep_;
 };
 
 } // http_proto

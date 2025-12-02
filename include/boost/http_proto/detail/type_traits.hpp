@@ -17,6 +17,9 @@ namespace boost {
 namespace http_proto {
 namespace detail {
 
+template<class...> struct make_void { typedef void type; };
+template<class... Ts> using void_t = typename make_void<Ts...>::type;
+
 template<class T>
 struct remove_cvref
 {

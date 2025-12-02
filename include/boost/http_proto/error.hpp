@@ -197,7 +197,11 @@ enum class error
 
     /** A dynamic buffer's maximum size would be exceeded.
     */
-    buffer_overflow
+    buffer_overflow,
+
+    /** An unhandled exception occurred while routing a request
+    */
+    unhandled_exception
 };
 
 // VFALCO we need a bad_message condition?

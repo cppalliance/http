@@ -16,6 +16,7 @@
 namespace boost {
 namespace http_proto {
 
+#if 0
 class field_item
 {
 public:
@@ -83,16 +84,19 @@ public:
 private:
     std::string s_;
 };
+#endif
 
 struct cors_test
 {
     void run()
     {
+#if 0
         list<field_item> v({
             field::access_control_allow_origin,
             "example.com",
             "example.org"
             });
+#endif
     }
 };
 

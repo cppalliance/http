@@ -20,7 +20,7 @@ const char*
 route_cat_type::
 name() const noexcept
 {
-    return "boost.http_proto.route";
+    return "boost.http";
 }
 
 std::string
@@ -39,14 +39,14 @@ message(
 {
     switch(static_cast<route>(code))
     {
-    case route::close:      return "http_proto::route::close";
-    case route::complete:   return "http_proto::route::complete";
-    case route::detach:     return "http_proto::route::detach";
-    case route::next:       return "http_proto::route::next";
-    case route::next_route: return "http_proto::route::next_route";
-    case route::send:       return "http_proto::route::send";
+    case route::close:      return "route::close";
+    case route::complete:   return "route::complete";
+    case route::detach:     return "route::detach";
+    case route::next:       return "route::next";
+    case route::next_route: return "route::next_route";
+    case route::send:       return "route::send";
     default:
-        return "http_proto::route::?";
+        return "?";
     }
 }
 

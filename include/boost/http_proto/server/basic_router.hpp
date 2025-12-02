@@ -16,6 +16,8 @@
 #include <boost/http_proto/server/route_handler.hpp>
 #include <boost/http_proto/method.hpp>
 #include <boost/url/url_view.hpp>
+#include <boost/assert.hpp>
+#include <boost/capy/detail/call_traits.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/detail/static_assert.hpp>
 #include <type_traits>
@@ -354,6 +356,37 @@ class basic_router : public /*detail::*/any_router
               std::false_type
           >::type {};
 
+    template<class H, class = void>
+    struct except_type : std::false_type {};
+
+    template<class H>
+    struct except_type<H, typename std::enable_if<
+        capy::detail::call_traits<H>{} && (
+        capy::detail::type_list_size<typename
+            capy::detail::call_traits<H>::arg_types>{} == 3) &&
+        std::is_convertible<Req&, typename capy::detail::type_at<0, typename
+            capy::detail::call_traits<H>::arg_types>::type>::value &&
+        std::is_convertible<Res&, typename capy::detail::type_at<1, typename
+            capy::detail::call_traits<H>::arg_types>::type>{}
+            >::type>
+        : std::true_type
+    {
+        using type = typename std::decay<typename
+            capy::detail::type_at<2,typename
+                capy::detail::call_traits<H>::arg_types>::type>::type;
+    };
+
+    template<int, class... Hs>
+    struct except_types;
+
+    template<int N>
+    struct except_types<N> : std::true_type {};
+
+    template<int N, class H1, class... HN>
+    struct except_types<N, H1, HN...> : std::integral_constant<bool,
+        except_type<H1>{} && except_types<N, HN...>{}>
+    {};
+
 public:
     /** The type of request object used in handlers
     */
@@ -521,6 +554,32 @@ public:
         // error handler, or router.
         BOOST_CORE_STATIC_ASSERT(handler_check<7, H1, HN...>::value);
         use(core::string_view(),
+            std::forward<H1>(h1), std::forward<HN>(hn)...);
+    }
+
+    /** Add a global exception handler.
+    */
+    template<class H1, class... HN>
+    void except(
+        core::string_view pattern,
+        H1&& h1, HN... hn)
+    {
+        // If you get a compile error on this line it means that one or
+        // more of the provided types is not a valid exception handler
+        BOOST_CORE_STATIC_ASSERT(except_types<0, H1, HN...>::value);
+        add_impl(pattern, make_except_list(
+            std::forward<H1>(h1), std::forward<HN>(hn)...));
+    }
+
+    template<class H1, class... HN
+        , class = typename std::enable_if<
+            ! std::is_convertible<H1, core::string_view>::value>::type>
+    void except(H1&& h1, HN&&... hn)
+    {
+        // If you get a compile error on this line it means that one or
+        // more of the provided types is not a valid exception handler
+        BOOST_CORE_STATIC_ASSERT(except_types<0, H1, HN...>::value);
+        except(core::string_view(),
             std::forward<H1>(h1), std::forward<HN>(hn)...);
     }
 
@@ -736,8 +795,33 @@ public:
     }
 
 private:
+    // used to avoid a race when modifying res.resume_
+    struct set_resume
+    {
+        std::size_t& resume;
+        bool cancel_ = true;
+        ~set_resume()
+        {
+            if(cancel_)
+                resume = 0;
+        }
+        set_resume(
+            basic_response& res) noexcept
+            : resume(res.resume_)
+        {
+            resume = res.pos_;
+        }
+        void apply() noexcept
+        {
+            cancel_ = false;
+        }
+    };
+
     // wrapper for route handlers
-    template<class H>
+    template<
+        class H,
+        class Ty = handler_type<typename
+        std::decay<H>::type > >
     struct handler_impl : any_handler
     {
         typename std::decay<H>::type h;
@@ -751,8 +835,7 @@ private:
         std::size_t
         count() const noexcept override
         {
-            return count(
-                handler_type<decltype(h)>{});
+            return count(Ty{});
         }
 
         route_result
@@ -762,8 +845,7 @@ private:
         {
             return invoke(
                 static_cast<Req&>(req),
-                static_cast<Res&>(res),
-                handler_type<decltype(h)>{});
+                static_cast<Res&>(res), Ty{});
         }
 
     private:
@@ -795,16 +877,17 @@ private:
         route_result invoke(Req& req, Res& res,
             std::integral_constant<int, 1>) const
         {
-            auto const& ec = static_cast<
-                basic_response const&>(res).ec_;
-            if(ec.failed())
+            basic_response& res_(res);
+            if( res_.ec_.failed() ||
+                res_.ep_)
                 return http_proto::route::next;
-            // avoid racing on res.resume_
-            res.resume_ = res.pos_;
+            set_resume u(res_);
             auto rv = h(req, res);
             if(rv == http_proto::route::detach)
+            {
+                u.apply();
                 return rv;
-            res.resume_ = 0; // revert
+            }
             return rv;
         }
 
@@ -813,16 +896,16 @@ private:
         invoke(Req& req, Res& res,
             std::integral_constant<int, 2>) const
         {
-            auto const& ec = static_cast<
-                basic_response const&>(res).ec_;
-            if(! ec.failed())
+            basic_response& res_(res);
+            if(! res_.ec_.failed())
                 return http_proto::route::next;
-            // avoid racing on res.resume_
-            res.resume_ = res.pos_;
-            auto rv = h(req, res, ec);
+            set_resume u(res_);
+            auto rv = h(req, res, res_.ec_);
             if(rv == http_proto::route::detach)
+            {
+                u.apply();
                 return rv;
-            res.resume_ = 0; // revert
+            }
             return rv;
         }
 
@@ -830,12 +913,66 @@ private:
         route_result invoke(Req& req, Res& res,
             std::integral_constant<int, 4>) const
         {
-            auto const& ec = static_cast<
-                basic_response const&>(res).ec_;
-            if( res.resume_ > 0 ||
-                ! ec.failed())
+            basic_response& res_(res);
+            if( res_.resume_ > 0 ||
+                (   ! res_.ec_.failed() &&
+                    ! res_.ep_))
                 return h.dispatch_impl(req, res);
             return http_proto::route::next;
+        }
+    };
+
+    template<class H, class E = typename
+        except_type<typename std::decay<H>::type>::type>
+    struct except_impl : any_handler
+    {
+        typename std::decay<H>::type h;
+
+        template<class... Args>
+        explicit except_impl(Args&&... args)
+            : h(std::forward<Args>(args)...)
+        {
+        }
+
+        std::size_t
+        count() const noexcept override
+        {
+            return 1;
+        }
+
+        route_result
+        invoke(Req& req, Res& res) const override
+        {
+        #ifndef BOOST_NO_EXCEPTIONS
+            basic_response& res_(res);
+            if(! res_.ep_)
+                return http_proto::route::next;
+            try
+            {
+                std::rethrow_exception(res_.ep_);
+            }
+            catch(E const& ex)
+            {
+                set_resume u(res_);
+                // VFALCO What if h throws?
+                auto rv = h(req, res, ex);
+                if(rv == http_proto::route::detach)
+                {
+                    u.apply();
+                    return rv;
+                }
+                return rv;
+            }
+            catch(...)
+            {
+                BOOST_ASSERT(res_.ep_);
+                return http_proto::route::next;
+            }
+        #else
+            (void)req;
+            (void)res;
+            return http_proto::route::next;
+        #endif
         }
     };
 
@@ -850,6 +987,15 @@ private:
             assign<0>(std::forward<HN>(hn)...);
         }
 
+        // exception handlers
+        template<class... HN>
+        explicit handler_list_impl(int, HN&&... hn)
+        {
+            n = sizeof...(HN);
+            p = v;
+            assign<0>(0, std::forward<HN>(hn)...);
+        }
+
     private:
         template<std::size_t I, class H1, class... HN>
         void assign(H1&& h1, HN&&... hn)
@@ -859,8 +1005,17 @@ private:
             assign<I+1>(std::forward<HN>(hn)...);
         }
 
+        // exception handlers
+        template<std::size_t I, class H1, class... HN>
+        void assign(int, H1&& h1, HN&&... hn)
+        {
+            v[I] = handler_ptr(new except_impl<H1>(
+                std::forward<H1>(h1)));
+            assign<I+1>(0, std::forward<HN>(hn)...);
+        }
+
         template<std::size_t>
-        void assign()
+        void assign(int = 0)
         {
         }
 
@@ -874,6 +1029,15 @@ private:
     {
         return handler_list_impl<sizeof...(HN)>(
             std::forward<HN>(hn)...);
+    }
+
+    template<class... HN>
+    static auto
+    make_except_list(HN&&... hn) ->
+        handler_list_impl<sizeof...(HN)>
+    {
+        return handler_list_impl<sizeof...(HN)>(
+            0, std::forward<HN>(hn)...);
     }
 
     void append(layer& e,

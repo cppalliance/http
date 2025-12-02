@@ -133,6 +133,37 @@ struct basic_router_test
         system::error_code ec_;
     };
 
+    // A handler which throws
+    template<class E>
+    struct throw_ex
+    {
+        ~throw_ex()
+        {
+            if(alive_)
+                BOOST_TEST(called_);
+        }
+
+        throw_ex() = default;
+
+        throw_ex(throw_ex&& other)
+        {
+            BOOST_ASSERT(other.alive_);
+            BOOST_ASSERT(! other.called_);
+            alive_ = true;
+            other.alive_ = false;
+        }
+
+        route_result operator()(Req&, Res&) const 
+        {
+            called_ = true;
+            throw E("ex");
+        }
+
+    private:
+        bool alive_ = true;
+        bool mutable called_ = false;
+    };
+
     /** An error handler for testing
     */
     struct err_handler
@@ -190,6 +221,56 @@ struct basic_router_test
         bool alive_ = true;
         bool mutable called_ = false;
         system::error_code ec_;
+    };
+
+    /** An exception handler for testing
+    */
+    template<class E>
+    struct ex_handler
+    {
+        ~ex_handler()
+        {
+            if(alive_)
+                BOOST_TEST_EQ(called_, want_ != 0);
+        }
+
+        ex_handler(ex_handler const&) = delete;
+
+        explicit ex_handler(
+            int want)
+            : want_(want)
+        {
+        }
+
+        ex_handler(ex_handler&& other)
+        {
+            BOOST_ASSERT(other.alive_);
+            BOOST_ASSERT(! other.called_);
+            want_ = other.want_;
+            alive_ = true;
+            other.alive_ = false;
+        }
+
+        route_result operator()(
+            Req&, Res&, E const&) const
+        {
+            called_ = true;
+            switch(want_)
+            {
+            default:
+            case 0: return route::close;
+            case 1: return route::send;
+            case 2: return route::next;
+            }
+        }
+
+    private:
+        // 0 = not called
+        // 1 = send
+        // 2 = next
+        int want_;
+        bool alive_ = true;
+        bool mutable called_ = false;
     };
 
     // handler to check base_url and path
@@ -288,6 +369,30 @@ struct basic_router_test
         system::error_code ec)
     {
         return err_handler(3, ec);
+    }
+
+    struct none
+    {
+    };
+
+    // must NOT be called
+    static ex_handler<none> ex_skip()
+    {
+        return ex_handler<none>(0);
+    }
+
+    // must be called, returns route::send
+    template<class E>
+    static ex_handler<E> ex_send()
+    {
+        return ex_handler<E>(1);
+    }
+
+    // must be called, returns route::next
+    template<class E>
+    static ex_handler<E> ex_next()
+    {
+        return ex_handler<E>(2);
     }
 
     using test_router = basic_router<Req, Res>;
@@ -1278,6 +1383,59 @@ struct basic_router_test
         }
     }
 
+    void testExcept()
+    {
+#ifndef BOOST_NO_EXCEPTIONS
+        {
+            test_router r;
+            r.except(ex_skip());
+            check(r, "/", route::next);
+        }
+        {
+            test_router r;
+            r.use(throw_ex<std::invalid_argument>());
+            check(r, "/", error::unhandled_exception);
+        }
+        {
+            test_router r;
+            r.except(ex_skip());
+            r.use(throw_ex<std::invalid_argument>());
+            check(r, "/", error::unhandled_exception);
+        }
+        {
+            test_router r;
+            r.except(ex_skip());
+            r.use(throw_ex<std::invalid_argument>());
+            r.except(ex_send<std::invalid_argument>());
+            check(r, "/");
+        }
+        {
+            test_router r;
+            r.except(ex_skip());
+            r.use(throw_ex<std::invalid_argument>());
+            r.except(
+                ex_skip(),
+                ex_next<std::invalid_argument>());
+            check(r, "/", error::unhandled_exception);
+        }
+        {
+            test_router r;
+            r.except(ex_skip());
+            r.use(throw_ex<std::invalid_argument>());
+            r.except(ex_skip());
+            check(r, "/", error::unhandled_exception);
+        }
+        {
+            test_router r;
+            r.except(ex_skip());
+            r.use(throw_ex<std::invalid_argument>());
+            r.except(ex_skip());
+            r.except(ex_send<std::logic_error>());
+            check(r, "/");
+        }
+#endif
+    }
+
     void testPath()
     {
         auto const path = [](
@@ -1499,6 +1657,7 @@ struct basic_router_test
         testRoute();
         testSubRouter();
         testErr();
+        testExcept();
         testPath();
         testPctDecode();
         testDetach();
