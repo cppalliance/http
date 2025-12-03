@@ -199,50 +199,50 @@ invalid:
 
 //} // detail
 
-struct basic_request::
+struct route_params_base::
     match_result
 {
     void adjust_path(
-        basic_request& req,
+        route_params_base& p,
         std::size_t n)
     {
         n_ = n;
         if(n_ == 0)
             return;
-        req.base_path = {
-            req.base_path.data(),
-            req.base_path.size() + n_ };
-        if(n_ < req.path.size())
+        p.base_path = {
+            p.base_path.data(),
+            p.base_path.size() + n_ };
+        if(n_ < p.path.size())
         {
-            req.path.remove_prefix(n_);
+            p.path.remove_prefix(n_);
         }
         else
         {
             // append a soft slash
-            req.path = { req.decoded_path_.data() +
-                req.decoded_path_.size() - 1, 1};
-            BOOST_ASSERT(req.path == "/");
+            p.path = { p.decoded_path_.data() +
+                p.decoded_path_.size() - 1, 1};
+            BOOST_ASSERT(p.path == "/");
         }
     }
 
     void restore_path(
-        basic_request& req)
+        route_params_base& p)
     {
         if( n_ > 0 &&
-            req.addedSlash_ &&
-            req.path.data() ==
-                req.decoded_path_.data() +
-                req.decoded_path_.size() - 1)
+            p.addedSlash_ &&
+            p.path.data() ==
+                p.decoded_path_.data() +
+                p.decoded_path_.size() - 1)
         {
             // remove soft slash
-            req.path = {
-                req.base_path.data() +
-                req.base_path.size(), 0 };
+            p.path = {
+                p.base_path.data() +
+                p.base_path.size(), 0 };
         }
-        req.base_path.remove_suffix(n_);
-        req.path = {
-            req.path.data() - n_,
-            req.path.size() + n_ };
+        p.base_path.remove_suffix(n_);
+        p.path = {
+            p.path.data() - n_,
+            p.path.size() + n_ };
     }
 
 private:
@@ -278,30 +278,30 @@ struct any_router::matcher
                 decoded_pat_, path_rule).value();
     }
 
-    /** Return true if req.path is a match
+    /** Return true if p.path is a match
     */
     bool operator()(
-        basic_request& req,
+        route_params_base& p,
         match_result& mr) const
     {
-        BOOST_ASSERT(! req.path.empty());
+        BOOST_ASSERT(! p.path.empty());
         if( slash_ && (
             ! end ||
-            req.path == "/"))
+            p.path == "/"))
         {
             // params = {};
-            mr.adjust_path(req, 0);
+            mr.adjust_path(p, 0);
             return true;
         }
-        auto it = req.path.data();
+        auto it = p.path.data();
         auto pit = pv_.segs.begin();
-        auto const end_ = it + req.path.size();
+        auto const end_ = it + p.path.size();
         auto const pend = pv_.segs.end();
         while(it != end_ && pit != pend)
         {
             // prefix has to match
             auto s = core::string_view(it, end_);
-            if(! req.case_sensitive)
+            if(! p.case_sensitive)
             {
                 if(pit->prefix.size() > s.size())
                     return false;
@@ -330,8 +330,8 @@ struct any_router::matcher
             return false;
         }
         // number of matching characters
-        auto const n = it - req.path.data();
-        mr.adjust_path(req, n);
+        auto const n = it - p.path.data();
+        mr.adjust_path(p, n);
         return true;
     }
 
@@ -386,15 +386,15 @@ struct any_router::layer
         }
 
         bool match_method(
-            basic_request const& req) const noexcept
+            route_params_base const& p) const noexcept
         {
             if(all)
                 return true;
             if(verb != http_proto::method::unknown)
-                return req.verb_ == verb;
-            if(req.verb_ != http_proto::method::unknown)
+                return p.verb_ == verb;
+            if(p.verb_ != http_proto::method::unknown)
                 return false;
-            return req.verb_str_ == verb_str;
+            return p.verb_str_ == verb_str;
         }
     };
 
@@ -588,11 +588,11 @@ add_impl(
 auto
 any_router::
 resume_impl(
-    basic_request& req, basic_response& res,
+    route_params_base& p,
     route_result ec) const ->
         route_result
 {
-    BOOST_ASSERT(res.resume_ > 0);
+    BOOST_ASSERT(p.resume_ > 0);
     if( ec == route::send ||
         ec == route::close ||
         ec == route::complete)
@@ -605,16 +605,16 @@ resume_impl(
     }
 
     // restore base_path and path
-    req.base_path = { req.decoded_path_.data(), 0 };
-    req.path = req.decoded_path_;
-    if(req.addedSlash_)
-        req.path.remove_suffix(1);
+    p.base_path = { p.decoded_path_.data(), 0 };
+    p.path = p.decoded_path_;
+    if(p.addedSlash_)
+        p.path.remove_suffix(1);
 
     // resume_ was set in the handler's wrapper
-    BOOST_ASSERT(res.resume_ == res.pos_);
-    res.pos_ = 0;
-    res.ec_ = ec;
-    return do_dispatch(req, res);
+    BOOST_ASSERT(p.resume_ == p.pos_);
+    p.pos_ = 0;
+    p.ec_ = ec;
+    return do_dispatch(p);
 }
 
 // top-level dispatch that gets called first
@@ -624,53 +624,56 @@ dispatch_impl(
     http_proto::method verb,
     core::string_view verb_str,
     urls::url_view const& url,
-    basic_request& req,
-    basic_response& res) const
+    route_params_base& p) const
 {
-    // VFALCO we could reuse the string storage by not clearing them
-    // set req.case_sensitive, req.strict to default of false
-    req = {};
+    p.verb_str_.clear();
+    p.decoded_path_.clear();
+    p.ec_.clear();
+    p.ep_ = nullptr;
+    p.pos_ = 0;
+    p.resume_ = 0;
+    p.addedSlash_ = false;
+    p.case_sensitive = false;
+    p.strict = false;
+
     if(verb == http_proto::method::unknown)
     {
         BOOST_ASSERT(! verb_str.empty());
         verb = http_proto::string_to_method(verb_str);
         if(verb == http_proto::method::unknown)
-            req.verb_str_ = verb_str;
+            p.verb_str_ = verb_str;
     }
     else
     {
         BOOST_ASSERT(verb_str.empty());
     }
-    req.verb_ = verb;
-    // VFALCO use reusing-StringToken
-    req.decoded_path_ =
-        pct_decode_path(url.encoded_path());
-    BOOST_ASSERT(! req.decoded_path_.empty());
-    req.base_path = { req.decoded_path_.data(), 0 };
-    req.path = req.decoded_path_;
-    if(req.decoded_path_.back() != '/')
-    {
-        req.decoded_path_.push_back('/');
-        req.addedSlash_ = true;
-    }
-    BOOST_ASSERT(req.case_sensitive == false);
-    BOOST_ASSERT(req.strict == false);
+    p.verb_ = verb;
 
-    res = {};
+    // VFALCO use reusing-StringToken
+    p.decoded_path_ =
+        pct_decode_path(url.encoded_path());
+    BOOST_ASSERT(! p.decoded_path_.empty());
+    p.base_path = { p.decoded_path_.data(), 0 };
+    p.path = p.decoded_path_;
+    if(p.decoded_path_.back() != '/')
+    {
+        p.decoded_path_.push_back('/');
+        p.addedSlash_ = true;
+    }
 
     // we cannot do anything after do_dispatch returns,
     // other than return the route_result, or else we
     // could race with the detached operation trying to resume.
-    auto rv = do_dispatch(req, res);
+    auto rv = do_dispatch(p);
     if(rv == route::detach)
         return rv;
-    if(res.ep_)
+    if(p.ep_)
     {
-        res.ep_ = nullptr;
+        p.ep_ = nullptr;
         return error::unhandled_exception;
     }
-    if( res.ec_.failed())
-        res.ec_ = {};
+    if( p.ec_.failed())
+        p.ec_ = {};
     return rv;
 }
 
@@ -678,81 +681,80 @@ dispatch_impl(
 route_result
 any_router::
 dispatch_impl(
-    basic_request& req,
-    basic_response& res) const
+    route_params_base& p) const
 {
     // options are recursive and need to be restored on
     // exception or when returning to a calling router.
     struct option_saver
     {
         option_saver(
-            basic_request& req) noexcept
-            : req_(&req)
-            , case_sensitive_(req.case_sensitive)
-            , strict_(req.strict)
+            route_params_base& p) noexcept
+            : p_(&p)
+            , case_sensitive_(p.case_sensitive)
+            , strict_(p.strict)
         {
         }
 
         ~option_saver()
         {
-            if(! req_)
+            if(! p_)
                 return;
-            req_->case_sensitive = case_sensitive_;
-            req_->strict = strict_;
+            p_->case_sensitive = case_sensitive_;
+            p_->strict = strict_;
         };
 
         void cancel() noexcept
         {
-            req_ = nullptr;
+            p_ = nullptr;
         }
 
     private:
-        basic_request* req_;
+        route_params_base* p_;
         bool case_sensitive_;
         bool strict_;
     };
 
-    option_saver restore_options(req);
+    option_saver restore_options(p);
 
     // inherit or apply options
     if((impl_->opt & 2) != 0)
-        req.case_sensitive = true;
+        p.case_sensitive = true;
     else if((impl_->opt & 4) != 0)
-        req.case_sensitive = false;
+        p.case_sensitive = false;
 
     if((impl_->opt & 8) != 0)
-        req.strict = true;
+        p.strict = true;
     else if((impl_->opt & 16) != 0)
-        req.strict = false;
+        p.strict = false;
 
     match_result mr;
     for(auto const& i : impl_->layers)
     {
-        if(res.resume_ > 0)
+        if(p.resume_ > 0)
         {
             auto const n = i.count(); // handlers in layer
-            if(res.pos_ + n < res.resume_)
+            if(p.pos_ + n < p.resume_)
             {
-                res.pos_ += n; // skip layer
+                p.pos_ += n; // skip layer
                 continue;
             }
             // repeat match to recreate the stack
-            bool is_match = i.match(req, mr);
+            bool is_match = i.match(p, mr);
             BOOST_ASSERT(is_match);
             (void)is_match;
         }
         else
         {
-            if(i.match.end && res.ec_.failed())
+            if(i.match.end && p.ec_.failed())
             {
                 // routes can't have error handlers
-                res.pos_ += i.count(); // skip layer
+                p.pos_ += i.count(); // skip layer
                 continue;
             }
-            if(! i.match(req, mr))
+            if(! i.match(p, mr))
             {
                 // not a match
-                res.pos_ += i.count(); // skip layer
+                p.pos_ += i.count(); // skip layer
                 continue;
             }
         }
@@ -760,51 +762,51 @@ dispatch_impl(
             it != i.entries.end(); ++it)
         {
             auto const& e(*it);
-            if(res.resume_)
+            if(p.resume_)
             {
                 auto const n = e.handler->count();
-                if(res.pos_ + n < res.resume_)
+                if(p.pos_ + n < p.resume_)
                 {
-                    res.pos_ += n; // skip entry
+                    p.pos_ += n; // skip entry
                     continue;
                 }
-                BOOST_ASSERT(e.match_method(req));
+                BOOST_ASSERT(e.match_method(p));
             }
             else if(i.match.end)
             {
                 // check verb for match 
-                if(! e.match_method(req))
+                if(! e.match_method(p))
                 {
-                    res.pos_ += e.handler->count(); // skip entry
+                    p.pos_ += e.handler->count(); // skip entry
                     continue;
                 }
             }
 
             route_result rv;
             // increment before invoke
-            ++res.pos_;
-            if(res.pos_ != res.resume_)
+            ++p.pos_;
+            if(p.pos_ != p.resume_)
             {
                 // call the handler
             #ifdef BOOST_NO_EXCEPTIONS
-                rv = e.handler->invoke(req, res);
+                rv = e.handler->invoke(p);
             #else
                 try
                 {
-                    rv = e.handler->invoke(req, res);
-                    if(res.ec_.failed())
-                        res.ep_ = {}; // transition to error mode
+                    rv = e.handler->invoke(p);
+                    if(p.ec_.failed())
+                        p.ep_ = {}; // transition to error mode
                 }
                 catch(...)
                 {
-                    if(res.ec_.failed())
-                        res.ec_ = {}; // transition to except mode
-                    res.ep_ = std::current_exception();
+                    if(p.ec_.failed())
+                        p.ec_ = {}; // transition to except mode
+                    p.ep_ = std::current_exception();
                     rv = route::next;
                 }
             #endif
 
-                // res.pos_ can be incremented further
+                // p.pos_ can be incremented further
                 // inside the above call to invoke.
                 if(rv == route::detach)
                 {
@@ -821,21 +823,21 @@ dispatch_impl(
                 // a subrouter never detaches on its own
                 BOOST_ASSERT(e.handler->count() == 1);
                 // can't detach on resume
-                if(res.ec_ == route::detach)
+                if(p.ec_ == route::detach)
                     detail::throw_invalid_argument();
                 // do resume
-                res.resume_ = 0;
-                rv = res.ec_;
-                res.ec_ = {};
+                p.resume_ = 0;
+                rv = p.ec_;
+                p.ec_ = {};
             }
             if( rv == route::send ||
                 rv == route::complete ||
                 rv == route::close)
             {
-                if( res.ec_.failed())
-                    res.ec_ = {};
-                if( res.ep_)
-                    res.ep_ = nullptr;
+                if( p.ec_.failed())
+                    p.ec_ = {};
+                if( p.ep_)
+                    p.ep_ = nullptr;
                 return rv;
             }
             if(rv == route::next)
@@ -846,7 +848,7 @@ dispatch_impl(
                 if(! i.match.end)
                     detail::throw_invalid_argument();
                 while(++it != i.entries.end())
-                    res.pos_ += it->handler->count();
+                    p.pos_ += it->handler->count();
                 break; // skip remaining entries
             }
             // we must handle all route enums
@@ -857,16 +859,16 @@ dispatch_impl(
                 detail::throw_invalid_argument();
             }
             // error handling mode
-            res.ec_ = rv;
+            p.ec_ = rv;
             if(! i.match.end)
                 continue; // next entry
             // routes don't have error handlers
             while(++it != i.entries.end())
-                res.pos_ += it->handler->count();
+                p.pos_ += it->handler->count();
             break; // skip remaining entries
         }
 
-        mr.restore_path(req);
+        mr.restore_path(p);
     }
 
     return route::next;
@@ -875,10 +877,9 @@ dispatch_impl(
 route_result
 any_router::
 do_dispatch(
-    basic_request& req,
-    basic_response& res) const
+    route_params_base& p) const
 {
-    auto rv = dispatch_impl(req, res);
+    auto rv = dispatch_impl(p);
     BOOST_ASSERT(is_route_result(rv));
     BOOST_ASSERT(rv != route::next_route);
     if(rv != route::next)
@@ -887,13 +888,13 @@ do_dispatch(
         // without attempting to perform any additional operations.
         return rv;
     }
-    if(! res.ec_.failed())
+    if(! p.ec_.failed())
     {
         // unhandled route
         return route::next;
     }
     // error condition
-    return res.ec_;
+    return p.ec_;
 }
 
 //} // detail

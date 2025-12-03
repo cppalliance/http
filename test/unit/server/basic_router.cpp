@@ -23,61 +23,25 @@ struct basic_router_test
 {
     void compileTimeTests()
     {
-        struct Req : basic_request {};
-        struct Res : basic_response {};
-        struct OtherReq : basic_request {};
+        struct params : route_params_base {};
 
-        BOOST_CORE_STATIC_ASSERT(std::is_copy_assignable<basic_router<Req, Res>>::value);
+        BOOST_CORE_STATIC_ASSERT(std::is_copy_assignable<basic_router<params>>::value);
 
         struct h0 { void operator()(); };
         struct h1 { system::error_code operator()(); };
         struct h2 { system::error_code operator()(int); };
-        struct h3 { system::error_code operator()(Req&, Res&) const; };
-        struct h4 { system::error_code operator()(Req&, Res&, system::error_code) const; };
-        struct h5 { void operator()(Req&, Res&) {} };
-        struct h6 { void operator()(Req&, Res&, system::error_code) {} };
-        struct h7 { system::error_code operator()(Req&, Res&, int); };
-        struct h8 { system::error_code operator()(Req, Res&, int); };
-        struct h9 { system::error_code operator()(Req, Res&, system::error_code const&) const; };
-
-#if 0
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h0, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h1, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h2, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h3, Req, Res>::value == 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h4, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h5, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h6, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h7, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h8, Req, Res>::value != 1);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h9, Req, Res>::value != 1);
-
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h0, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h1, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h2, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h3, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h4, Req, Res>::value == 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h5, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h6, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h7, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h8, Req, Res>::value != 2);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<h9, Req, Res>::value == 2);
-
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<
-            basic_router<Req, Res>, Req, Res>::value == 4);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<
-            basic_router<basic_request, Res>, Req, Res>::value == 4);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<
-            basic_router<Req, basic_response>, Req, Res>::value == 4);
-        BOOST_CORE_STATIC_ASSERT(detail::handler_type<
-            basic_router<OtherReq, Res>, Req, Res>::value == 0);
-#endif
+        struct h3 { system::error_code operator()(params&) const; };
+        struct h4 { system::error_code operator()(params&, system::error_code) const; };
+        struct h5 { void operator()(params&) {} };
+        struct h6 { void operator()(params&, system::error_code) {} };
+        struct h7 { system::error_code operator()(params&, int); };
+        struct h8 { system::error_code operator()(params, int); };
+        struct h9 { system::error_code operator()(params, system::error_code const&) const; };
     }
 
-    //--------------------------------------------
+    using params = route_params_base;
 
-    using Req = basic_request;
-    using Res = basic_response;
+    //--------------------------------------------
 
     /** A handler for testing
     */
@@ -107,7 +71,7 @@ struct basic_router_test
             ec_ = other.ec_;
         }
 
-        route_result operator()(Req&, Res&) const
+        route_result operator()(params&) const
         {
             called_ = true;
             switch(want_)
@@ -153,7 +117,7 @@ struct basic_router_test
             other.alive_ = false;
         }
 
-        route_result operator()(Req&, Res&) const 
+        route_result operator()(params&) const 
         {
             called_ = true;
             throw E("ex");
@@ -193,7 +157,7 @@ struct basic_router_test
         }
 
         route_result operator()(
-            Req&, Res&, system::error_code ec) const
+            params&, system::error_code ec) const
         {
             called_ = true;
             switch(want_)
@@ -252,7 +216,7 @@ struct basic_router_test
         }
 
         route_result operator()(
-            Req&, Res&, E const&) const
+            params&, E const&) const
         {
             called_ = true;
             switch(want_)
@@ -302,7 +266,7 @@ struct basic_router_test
             , path_(path)
         {
         }
-        route_result operator()(Req& req, Res&) const
+        route_result operator()(params& req) const
         {
             called_ = true;
             BOOST_TEST_EQ(req.base_path, base_path_);
@@ -395,18 +359,17 @@ struct basic_router_test
         return ex_handler<E>(2);
     }
 
-    using test_router = basic_router<Req, Res>;
+    using test_router = basic_router<params>;
 
     void check(
         test_router& r,
         core::string_view url,
         route_result rv0 = route::send)
     {
-        Req req;
-        Res res;
+        params req;
         auto rv = r.dispatch(
             http_proto::method::get,
-            urls::url_view(url), req, res);
+            urls::url_view(url), req);
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);
     }
@@ -417,10 +380,9 @@ struct basic_router_test
         core::string_view url,
         route_result rv0 = route::send)
     {
-        Req req;
-        Res res;
+        params req;
         auto rv = r.dispatch(verb,
-            urls::url_view(url), req, res);
+            urls::url_view(url), req);
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);
     }
@@ -431,10 +393,9 @@ struct basic_router_test
         core::string_view url,
         route_result rv0 = route::send)
     {
-        Req req;
-        Res res;
+        params req;
         auto rv = r.dispatch(verb,
-            urls::url_view(url), req, res);
+            urls::url_view(url), req);
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);
     }
@@ -1445,17 +1406,14 @@ struct basic_router_test
         {
             test_router r;
             r.use( pat,
-                [&](Req& req, Res&)
+                [&](params& req)
                 {
                     BOOST_TEST_EQ(req.path, good);
                     return route::send;
                 });
-            Req req;
-            Res res;
-            r.dispatch(
-                http_proto::method::get,
-                urls::url_view(target),
-                req, res);
+            params req;
+            r.dispatch(http_proto::method::get,
+                urls::url_view(target), req);
         };
 
         path("/",     "/",       "/");
@@ -1519,9 +1477,8 @@ struct basic_router_test
             test_router r;
             r.use(next());
             r.use(fail(route::detach));
-            Req req;
-            Res res;
-            auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+            params req;
+            auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
             BOOST_TEST(rv1 == route::detach);
         }
         {
@@ -1530,11 +1487,10 @@ struct basic_router_test
             r.use(fail(route::detach));
             r.use(next());
             r.use(fail(route::send));
-            Req req;
-            Res res;
-            auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+            params req;
+            auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
             BOOST_TEST(rv1 == route::detach);
-            auto rv2 = r.resume(req, res, route::next);
+            auto rv2 = r.resume(req, route::next);
             BOOST_TEST(rv2 == route::send);
         }
         {
@@ -1549,11 +1505,10 @@ struct basic_router_test
                     next());
                 return r; }());
             r.use(send());
-            Req req;
-            Res res;
-            auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+            params req;
+            auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
             BOOST_TEST(rv1 == route::detach);
-            auto rv2 = r.resume(req, res, route::next);
+            auto rv2 = r.resume(req, route::next);
             BOOST_TEST(rv2 == route::send);
         }
 
@@ -1561,30 +1516,29 @@ struct basic_router_test
         {
             test_router r;
             r.use(fail(route::detach));
-            Req req;
-            Res res;
+            params req;
             {
-                auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+                auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
                 BOOST_TEST(rv1 == route::detach);
-                auto rv2 = r.resume(req, res, route::send);
+                auto rv2 = r.resume(req, route::send);
                 BOOST_TEST(rv2 == route::send);
             }
             {
-                auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+                auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
                 BOOST_TEST(rv1 == route::detach);
-                auto rv2 = r.resume(req, res, route::close);
+                auto rv2 = r.resume(req, route::close);
                 BOOST_TEST(rv2 == route::close);
             }
             {
-                auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+                auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
                 BOOST_TEST(rv1 == route::detach);
-                auto rv2 = r.resume(req, res, route::complete);
+                auto rv2 = r.resume(req, route::complete);
                 BOOST_TEST(rv2 == route::complete);
             }
             {
-                auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+                auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
                 BOOST_TEST(rv1 == route::detach);
-                BOOST_TEST_THROWS(r.resume(req, res, system::error_code()),
+                BOOST_TEST_THROWS(r.resume(req, system::error_code()),
                     std::invalid_argument);
             }
         }
@@ -1602,11 +1556,10 @@ struct basic_router_test
                     next());
                 return r; }());
             r.use("/api", send());
-            Req req;
-            Res res;
-            auto rv1 = r.dispatch(GET, urls::url_view("/api"), req, res);
+            params req;
+            auto rv1 = r.dispatch(GET, urls::url_view("/api"), req);
             BOOST_TEST(rv1 == route::detach);
-            auto rv2 = r.resume(req, res, route::next);
+            auto rv2 = r.resume(req, route::next);
             BOOST_TEST(rv2 == route::send);
         }
 
@@ -1614,11 +1567,10 @@ struct basic_router_test
         {
             test_router r;
             r.use(fail(route::detach));
-            Req req;
-            Res res;
-            auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+            params req;
+            auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
             BOOST_TEST(rv1 == route::detach);
-            BOOST_TEST_THROWS(r.resume(req, res, route::detach),
+            BOOST_TEST_THROWS(r.resume(req, route::detach),
                 std::invalid_argument);
         }
 
@@ -1626,17 +1578,16 @@ struct basic_router_test
         {
             test_router r;
             r.use(fail(route::detach));
-            Req req;
-            Res res;
-            auto rv1 = r.dispatch(GET, urls::url_view("/"), req, res);
+            params req;
+            auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
             BOOST_TEST(rv1 == route::detach);
-            BOOST_TEST_THROWS(r.resume(req, res, system::error_code()),
+            BOOST_TEST_THROWS(r.resume(req, system::error_code()),
                 std::invalid_argument);
         }
     }
 
     static route_result func(
-        Req&, Res&)
+        params&)
     {
         return route::send;
     }

@@ -288,7 +288,7 @@ operator()(F&& f) ->
 namespace detail {
 class any_router;
 } // detail
-template<class, class>
+template<class>
 class basic_router;
 
 /** Base class for request objects
@@ -296,7 +296,7 @@ class basic_router;
     This is a required public base for any `Request`
     type used with @ref basic_router.
 */
-class basic_request
+class route_params_base
 {
 public:
     /** The mount path of the current router
@@ -314,34 +314,23 @@ public:
 
 private:
     friend class /*detail::*/any_router;
+    template<class>
+    friend class basic_router;
     struct match_result;
-    http_proto::method verb_ =
-        http_proto::method::unknown;
+    route_params_base& operator=(
+        route_params_base const&) = delete;
+
     std::string verb_str_;
     std::string decoded_path_;
+    system::error_code ec_;
+    std::exception_ptr ep_;
+    std::size_t pos_ = 0;
+    std::size_t resume_ = 0;
+    http_proto::method verb_ =
+        http_proto::method::unknown;
     bool addedSlash_ = false;
     bool case_sensitive = false;
     bool strict = false;
-};
-
-//-----------------------------------------------
-
-/** Base class for response objects
-
-    This is a required public base for any `Response`
-    type used with @ref basic_router.
-*/
-class basic_response
-{
-private:
-    friend class /*detail::*/any_router;
-    template<class, class>
-    friend class basic_router;
-
-    std::size_t pos_ = 0;
-    std::size_t resume_ = 0;
-    system::error_code ec_;
-    std::exception_ptr ep_;
 };
 
 } // http_proto

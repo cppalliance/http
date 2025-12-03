@@ -32,9 +32,10 @@ struct acceptor_config
 
 //-----------------------------------------------
 
-/** Request object for HTTP route handlers
+/** Parameters object for HTTP route handlers
 */
-struct Request : basic_request
+struct BOOST_SYMBOL_VISIBLE
+    route_params : route_params_base
 {
     /** The complete request target
 
@@ -46,33 +47,31 @@ struct Request : basic_request
 
     /** The HTTP request message
     */
-    http_proto::request message;
+    http_proto::request req;
+
+    /** The HTTP response message
+    */
+    http_proto::response res;
 
     /** The HTTP request parser
         This can be used to take over reading the body.
     */
     http_proto::request_parser parser;
 
-    /** A container for storing arbitrary data associated with the request.
-        This starts out empty for each new request.
-    */
-    capy::datastore data;
-};
-
-//-----------------------------------------------
-
-/** Response object for HTTP route handlers
-*/
-struct BOOST_SYMBOL_VISIBLE
-    Response : basic_response
-{
-    /** The HTTP response message
-    */
-    http_proto::response message;
-
     /** The HTTP response serializer
     */
     http_proto::serializer serializer;
+
+    /** A container for storing arbitrary data associated with the request.
+        This starts out empty for each new request.
+    */
+    capy::datastore route_data;
+
+    /** A container for storing arbitrary data associated with the session.
+
+        This starts out empty for each new session.
+    */
+    capy::datastore session_data;
 
     /** The detacher for this session.
         This can be used to detach from the
@@ -81,21 +80,10 @@ struct BOOST_SYMBOL_VISIBLE
     */
     detacher detach;
 
-    /** A container for storing arbitrary data associated with the session.
-
-        This starts out empty for each new session.
-    */
-    capy::datastore data;
-
-    /** Constructor.
+    /** Destructor
     */
     BOOST_HTTP_PROTO_DECL
-    Response();
-
-    /** Destructor.
-    */
-    BOOST_HTTP_PROTO_DECL
-    virtual ~Response();
+    ~route_params();
 
     /** Reset the object for a new request.
         This clears any state associated with
@@ -108,17 +96,17 @@ struct BOOST_SYMBOL_VISIBLE
     /** Set the status code of the response.
         @par Example
         @code
-        res.status(http_proto::status::not_found);
+        res.status( http_proto::status::not_found );
         @endcode
         @param code The status code to set.
         @return A reference to this response.
     */
     BOOST_HTTP_PROTO_DECL
-    Response&
+    route_params&
     status(http_proto::status code);
 
     BOOST_HTTP_PROTO_DECL
-    Response&
+    route_params&
     set_body(std::string s);
 
     // VFALCO this doc isn't quite right because it doesn't explain
@@ -185,7 +173,7 @@ protected:
 
 template<class F>
 auto
-Response::
+route_params::
 post(F&& f) -> route_result
 {
     // task already posted
@@ -210,9 +198,9 @@ post(F&& f) -> route_result
         , public detacher::owner
     {
     public:
-        model(Response& res,
+        model(route_params& p,
             F&& f, resumer resume)
-            : res_(res)
+            : p_(p)
             , f_(std::forward<F>(f))
             , resume_(resume)
         {
@@ -231,12 +219,12 @@ post(F&& f) -> route_result
         {
             resumed_ = true;
             resumer resume(resume_);
-            res_.task_.reset(); // destroys *this
+            p_.task_.reset(); // destroys *this
             resume(rv);
         }
 
     private:
-        Response& res_;
+        route_params& p_;
         typename std::decay<F>::type f_;
         resumer resume_;
         bool resumed_;

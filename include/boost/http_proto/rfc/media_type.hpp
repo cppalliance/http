@@ -23,11 +23,11 @@ struct mime_type
 {
     /** The type
     */
-    string_view type;
+    core::string_view type;
 
     /** The subtype
     */
-    string_view subtype;
+    core::string_view subtype;
 };
 
 //------------------------------------------------
@@ -58,7 +58,7 @@ struct media_type_rule_t
     parse(
         char const*& it,
         char const* end) const noexcept ->
-            result<value_type>;
+            system::result<value_type>;
 };
 } // implementation_defined
 

@@ -25,34 +25,34 @@ namespace {
 
 struct Vary
 {
-    Vary(Response& res)
-        : res_(res)
+    Vary(route_params& p)
+        : p_(p)
     {
     }
 
     void set(field f, core::string_view s)
     {
-        res_.message.set(f, s);
+        p_.res.set(f, s);
     }
 
     void append(field f, core::string_view v)
     {
-        auto it = res_.message.find(f);
-        if (it != res_.message.end())
+        auto it = p_.res.find(f);
+        if (it != p_.res.end())
         {
             std::string s = it->value;
             s += ", ";
             s += v;
-            res_.message.set(it, s);
+            p_.res.set(it, s);
         }
         else
         {
-            res_.message.set(f, v);
+            p_.res.set(f, v);
         }
     }
 
 private:
-    Response& res_;
+    route_params& p_;
     std::string v_;
 };
 
@@ -61,7 +61,7 @@ private:
 // Access-Control-Allow-Origin
 static void setOrigin(
     Vary& v,
-    Request const&,
+    route_params const&,
     cors_options const& options)
 {
     if( options.origin.empty() ||
@@ -109,7 +109,7 @@ static void setCredentials(
 // Access-Control-Allowed-Headers
 static void setAllowedHeaders(
     Vary& v,
-    Request const& req,
+    route_params const& p,
     cors_options const& options)
 {
     if(! options.allowedHeaders.empty())
@@ -119,13 +119,11 @@ static void setAllowedHeaders(
             options.allowedHeaders);
         return;
     }
-    auto s = req.message.value_or(
+    auto s = p.res.value_or(
         field::access_control_request_headers, "");
     if(! s.empty())
     {
-        v.set(
-            field::access_control_allow_headers,
-            s);
+        v.set(field::access_control_allow_headers, s);
         v.append(field::vary, s);
     }
 }
@@ -158,31 +156,30 @@ static void setMaxAge(
 route_result
 cors::
 operator()(
-    Request& req,
-    Response& res) const
+    route_params& p) const
 {
-    Vary v(res);
-    if(req.message.method() ==
+    Vary v(p);
+    if(p.req.method() ==
         method::options)
     {
         // preflight
-        setOrigin(v, req, options_);
+        setOrigin(v, p, options_);
         setMethods(v, options_);
         setCredentials(v, options_);
-        setAllowedHeaders(v, req, options_);
+        setAllowedHeaders(v, p, options_);
         setMaxAge(v, options_);
         setExposeHeaders(v, options_);
 
         if(options_.preFligthContinue)
             return route::next;
         // Safari and others need this for 204 or may hang
-        res.message.set_status(options_.result);
-        res.message.set_content_length(0);
-        res.serializer.start(res.message);
+        p.res.set_status(options_.result);
+        p.res.set_content_length(0);
+        p.serializer.start(p.res);
         return route::send;
     }
     // actual response
-    setOrigin(v, req, options_);
+    setOrigin(v, p, options_);
     setCredentials(v, options_);
     setExposeHeaders(v, options_);
     return route::next;

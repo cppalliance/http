@@ -59,6 +59,7 @@ set(BOOST_HTTP_PROTO_DEPENDENCIES
     Boost::capy
     Boost::config
     Boost::core
+    Boost::mp11
     Boost::static_assert
     Boost::system
     Boost::throw_exception

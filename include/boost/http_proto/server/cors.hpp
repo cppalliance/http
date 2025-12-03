@@ -39,9 +39,7 @@ public:
 
     BOOST_HTTP_PROTO_DECL
     route_result
-    operator()(
-        Request& req,
-        Response& res) const;
+    operator()(route_params& p) const;
 
 private:
     cors_options options_;
