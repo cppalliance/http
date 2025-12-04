@@ -34,7 +34,7 @@ struct acceptor_config
 
 /** Parameters object for HTTP route handlers
 */
-struct BOOST_SYMBOL_VISIBLE
+struct BOOST_HTTP_PROTO_DECL
     route_params : route_params_base
 {
     /** The complete request target
@@ -82,7 +82,6 @@ struct BOOST_SYMBOL_VISIBLE
 
     /** Destructor
     */
-    BOOST_HTTP_PROTO_DECL
     ~route_params();
 
     /** Reset the object for a new request.
@@ -90,7 +89,6 @@ struct BOOST_SYMBOL_VISIBLE
         the previous request, preparing the object
         for use with a new request.
     */
-    BOOST_HTTP_PROTO_DECL
     void reset();
 
     /** Set the status code of the response.
@@ -101,11 +99,9 @@ struct BOOST_SYMBOL_VISIBLE
         @param code The status code to set.
         @return A reference to this response.
     */
-    BOOST_HTTP_PROTO_DECL
     route_params&
     status(http_proto::status code);
 
-    BOOST_HTTP_PROTO_DECL
     route_params&
     set_body(std::string s);
 
@@ -163,7 +159,6 @@ protected:
         Subclasses must schedule task_ to be invoked at an unspecified
         point in the future.
     */
-    BOOST_HTTP_PROTO_DECL
     virtual void do_post();
 
     std::unique_ptr<task> task_;
