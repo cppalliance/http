@@ -60,3 +60,7 @@ T default_value();
 - Concise, dry answers
 - Full files, not diffs
 - Accurate, compiling C++ code
+
+## Windows/MinGW note
+
+- For polymorphic types in shared builds on Windows (MinGW/MSVC), export the class itself (use `BOOST_HTTP_PROTO_DECL` or the module’s `_DECL` macro) so the vtable is emitted/imported. Member-level exports alone are insufficient and lead to undefined vtable link errors.
