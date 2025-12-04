@@ -10,7 +10,11 @@
 #ifndef BOOST_HTTP_PROTO_DETAIL_TYPE_TRAITS_HPP
 #define BOOST_HTTP_PROTO_DETAIL_TYPE_TRAITS_HPP
 
+#if __cplusplus >= 202002L
+#include <utility>
+#else
 #include <functional>
+#endif
 #include <type_traits>
 
 namespace boost {
