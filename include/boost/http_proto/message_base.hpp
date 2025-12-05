@@ -126,7 +126,7 @@ public:
 
         @param n The payload size to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_payload_size(
         std::uint64_t n);
@@ -143,7 +143,7 @@ public:
 
         @param n The Content-Length to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_content_length(
         std::uint64_t n);
@@ -160,7 +160,7 @@ public:
 
         @param value The value to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_chunked(bool value);
 
@@ -182,7 +182,7 @@ public:
 
         @param value The value to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_keep_alive(bool value);
 };
