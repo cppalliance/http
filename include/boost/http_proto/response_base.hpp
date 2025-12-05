@@ -221,7 +221,7 @@ public:
     }
 
 private:
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_start_line_impl(
         http_proto::status sc,

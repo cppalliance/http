@@ -290,7 +290,7 @@ public:
     set_expect_100_continue(bool b);
 
 private:
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_start_line_impl(
         http_proto::method m,
