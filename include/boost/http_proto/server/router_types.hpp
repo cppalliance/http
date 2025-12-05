@@ -17,6 +17,7 @@
 #include <boost/system/error_code.hpp>
 #include <exception>
 #include <string>
+#include <boost/http_proto/detail/config.hpp>
 #include <type_traits>
 
 namespace boost {
@@ -296,7 +297,7 @@ class basic_router;
     This is a required public base for any `Request`
     type used with @ref basic_router.
 */
-class route_params_base
+class BOOST_HTTP_PROTO_DECL route_params_base
 {
 public:
     /** The mount path of the current router

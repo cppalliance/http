@@ -20,6 +20,9 @@ route_params::
 {
 }
 
+route_params::task::
+~task() = default;
+
 route_params&
 route_params::
 status(
