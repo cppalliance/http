@@ -32,7 +32,7 @@ namespace http_proto {
         @ref static_request,
         @ref metadata.
 */
-class message_base
+class BOOST_HTTP_PROTO_DECL message_base
     : public fields_base
 {
     friend class request_base;
