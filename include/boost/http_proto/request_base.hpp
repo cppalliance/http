@@ -24,7 +24,7 @@ namespace http_proto {
         @ref request,
         @ref static_request.
 */
-class request_base
+class BOOST_HTTP_PROTO_DECL request_base
     : public message_base
 {
     friend class request;

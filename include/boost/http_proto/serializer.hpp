@@ -663,6 +663,7 @@ struct serializer::config
         @ref serializer.
 */
 
+BOOST_HTTP_PROTO_DECL
 void
 install_serializer_service(
     capy::polystore& ctx,
@@ -691,7 +692,7 @@ install_serializer_service(
     @see
         @ref serializer::start_stream
 */
-class serializer::stream
+class BOOST_HTTP_PROTO_DECL serializer::stream
 {
 public:
     /** The type used to represent a sequence

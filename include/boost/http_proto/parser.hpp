@@ -70,7 +70,7 @@ class static_response;
         @ref response_parser,
         @ref request_parser.
 */
-class parser
+class BOOST_HTTP_PROTO_DECL parser
 {
 public:
     struct config_base;
@@ -767,6 +767,7 @@ struct parser::config_base
         @ref request_parser.
 */
 
+BOOST_HTTP_PROTO_DECL
 void
 install_parser_service(
     capy::polystore& ctx,

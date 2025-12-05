@@ -26,7 +26,7 @@ namespace http_proto {
         @ref response,
         @ref static_response.
 */
-class response_base
+class BOOST_HTTP_PROTO_DECL response_base
     : public message_base
 {
     friend class response;
