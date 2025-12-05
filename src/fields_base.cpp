@@ -850,6 +850,7 @@ find_all(
         &h_, find(name).i_);
 }
 
+BOOST_HTTP_PROTO_DECL
 std::ostream&
 operator<<(
     std::ostream& os,

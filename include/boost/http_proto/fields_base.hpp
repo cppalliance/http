@@ -1338,6 +1338,7 @@ public:
     */
     friend
 
+    BOOST_HTTP_PROTO_DECL
     std::ostream&
     operator<<(
         std::ostream& os,
