@@ -28,7 +28,7 @@ namespace boost {
 namespace http_proto {
 
 class fields_base;
-struct header_limits;
+struct BOOST_HTTP_PROTO_DECL header_limits;
 
 namespace detail {
 
@@ -44,7 +44,7 @@ struct empty
     kind param;
 };
 
-struct header
+struct BOOST_HTTP_PROTO_DECL header
 {
     // +------------+---------+------+------------+-----------------------------+
     // | start-line | headers | \r\n | free space | entry[count-1] ... entry[0] |
