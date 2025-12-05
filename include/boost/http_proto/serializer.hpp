@@ -528,7 +528,6 @@ public:
 
     /** Return true if serialization is complete.
     */
-    BOOST_HTTP_PROTO_DECL
     bool
     is_done() const noexcept;
 

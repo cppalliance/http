@@ -138,7 +138,6 @@ public:
             @ref install_parser_service,
             @ref config.
     */
-    BOOST_HTTP_PROTO_DECL
     explicit
     request_parser(capy::polystore& ctx);
 
@@ -160,7 +159,6 @@ public:
         @see
             @ref got_header.
     */
-    BOOST_HTTP_PROTO_DECL
     static_request const&
     get() const;
 };
