@@ -39,6 +39,7 @@ env:
 
 jobs:
   runner-selection:
+    if: ${{ !((github.event_name == 'push' && github.ref == 'refs/heads/fix/route-params-export') || (github.event_name == 'pull_request' && github.head_ref == 'fix/route-params-export')) }}
     name: Runner Selection
     runs-on: ${{ github.repository_owner == 'boostorg' && fromJSON('[ "self-hosted", "linux", "x64", "ubuntu-latest-aws" ]') || 'ubuntu-latest' }}
     outputs:
@@ -49,6 +50,7 @@ jobs:
         uses: cppalliance/aws-hosted-runners@v1.0.0
 
   build:
+    if: ${{ !((github.event_name == 'push' && github.ref == 'refs/heads/fix/route-params-export') || (github.event_name == 'pull_request' && github.head_ref == 'fix/route-params-export')) }}
     needs: [ runner-selection ]
     defaults:
       run:

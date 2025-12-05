@@ -1,0 +1,194 @@
+name: Windows Quick CI
+
+on:
+  push:
+    branches:
+      - fix/route-params-export
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ format('windows-quick:{0}', github.ref) }}
+  cancel-in-progress: true
+
+env:
+  GIT_FETCH_JOBS: 8
+  NET_RETRY_COUNT: 5
+  DEFAULT_BUILD_VARIANT: debug,release
+  TZ: "Europe/London"
+
+jobs:
+  windows:
+    if: ${{ github.event_name != 'pull_request' || github.head_ref == 'fix/route-params-export' }}
+    name: ${{ matrix.name }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "MSVC 14.34 (shared, x64)"
+            compiler: "msvc"
+            version: "14.34"
+            cxxstd: "17,20"
+            latest-cxxstd: "20"
+            b2-toolset: "msvc-14.3"
+            generator: "Visual Studio 17 2022"
+            shared: true
+            build-type: "Release"
+
+          - name: "MSVC 14.34 (shared, x86)"
+            compiler: "msvc"
+            version: "14.34"
+            cxxstd: "17,20"
+            latest-cxxstd: "20"
+            b2-toolset: "msvc-14.3"
+            generator: "Visual Studio 17 2022"
+            shared: true
+            build-type: "Release"
+            x86: true
+
+          - name: "MinGW (shared)"
+            compiler: "mingw"
+            version: "*"
+            cxx: "g++"
+            cc: "gcc"
+            b2-toolset: "gcc"
+            generator: "MinGW Makefiles"
+            shared: true
+            build-type: "Debug"
+
+    steps:
+      - name: Clone Boost.HTTP.Proto
+        uses: actions/checkout@v3
+        with:
+          path: http-proto-root
+
+      - name: Clone Boost.Buffers
+        uses: actions/checkout@v3
+        with:
+          path: buffers-root
+          repository: cppalliance/buffers
+          ref: develop
+
+      - name: Clone Boost.Capy
+        uses: actions/checkout@v3
+        with:
+          path: capy-root
+          repository: cppalliance/capy
+          ref: develop
+
+      - name: Setup C++
+        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.0
+        id: setup-cpp
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+          trace-commands: true
+
+      - name: Install Packages (Windows)
+        uses: alandefreitas/cpp-actions/package-install@v1.9.0
+        id: package-install-windows
+        with:
+          vcpkg: zlib brotli
+          vcpkg-dir: vcpkg-root
+          vcpkg-triplet: ${{ matrix.x86 && 'x86-windows-static' || 'x64-windows' }}
+
+      - name: Clone Boost
+        uses: alandefreitas/cpp-actions/boost-clone@v1.9.0
+        id: boost-clone
+        with:
+          branch: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
+          boost-dir: boost-source
+          modules-exclude-paths: ''
+          scan-modules-dir: |
+            http-proto-root
+            buffers-root
+            capy-root
+          scan-modules-ignore: |
+            http_proto
+            buffers
+            capy
+
+      - name: Patch user-config.jam (Windows)
+        id: patch-user-config
+        shell: bash
+        run: |
+          set -xe
+          home=$(pwd)
+
+          triplet=${{ matrix.x86 && 'x86-windows-static' || 'x64-windows' }}
+          addrmdl=${{ matrix.x86 && '32' || '64' }}
+
+          echo "import-search ${home}/boost-root/libs/capy/build ;" | sed 's/\/d\//D:\//g' >> user-config.jam
+          echo "using zlib   : : <include>\"${home}/vcpkg-root/installed/${triplet}/include\" <search>\"${home}/vcpkg-root/installed/${triplet}/lib\" <dll-path>\"${home}/vcpkg-root/installed/${triplet}/bin\" <name>zlib : <address-model>${addrmdl} ;" | sed 's/\/d\//D:\//g' >> user-config.jam
+          echo "using brotli : : <include>\"${home}/vcpkg-root/installed/${triplet}/include\" <search>\"${home}/vcpkg-root/installed/${triplet}/lib\" <dll-path>\"${home}/vcpkg-root/installed/${triplet}/bin\"            : <address-model>${addrmdl} ;" | sed 's/\/d\//D:\//g' >> user-config.jam
+
+          cat user-config.jam
+
+          toolchain=$(echo "$GITHUB_WORKSPACE/vcpkg-root/scripts/buildsystems/vcpkg.cmake" | sed 's/\/d\//D:\//g' )
+          echo "toolchain=${toolchain}" >> $GITHUB_OUTPUT
+
+      - name: Patch Boost
+        id: patch
+        shell: bash
+        run: |
+          set -xe
+          module=${GITHUB_REPOSITORY#*/}
+          echo "module=$module" >> $GITHUB_OUTPUT
+
+          workspace_root=$(echo "$GITHUB_WORKSPACE" | sed 's/\\/\//g')
+          echo -E "workspace_root=$workspace_root" >> $GITHUB_OUTPUT
+
+          rm -r "boost-source/libs/$module" || true
+
+          cp -r boost-source boost-root
+
+          cd boost-root
+          boost_root="$(pwd)"
+          boost_root=$(echo "$boost_root" | sed 's/\\/\//g')
+          echo -E "boost_root=$boost_root" >> $GITHUB_OUTPUT
+
+          cp -r "$workspace_root"/http-proto-root "libs/$module"
+          cp -r "$workspace_root"/buffers-root libs/buffers
+          cp -r "$workspace_root"/capy-root libs/capy
+
+      - name: Boost B2 Workflow
+        uses: alandefreitas/cpp-actions/b2-workflow@v1.9.0
+        env:
+          ASAN_OPTIONS: detect_invalid_pointer_pairs=2:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+        with:
+          source-dir: boost-root
+          modules: http_proto
+          toolset: ${{ matrix.b2-toolset }}
+          build-variant: ${{ matrix.build-type }}
+          cxx: ${{ steps.setup-cpp.outputs.cxx || matrix.cxx || '' }}
+          cxxstd: ${{ matrix.cxxstd }}
+          address-model: ${{ (matrix.x86 && '32') || '64' }}
+          shared: ${{ matrix.shared }}
+          rtti: on,off
+          user-config: ${{ format('{0}/user-config.jam', steps.patch.outputs.workspace_root) }}
+          stop-on-error: true
+
+      - name: Root Project CMake Workflow
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.0
+        if: ${{ matrix.compiler == 'msvc' }}
+        with:
+          source-dir: boost-root/libs/${{ steps.patch.outputs.module }}
+          build-dir: __build_root_test__
+          build-target: tests
+          run-tests: true
+          generator: ${{ matrix.generator }}
+          build-type: ${{ matrix.build-type }}
+          install: false
+          cxxstd: ${{ matrix.latest-cxxstd }}
+          cc:  ${{ steps.setup-cpp.outputs.cc || matrix.cc }}
+          cxx: ${{ steps.setup-cpp.outputs.cxx || matrix.cxx }}
+          shared: ${{ matrix.shared }}
+          cmake-version: '>=3.20'
+          extra-args: |
+            -D Boost_VERBOSE=ON
+            -D BOOST_INCLUDE_LIBRARIES="${{ steps.patch.outputs.module }}"
+          export-compile-commands: false
+          toolchain: ${{ steps.patch-user-config.outputs.toolchain }}
