@@ -44,6 +44,9 @@ struct empty
     kind param;
 };
 
+BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
+BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
+
 struct BOOST_HTTP_PROTO_DECL header
 {
     // +------------+---------+------+------------+-----------------------------+
@@ -217,6 +220,8 @@ public:
         header_limits const&,
         system::error_code&) noexcept;
 };
+
+BOOST_HTTP_PROTO_MSVC_WARNING_POP
 
 } // detail
 } // http_proto
