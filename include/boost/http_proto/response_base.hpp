@@ -141,7 +141,6 @@ public:
 
         @param v The version to set.
     */
-    BOOST_HTTP_PROTO_DECL
     void
     set_version(
         http_proto::version v);

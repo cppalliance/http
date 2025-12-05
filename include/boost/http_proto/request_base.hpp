@@ -285,7 +285,6 @@ public:
         @param b If `true` sets `Expect: 100-continue`
         header otherwise erase it.
     */
-    BOOST_HTTP_PROTO_DECL
     void
     set_expect_100_continue(bool b);
 

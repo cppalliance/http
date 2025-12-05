@@ -98,7 +98,7 @@ public:
             @ref response_parser::get,
             @ref request_parser::get.
     */
-    BOOST_HTTP_PROTO_DECL
+
     bool
     got_header() const noexcept;
 
