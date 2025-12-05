@@ -292,6 +292,9 @@ class any_router;
 template<class>
 class basic_router;
 
+BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
+BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
+
 /** Base class for request objects
 
     This is a required public base for any `Request`
@@ -333,6 +336,9 @@ private:
     bool case_sensitive = false;
     bool strict = false;
 };
+
+
+BOOST_HTTP_PROTO_MSVC_WARNING_POP
 
 } // http_proto
 } // boost

@@ -30,7 +30,8 @@ struct acceptor_config
     bool is_admin;
 };
 
-//-----------------------------------------------
+BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
+BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
 
 /** Parameters object for HTTP route handlers
 */
