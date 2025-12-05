@@ -33,6 +33,18 @@ namespace http_proto {
 #  define BOOST_HTTP_PROTO_DECL
 # endif
 
+// MSVC-only helpers to locally suppress benign DLL-interface warnings
+# if defined(BOOST_MSVC)
+#  define BOOST_HTTP_PROTO_MSVC_WARNING_PUSH __pragma(warning(push))
+#  define BOOST_HTTP_PROTO_MSVC_WARNING_POP  __pragma(warning(pop))
+#  define BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275 \
+    __pragma(warning(disable:4251 4275))
+# else
+#  define BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
+#  define BOOST_HTTP_PROTO_MSVC_WARNING_POP
+#  define BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
+# endif
+
 # if !defined(BOOST_HTTP_PROTO_SOURCE) && !defined(BOOST_ALL_NO_LIB) && !defined(BOOST_HTTP_PROTO_NO_LIB)
 #  define BOOST_LIB_NAME boost_http_proto
 #  if defined(BOOST_ALL_DYN_LINK) || defined(BOOST_HTTP_PROTO_DYN_LINK)
