@@ -143,7 +143,7 @@ struct BOOST_HTTP_PROTO_DECL
 protected:
     /** A task to be invoked later
     */
-    struct task
+    struct BOOST_HTTP_PROTO_DECL task
     {
         virtual ~task() = default;
 

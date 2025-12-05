@@ -157,7 +157,7 @@ class resumer;
     This holds an reference to an implementation
     which detaches the handler from its session.
 */
-class detacher
+class BOOST_HTTP_PROTO_DECL detacher
 {
 public:
     /** Base class of the implementation

@@ -23,7 +23,7 @@ namespace http_proto {
 /// @copydoc parser
 /// @brief A parser for HTTP/1 requests.
 /// @see @ref response_parser.
-class request_parser
+class BOOST_HTTP_PROTO_DECL request_parser
     : public parser
 {
 public:

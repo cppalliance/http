@@ -53,7 +53,7 @@ class message_base;
     called, or the serializer is destroyed, otherwise the
     behavior is undefined.
 */
-class serializer
+class BOOST_HTTP_PROTO_DECL serializer
 {
 public:
     class stream;

@@ -45,7 +45,7 @@ namespace http_proto {
         @ref static_request,
         @ref request_base.
 */
-class request
+class BOOST_HTTP_PROTO_DECL request
     : public request_base
 {
 public:

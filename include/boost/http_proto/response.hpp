@@ -47,7 +47,7 @@ namespace http_proto {
         @ref static_response,
         @ref response_base.
 */
-class response
+class BOOST_HTTP_PROTO_DECL response
     : public response_base
 {
 public:
