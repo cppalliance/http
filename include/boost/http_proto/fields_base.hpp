@@ -32,7 +32,7 @@ namespace http_proto {
 
     @note HTTP field names are case-insensitive.
 */
-class fields_base
+class BOOST_HTTP_PROTO_DECL fields_base
 {
     detail::header h_;
     std::size_t max_cap_ =
@@ -74,32 +74,32 @@ class fields_base
     friend class parser;
     friend class serializer;
 
-    BOOST_HTTP_PROTO_DECL
+
     explicit
     fields_base(
         detail::kind k) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
+
     fields_base(
         detail::kind k,
         void* storage,
         std::size_t cap) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
+
     fields_base(
         detail::kind k,
         core::string_view s);
 
-    BOOST_HTTP_PROTO_DECL
+
     explicit
     fields_base(
         detail::header const& h);
 
-    BOOST_HTTP_PROTO_DECL
+
     fields_base(
         fields_base const&);
 
-    BOOST_HTTP_PROTO_DECL
+
     fields_base(
         detail::header const& h,
         void* storage,
@@ -168,7 +168,7 @@ public:
         std::string value;
 
         /// Constructor.
-        BOOST_HTTP_PROTO_DECL
+
         value_type(
             reference const& other);
 
@@ -211,7 +211,7 @@ public:
 
     /** Destructor.
     */
-    BOOST_HTTP_PROTO_DECL
+
     ~fields_base();
 
     //--------------------------------------------
@@ -283,7 +283,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     core::string_view
     at(field id) const;
 
@@ -305,13 +305,13 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     core::string_view
     at(core::string_view name) const;
 
     /** Return true if a field exists.
     */
-    BOOST_HTTP_PROTO_DECL
+
     bool
     exists(field id) const noexcept;
 
@@ -323,7 +323,7 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     bool
     exists(
         core::string_view name) const noexcept;
@@ -332,7 +332,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     std::size_t
     count(field id) const noexcept;
 
@@ -344,7 +344,7 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     std::size_t
     count(
         core::string_view name) const noexcept;
@@ -353,7 +353,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     find(field id) const noexcept;
 
@@ -365,7 +365,7 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     find(
         core::string_view name) const noexcept;
@@ -377,7 +377,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     find(
         iterator from,
@@ -394,7 +394,7 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     find(
         iterator from,
@@ -408,7 +408,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     find_last(
         iterator before,
@@ -426,7 +426,7 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     find_last(
         iterator before,
@@ -439,7 +439,7 @@ public:
         @param s The value to be returned if
         field does not exist.
     */
-    BOOST_HTTP_PROTO_DECL
+
     core::string_view
     value_or(
         field id,
@@ -456,7 +456,7 @@ public:
         @param s The value to be returned if
         field does not exist.
     */
-    BOOST_HTTP_PROTO_DECL
+
     core::string_view
     value_or(
         core::string_view name,
@@ -466,7 +466,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     subrange
     find_all(field id) const noexcept;
 
@@ -478,7 +478,7 @@ public:
 
         @param name The field name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     subrange
     find_all(
         core::string_view name) const noexcept;
@@ -519,7 +519,7 @@ public:
         @par Complexity
         Constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     clear() noexcept;
 
@@ -545,7 +545,7 @@ public:
 
         @param n The capacity in bytes.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     reserve_bytes(std::size_t n);
 
@@ -574,7 +574,7 @@ public:
 
         @param n The maximum allowed capacity in bytes.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_max_capacity_in_bytes(std::size_t n);
 
@@ -584,7 +584,7 @@ public:
         Strong guarantee.
         Calls to allocate may throw.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     shrink_to_fit();
 
@@ -835,7 +835,7 @@ public:
         @param value The value which must be semantically
         valid for the message.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     insert(
         iterator before,
@@ -884,7 +884,7 @@ public:
 
         @param ec Set to the error if input is invalid.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     insert(
         iterator before,
@@ -936,7 +936,7 @@ public:
         @param value The value which must be semantically
         valid for the message.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     insert(
         iterator before,
@@ -985,7 +985,7 @@ public:
 
         @param ec Set to the error if input is invalid.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     insert(
         iterator before,
@@ -1012,7 +1012,7 @@ public:
         @param it The iterator to the element
         to erase.
     */
-    BOOST_HTTP_PROTO_DECL
+
     iterator
     erase(iterator it) noexcept;
 
@@ -1033,7 +1033,7 @@ public:
 
         @param id The field name constant.
     */
-    BOOST_HTTP_PROTO_DECL
+
     std::size_t
     erase(field id) noexcept;
 
@@ -1054,7 +1054,7 @@ public:
 
         @param name The header name.
     */
-    BOOST_HTTP_PROTO_DECL
+
     std::size_t
     erase(
         core::string_view name) noexcept;
@@ -1091,7 +1091,7 @@ public:
         @param value The value which must be semantically
         valid for the message.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set(iterator it, core::string_view value);
 
@@ -1123,7 +1123,7 @@ public:
 
         @param ec Set to the error if input is invalid.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set(
         iterator it,
@@ -1210,7 +1210,7 @@ public:
 
         @param ec Set to the error if input is invalid.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set(
         field id,
@@ -1296,7 +1296,7 @@ public:
 
         @param ec Set to the error if input is invalid.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set(
         core::string_view name,
@@ -1337,19 +1337,19 @@ public:
         @param f The container to write.
     */
     friend
-    BOOST_HTTP_PROTO_DECL
+
     std::ostream&
     operator<<(
         std::ostream& os,
         const fields_base& f);
 
 private:
-    BOOST_HTTP_PROTO_DECL
+
     void
     copy_impl(
         detail::header const&);
 
-    BOOST_HTTP_PROTO_DECL
+
     void
     insert_impl(
         optional<field> id,
