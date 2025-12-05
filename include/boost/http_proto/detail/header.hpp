@@ -28,7 +28,7 @@ namespace boost {
 namespace http_proto {
 
 class fields_base;
-struct BOOST_HTTP_PROTO_DECL header_limits;
+struct header_limits;
 
 namespace detail {
 
