@@ -116,7 +116,6 @@ struct header_limits
         number of contiguous bytes of storage
         that would be needed at these settings.
     */
-    BOOST_HTTP_PROTO_DECL
     std::size_t
     valid_space_needed() const;
 };
