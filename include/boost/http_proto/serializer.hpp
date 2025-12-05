@@ -68,8 +68,7 @@ public:
 
     /** Destructor
     */
-    BOOST_HTTP_PROTO_DECL
-    ~serializer();
+        ~serializer();
 
     /** Constructor
         Default-constructed serializers do not reference any implementation;
@@ -100,8 +99,7 @@ public:
 
         @param other The serializer to move from.
     */
-    BOOST_HTTP_PROTO_DECL
-    serializer(
+        serializer(
         serializer&& other) noexcept;
 
     /** Assignment.
@@ -805,8 +803,7 @@ public:
             @ref commit,
             @ref capacity.
     */
-    BOOST_HTTP_PROTO_DECL
-    mutable_buffers_type
+        mutable_buffers_type
     prepare();
 
     /** Commit data to the serializer.
