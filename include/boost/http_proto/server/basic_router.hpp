@@ -1009,6 +1009,15 @@ private:
             }
             catch(E const& ex)
             {
+#ifdef __APPLE__
+                // The Apple linker has a bug whereby it can erroneously
+                // deduplicate functions with identical codegen even though the
+                // unwind tables are different. Here we force different codegen
+                // depending on the type of E.
+                static volatile int apple_linker_bug_workaround_ = 0;
+                if(apple_linker_bug_workaround_)
+                    throw ex;
+#endif // APPLE
                 set_resume u(p_);
                 // VFALCO What if h throws?
                 auto rv = h(p, ex);

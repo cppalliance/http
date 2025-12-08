@@ -165,6 +165,18 @@ jobs:
             runs-on: "macos-26"
             b2-toolset: "clang"
             is-latest: true
+            name: "Apple-Clang (macOS 26)"
+            shared: true
+            build-type: "Release"
+            build-cmake: true
+
+          - compiler: "apple-clang"
+            version: "*"
+            cxx: "clang++"
+            cc: "clang"
+            runs-on: "macos-26"
+            b2-toolset: "clang"
+            is-latest: true
             name: "Apple-Clang (macOS 26, ubsan)"
             shared: false
             build-type: "RelWithDebInfo"
@@ -181,6 +193,17 @@ jobs:
             shared: true
             build-type: "RelWithDebInfo"
             asan: true
+
+          - compiler: "apple-clang"
+            version: "*"
+            cxx: "clang++"
+            cc: "clang"
+            runs-on: "macos-15"
+            b2-toolset: "clang"
+            name: "Apple-Clang (macOS 15)"
+            shared: false
+            build-type: "Release"
+            build-cmake: true
 
           - compiler: "apple-clang"
             version: "*"
