@@ -60,3 +60,21 @@ T default_value();
 - Concise, dry answers
 - Full files, not diffs
 - Accurate, compiling C++ code
+
+## Symbol Visibility
+
+- Mark **all public classes with virtual functions or virtual base classes** with  
+  `BOOST_HTTP_PROTO_SYMBOL_VISIBLE`.
+
+  - This is required for:
+    - DSO (Dynamic Shared Object) builds compiled with hidden visibility.
+    - DLL builds with MinGW GCC due to its [non-conformance with MSVC](https://github.com/cppalliance/http_proto/issues/214).
+
+- Mark **all public exception types** and **public classes used as the operand of `dynamic_cast`** with  
+  `BOOST_HTTP_PROTO_DECL`.
+
+  - This ensures:
+    - RTTI (typeinfo) is exported from DLLs.
+    - RTTI is visible from DSOs.
+  - Once a class is marked with `BOOST_HTTP_PROTO_DECL`, **all of its member functions are exported automatically**.
+    - Do **not** mark the member functions individually.

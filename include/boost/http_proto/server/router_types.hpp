@@ -36,7 +36,7 @@ using route_result = system::error_code;
 
     These values determine how the caller proceeds after invoking
     a route handler. Each enumerator represents a distinct control
-    action—whether the request was handled, should continue to the
+    actionï¿½whether the request was handled, should continue to the
     next route, transfers ownership of the session, or signals that
     the connection should be closed.
 */
@@ -111,7 +111,7 @@ struct is_error_code_enum<
 namespace http_proto {
 
 namespace detail {
-struct BOOST_SYMBOL_VISIBLE route_cat_type
+struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE route_cat_type
     : system::error_category
 {
     BOOST_HTTP_PROTO_DECL const char* name() const noexcept override;
@@ -162,7 +162,7 @@ class detacher
 public:
     /** Base class of the implementation
     */
-    struct BOOST_SYMBOL_VISIBLE
+    struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
         owner
     {
         BOOST_HTTP_PROTO_DECL virtual resumer do_detach();

@@ -36,7 +36,7 @@ namespace http_proto {
         @ref sink,
         @ref serializer.
 */
-struct BOOST_HTTP_PROTO_DECL
+struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     source
 {
     /** The results of producing data.
@@ -191,6 +191,7 @@ protected:
         indicate failure or that no more
         data remains (or both).
     */
+    BOOST_HTTP_PROTO_DECL
     virtual
     results
     on_read(
