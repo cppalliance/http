@@ -14,6 +14,11 @@
 #include <boost/http_proto/detail/config.hpp>
 #include <boost/http_proto/message_base.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -24,7 +29,7 @@ namespace http_proto {
         @ref request,
         @ref static_request.
 */
-class request_base
+class BOOST_HTTP_PROTO_DECL request_base
     : public message_base
 {
     friend class request;
@@ -285,12 +290,11 @@ public:
         @param b If `true` sets `Expect: 100-continue`
         header otherwise erase it.
     */
-    BOOST_HTTP_PROTO_DECL
     void
     set_expect_100_continue(bool b);
 
 private:
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_start_line_impl(
         http_proto::method m,
@@ -298,6 +302,10 @@ private:
         core::string_view t,
         http_proto::version v);
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

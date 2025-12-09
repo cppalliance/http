@@ -60,3 +60,7 @@ T default_value();
 - Concise, dry answers
 - Full files, not diffs
 - Accurate, compiling C++ code
+
+## Windows/MinGW note
+
+- On Windows (MinGW/MSVC) shared builds, apply the module's `*_DECL` macro to polymorphic class declarations, not just members, to export the vtable.

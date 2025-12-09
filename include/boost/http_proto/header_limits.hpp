@@ -21,7 +21,7 @@ namespace http_proto {
     Objects of this type are used to configure
     upper limits for HTTP headers.
 */
-struct header_limits
+struct BOOST_HTTP_PROTO_DECL header_limits
 {
     /** Largest allowed size for complete headers.
 
@@ -116,7 +116,6 @@ struct header_limits
         number of contiguous bytes of storage
         that would be needed at these settings.
     */
-    BOOST_HTTP_PROTO_DECL
     std::size_t
     valid_space_needed() const;
 };

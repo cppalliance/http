@@ -21,6 +21,11 @@
 #include <boost/system/error_code.hpp>
 #include <memory>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -30,11 +35,10 @@ struct acceptor_config
     bool is_admin;
 };
 
-//-----------------------------------------------
 
 /** Parameters object for HTTP route handlers
 */
-struct BOOST_SYMBOL_VISIBLE
+struct BOOST_HTTP_PROTO_DECL
     route_params : route_params_base
 {
     /** The complete request target
@@ -82,7 +86,6 @@ struct BOOST_SYMBOL_VISIBLE
 
     /** Destructor
     */
-    BOOST_HTTP_PROTO_DECL
     ~route_params();
 
     /** Reset the object for a new request.
@@ -90,7 +93,6 @@ struct BOOST_SYMBOL_VISIBLE
         the previous request, preparing the object
         for use with a new request.
     */
-    BOOST_HTTP_PROTO_DECL
     void reset();
 
     /** Set the status code of the response.
@@ -101,11 +103,9 @@ struct BOOST_SYMBOL_VISIBLE
         @param code The status code to set.
         @return A reference to this response.
     */
-    BOOST_HTTP_PROTO_DECL
     route_params&
     status(http_proto::status code);
 
-    BOOST_HTTP_PROTO_DECL
     route_params&
     set_body(std::string s);
 
@@ -147,9 +147,9 @@ struct BOOST_SYMBOL_VISIBLE
 protected:
     /** A task to be invoked later
     */
-    struct task
+    struct BOOST_HTTP_PROTO_DECL task
     {
-        virtual ~task() = default;
+        virtual ~task();
 
         /** Invoke the task.
 
@@ -163,7 +163,6 @@ protected:
         Subclasses must schedule task_ to be invoked at an unspecified
         point in the future.
     */
-    BOOST_HTTP_PROTO_DECL
     virtual void do_post();
 
     std::unique_ptr<task> task_;
@@ -245,6 +244,9 @@ post(F&& f) -> route_result
         });
 }
 
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

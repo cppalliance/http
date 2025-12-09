@@ -15,6 +15,11 @@
 #include <boost/http_proto/fields_base.hpp>
 #include <boost/core/detail/string_view.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -32,7 +37,7 @@ namespace http_proto {
         @ref static_request,
         @ref metadata.
 */
-class message_base
+class BOOST_HTTP_PROTO_DECL message_base
     : public fields_base
 {
     friend class request_base;
@@ -126,7 +131,7 @@ public:
 
         @param n The payload size to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_payload_size(
         std::uint64_t n);
@@ -143,7 +148,7 @@ public:
 
         @param n The Content-Length to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_content_length(
         std::uint64_t n);
@@ -160,7 +165,7 @@ public:
 
         @param value The value to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_chunked(bool value);
 
@@ -182,10 +187,14 @@ public:
 
         @param value The value to set.
     */
-    BOOST_HTTP_PROTO_DECL
+
     void
     set_keep_alive(bool value);
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

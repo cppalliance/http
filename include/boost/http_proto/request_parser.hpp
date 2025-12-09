@@ -17,13 +17,18 @@
 #include <boost/http_proto/parser.hpp>
 #include <boost/http_proto/static_request.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
 /// @copydoc parser
 /// @brief A parser for HTTP/1 requests.
 /// @see @ref response_parser.
-class request_parser
+class BOOST_HTTP_PROTO_DECL request_parser
     : public parser
 {
 public:
@@ -138,7 +143,6 @@ public:
             @ref install_parser_service,
             @ref config.
     */
-    BOOST_HTTP_PROTO_DECL
     explicit
     request_parser(capy::polystore& ctx);
 
@@ -160,10 +164,13 @@ public:
         @see
             @ref got_header.
     */
-    BOOST_HTTP_PROTO_DECL
     static_request const&
     get() const;
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

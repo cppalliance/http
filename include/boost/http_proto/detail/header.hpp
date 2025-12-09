@@ -24,6 +24,11 @@
 
 #include <cstdint>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -44,7 +49,8 @@ struct empty
     kind param;
 };
 
-struct header
+
+struct BOOST_HTTP_PROTO_DECL header
 {
     // +------------+---------+------+------------+-----------------------------+
     // | start-line | headers | \r\n | free space | entry[count-1] ... entry[0] |
@@ -157,20 +163,16 @@ public:
     static header&
     get(fields_base& f) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
     static header const*
     get_default(detail::kind k) noexcept;
 
     // called from parser
     explicit header(empty) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
     header(detail::kind) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
     void swap(header&) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
     bool keep_alive() const noexcept;
 
     static std::size_t bytes_needed(
@@ -221,6 +223,11 @@ public:
         header_limits const&,
         system::error_code&) noexcept;
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
+
 
 } // detail
 } // http_proto

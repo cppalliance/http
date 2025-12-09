@@ -19,6 +19,11 @@
 #include <string>
 #include <type_traits>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -36,7 +41,7 @@ using route_result = system::error_code;
 
     These values determine how the caller proceeds after invoking
     a route handler. Each enumerator represents a distinct control
-    action—whether the request was handled, should continue to the
+    actionÂ—whether the request was handled, should continue to the
     next route, transfers ownership of the session, or signals that
     the connection should be closed.
 */
@@ -157,7 +162,7 @@ class resumer;
     This holds an reference to an implementation
     which detaches the handler from its session.
 */
-class detacher
+class BOOST_HTTP_PROTO_DECL detacher
 {
 public:
     /** Base class of the implementation
@@ -291,12 +296,13 @@ class any_router;
 template<class>
 class basic_router;
 
+
 /** Base class for request objects
 
     This is a required public base for any `Request`
     type used with @ref basic_router.
 */
-class route_params_base
+class BOOST_HTTP_PROTO_DECL route_params_base
 {
 public:
     /** The mount path of the current router
@@ -332,6 +338,12 @@ private:
     bool case_sensitive = false;
     bool strict = false;
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
+
+
 
 } // http_proto
 } // boost

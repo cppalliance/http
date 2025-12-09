@@ -14,6 +14,11 @@
 
 #include <boost/http_proto/response_base.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -47,7 +52,7 @@ namespace http_proto {
         @ref static_response,
         @ref response_base.
 */
-class response
+class BOOST_HTTP_PROTO_DECL response
     : public response_base
 {
 public:
@@ -447,6 +452,10 @@ public:
         v0.swap(v1);
     }
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

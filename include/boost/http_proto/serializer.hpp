@@ -18,6 +18,10 @@
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
 #include <boost/capy/polystore_fwd.hpp>
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
 #include <boost/system/result.hpp>
 
 #include <type_traits>
@@ -53,7 +57,7 @@ class message_base;
     called, or the serializer is destroyed, otherwise the
     behavior is undefined.
 */
-class serializer
+class BOOST_HTTP_PROTO_DECL serializer
 {
 public:
     class stream;
@@ -68,8 +72,7 @@ public:
 
     /** Destructor
     */
-    BOOST_HTTP_PROTO_DECL
-    ~serializer();
+        ~serializer();
 
     /** Constructor
         Default-constructed serializers do not reference any implementation;
@@ -100,8 +103,7 @@ public:
 
         @param other The serializer to move from.
     */
-    BOOST_HTTP_PROTO_DECL
-    serializer(
+        serializer(
         serializer&& other) noexcept;
 
     /** Assignment.
@@ -119,7 +121,7 @@ public:
         @param other The serializer to move from.
         @return A reference to this object.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     serializer&
     operator=(serializer&& other) noexcept;
 
@@ -168,7 +170,7 @@ public:
             @ref install_serializer_service,
             @ref config.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     explicit
     serializer(
         capy::polystore& ctx);
@@ -179,7 +181,7 @@ public:
         prepares the serializer to start
         serialization of a new message.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     reset() noexcept;
 
@@ -217,7 +219,7 @@ public:
             @ref message_base.
     */
     void
-    BOOST_HTTP_PROTO_DECL
+    
     start(message_base const& m);
 
     /** Start serializing a message with a buffer sequence body
@@ -424,7 +426,7 @@ public:
             @ref stream,
             @ref message_base.
      */
-    BOOST_HTTP_PROTO_DECL
+    
     stream
     start_stream(
         message_base const& m);
@@ -484,7 +486,7 @@ public:
             @ref is_done,
             @ref const_buffers_type.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     auto
     prepare() ->
         system::result<
@@ -524,13 +526,12 @@ public:
             @ref is_done,
             @ref const_buffers_type.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     consume(std::size_t n);
 
     /** Return true if serialization is complete.
     */
-    BOOST_HTTP_PROTO_DECL
     bool
     is_done() const noexcept;
 
@@ -540,22 +541,22 @@ private:
     template<class>
     class cbs_gen_impl;
 
-    BOOST_HTTP_PROTO_DECL
+    
     detail::workspace&
     ws();
 
-    BOOST_HTTP_PROTO_DECL
+    
     void
     start_init(
         message_base const&);
 
-    BOOST_HTTP_PROTO_DECL
+    
     void
     start_buffers(
         message_base const&,
         cbs_gen&);
 
-    BOOST_HTTP_PROTO_DECL
+    
     void
     start_source(
         message_base const&,
@@ -665,6 +666,7 @@ struct serializer::config
         @ref serializer::config,
         @ref serializer.
 */
+
 BOOST_HTTP_PROTO_DECL
 void
 install_serializer_service(
@@ -694,7 +696,7 @@ install_serializer_service(
     @see
         @ref serializer::start_stream
 */
-class serializer::stream
+class BOOST_HTTP_PROTO_DECL serializer::stream
 {
 public:
     /** The type used to represent a sequence
@@ -774,7 +776,7 @@ public:
         @throw std::logic_error
         `this->is_open() == false`.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     std::size_t
     capacity() const;
 
@@ -805,8 +807,7 @@ public:
             @ref commit,
             @ref capacity.
     */
-    BOOST_HTTP_PROTO_DECL
-    mutable_buffers_type
+        mutable_buffers_type
     prepare();
 
     /** Commit data to the serializer.
@@ -837,7 +838,7 @@ public:
             @ref prepare,
             @ref capacity.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     commit(std::size_t n);
 
@@ -855,7 +856,7 @@ public:
         this->is_open() == false
         @endcode
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     close() noexcept;
 
@@ -884,5 +885,9 @@ private:
 } // boost
 
 #include <boost/http_proto/impl/serializer.hpp>
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 #endif

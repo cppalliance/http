@@ -18,6 +18,10 @@
 #include <boost/http_proto/header_limits.hpp>
 #include <boost/http_proto/sink.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
 #include <boost/buffers/dynamic_buffer.hpp>
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
@@ -70,7 +74,7 @@ class static_response;
         @ref response_parser,
         @ref request_parser.
 */
-class parser
+class BOOST_HTTP_PROTO_DECL parser
 {
 public:
     struct config_base;
@@ -98,7 +102,7 @@ public:
             @ref response_parser::get,
             @ref request_parser::get.
     */
-    BOOST_HTTP_PROTO_DECL
+
     bool
     got_header() const noexcept;
 
@@ -112,14 +116,14 @@ public:
             @ref body,
             @ref start.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     bool
     is_complete() const noexcept;
 
 #if 0
     /** Return true if any input was committed.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     bool
     got_some() const noexcept;
 
@@ -153,7 +157,7 @@ public:
         This function must be called before parsing  
         the first message in a new stream.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     reset() noexcept;
 
@@ -167,7 +171,7 @@ public:
         first message being read from the stream or if
         the previous message has been fully parsed.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     start();
 
@@ -195,7 +199,7 @@ public:
             @ref commit,
             @ref commit_eof.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     mutable_buffers_type
     prepare();
 
@@ -223,7 +227,7 @@ public:
             @ref parse,
             @ref prepare.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     commit(
         std::size_t n);
@@ -241,7 +245,7 @@ public:
             @ref parse,
             @ref prepare.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     commit_eof();
 
@@ -282,7 +286,7 @@ public:
             @ref commit,
             @ref commit_eof.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     parse(
         system::error_code& ec);
@@ -493,7 +497,7 @@ public:
         @see
             @ref config_base::body_limit.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_body_limit(std::uint64_t n);
 
@@ -531,7 +535,7 @@ public:
         @see
             @ref consume_body.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     const_buffers_type
     pull_body();
 
@@ -551,7 +555,7 @@ public:
         @see
             @ref pull_body.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     void
     consume_body(std::size_t n);
 
@@ -587,7 +591,7 @@ public:
         @see
             @ref is_complete.
     */
-    BOOST_HTTP_PROTO_DECL
+    
     core::string_view
     body() const;
 
@@ -605,7 +609,7 @@ public:
             @ref metadata::upgrade, @ref metadata::connection.
     */
     // VFALCO rename to get_leftovers()?
-    BOOST_HTTP_PROTO_DECL
+    
     core::string_view
     release_buffered_data() noexcept;
 
@@ -614,13 +618,13 @@ private:
     friend class response_parser;
     class impl;
 
-    BOOST_HTTP_PROTO_DECL ~parser();
-    BOOST_HTTP_PROTO_DECL parser() noexcept;
-    BOOST_HTTP_PROTO_DECL parser(parser&& other) noexcept;
-    BOOST_HTTP_PROTO_DECL parser(capy::polystore&, detail::kind);
-    BOOST_HTTP_PROTO_DECL void assign(parser&& other) noexcept;
+     ~parser();
+     parser() noexcept;
+     parser(parser&& other) noexcept;
+     parser(capy::polystore&, detail::kind);
+     void assign(parser&& other) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
+    
     void
     start_impl(bool);
 
@@ -630,19 +634,19 @@ private:
     static_response const&
     safe_get_response() const;
 
-    BOOST_HTTP_PROTO_DECL
+    
     detail::workspace&
     ws() noexcept;
 
-    BOOST_HTTP_PROTO_DECL
+    
     bool
     is_body_set() const noexcept;
 
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_body_impl(buffers::any_dynamic_buffer&) noexcept;
 
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_body_impl(sink&) noexcept;
 
@@ -766,6 +770,7 @@ struct parser::config_base
         @ref request_parser::config,
         @ref request_parser.
 */
+
 BOOST_HTTP_PROTO_DECL
 void
 install_parser_service(
@@ -776,5 +781,9 @@ install_parser_service(
 } // boost
 
 #include <boost/http_proto/impl/parser.hpp>
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 #endif

@@ -16,6 +16,11 @@
 #include <boost/http_proto/message_base.hpp>
 #include <boost/http_proto/status.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -26,7 +31,7 @@ namespace http_proto {
         @ref response,
         @ref static_response.
 */
-class response_base
+class BOOST_HTTP_PROTO_DECL response_base
     : public message_base
 {
     friend class response;
@@ -141,7 +146,6 @@ public:
 
         @param v The version to set.
     */
-    BOOST_HTTP_PROTO_DECL
     void
     set_version(
         http_proto::version v);
@@ -221,7 +225,7 @@ public:
     }
 
 private:
-    BOOST_HTTP_PROTO_DECL
+    
     void
     set_start_line_impl(
         http_proto::status sc,
@@ -229,6 +233,10 @@ private:
         core::string_view reason,
         http_proto::version v);
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost
