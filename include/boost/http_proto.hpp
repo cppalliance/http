@@ -10,11 +10,6 @@
 #ifndef BOOST_HTTP_PROTO_HPP
 #define BOOST_HTTP_PROTO_HPP
 
-#if defined(BOOST_MSVC)
-# pragma warning(push)
-# pragma warning(disable:4251)
-#endif
-
 #include <boost/http_proto/error.hpp>
 #include <boost/http_proto/field.hpp>
 #include <boost/http_proto/fields.hpp>
@@ -56,9 +51,5 @@
 #include <boost/http_proto/server/cors.hpp>
 #include <boost/http_proto/server/route_handler.hpp>
 #include <boost/http_proto/server/router_types.hpp>
-
-#if defined(BOOST_MSVC)
-# pragma warning(pop)
-#endif
 
 #endif
