@@ -17,6 +17,11 @@
 #include <boost/http_proto/parser.hpp>
 #include <boost/http_proto/static_request.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -162,6 +167,10 @@ public:
     static_request const&
     get() const;
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

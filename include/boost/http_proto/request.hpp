@@ -12,6 +12,11 @@
 
 #include <boost/http_proto/request_base.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -451,6 +456,10 @@ public:
         v0.swap(v1);
     }
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

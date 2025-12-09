@@ -18,6 +18,10 @@
 #include <boost/http_proto/header_limits.hpp>
 #include <boost/http_proto/sink.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
 #include <boost/buffers/dynamic_buffer.hpp>
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
@@ -777,5 +781,9 @@ install_parser_service(
 } // boost
 
 #include <boost/http_proto/impl/parser.hpp>
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 #endif

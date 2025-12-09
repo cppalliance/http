@@ -24,6 +24,11 @@
 
 #include <cstdint>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -44,8 +49,6 @@ struct empty
     kind param;
 };
 
-BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
-BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
 
 struct BOOST_HTTP_PROTO_DECL header
 {
@@ -221,7 +224,10 @@ public:
         system::error_code&) noexcept;
 };
 
-BOOST_HTTP_PROTO_MSVC_WARNING_POP
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
+
 
 } // detail
 } // http_proto

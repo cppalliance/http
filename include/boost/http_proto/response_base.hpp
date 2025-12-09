@@ -16,6 +16,11 @@
 #include <boost/http_proto/message_base.hpp>
 #include <boost/http_proto/status.hpp>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -228,6 +233,10 @@ private:
         core::string_view reason,
         http_proto::version v);
 };
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

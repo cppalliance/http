@@ -19,6 +19,11 @@
 
 #include <iosfwd>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -1397,5 +1402,9 @@ private:
 } // boost
 
 #include <boost/http_proto/impl/fields_base.hpp>
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 #endif

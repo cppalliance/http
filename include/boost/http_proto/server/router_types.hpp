@@ -17,8 +17,12 @@
 #include <boost/system/error_code.hpp>
 #include <exception>
 #include <string>
-#include <boost/http_proto/detail/config.hpp>
 #include <type_traits>
+
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
 
 namespace boost {
 namespace http_proto {
@@ -37,7 +41,7 @@ using route_result = system::error_code;
 
     These values determine how the caller proceeds after invoking
     a route handler. Each enumerator represents a distinct control
-    action—whether the request was handled, should continue to the
+    actionÂ—whether the request was handled, should continue to the
     next route, transfers ownership of the session, or signals that
     the connection should be closed.
 */
@@ -292,8 +296,6 @@ class any_router;
 template<class>
 class basic_router;
 
-BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
-BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
 
 /** Base class for request objects
 
@@ -337,8 +339,11 @@ private:
     bool strict = false;
 };
 
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
-BOOST_HTTP_PROTO_MSVC_WARNING_POP
+
 
 } // http_proto
 } // boost

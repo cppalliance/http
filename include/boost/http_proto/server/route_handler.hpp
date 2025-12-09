@@ -21,6 +21,11 @@
 #include <boost/system/error_code.hpp>
 #include <memory>
 
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
+
 namespace boost {
 namespace http_proto {
 
@@ -30,8 +35,6 @@ struct acceptor_config
     bool is_admin;
 };
 
-BOOST_HTTP_PROTO_MSVC_WARNING_PUSH
-BOOST_HTTP_PROTO_MSVC_DISABLE_4251_4275
 
 /** Parameters object for HTTP route handlers
 */
@@ -241,6 +244,9 @@ post(F&& f) -> route_result
         });
 }
 
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 } // http_proto
 } // boost

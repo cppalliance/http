@@ -18,6 +18,10 @@
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
 #include <boost/capy/polystore_fwd.hpp>
+#if defined(BOOST_MSVC)
+# pragma warning(push)
+# pragma warning(disable:4251)
+#endif
 #include <boost/system/result.hpp>
 
 #include <type_traits>
@@ -881,5 +885,9 @@ private:
 } // boost
 
 #include <boost/http_proto/impl/serializer.hpp>
+
+#if defined(BOOST_MSVC)
+# pragma warning(pop)
+#endif
 
 #endif
