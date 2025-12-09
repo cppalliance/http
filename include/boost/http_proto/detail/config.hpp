@@ -33,6 +33,12 @@ namespace http_proto {
 #  define BOOST_HTTP_PROTO_DECL
 # endif
 
+#if defined(__MINGW32__)
+    #define BOOST_HTTP_PROTO_SYMBOL_VISIBLE BOOST_HTTP_PROTO_DECL
+#else
+    #define BOOST_HTTP_PROTO_SYMBOL_VISIBLE BOOST_SYMBOL_VISIBLE
+#endif
+
 # if !defined(BOOST_HTTP_PROTO_SOURCE) && !defined(BOOST_ALL_NO_LIB) && !defined(BOOST_HTTP_PROTO_NO_LIB)
 #  define BOOST_LIB_NAME boost_http_proto
 #  if defined(BOOST_ALL_DYN_LINK) || defined(BOOST_HTTP_PROTO_DYN_LINK)

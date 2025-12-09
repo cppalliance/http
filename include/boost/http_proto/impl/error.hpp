@@ -41,7 +41,7 @@ namespace http_proto {
 
 namespace detail {
 
-struct BOOST_SYMBOL_VISIBLE
+struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     error_cat_type
     : system::error_category
 {
@@ -58,7 +58,7 @@ struct BOOST_SYMBOL_VISIBLE
     }
 };
 
-struct BOOST_SYMBOL_VISIBLE
+struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     condition_cat_type
     : system::error_category
 {

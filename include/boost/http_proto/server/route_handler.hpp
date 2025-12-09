@@ -34,7 +34,7 @@ struct acceptor_config
 
 /** Parameters object for HTTP route handlers
 */
-struct BOOST_SYMBOL_VISIBLE
+struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     route_params : route_params_base
 {
     /** The complete request target
@@ -180,7 +180,7 @@ post(F&& f) -> route_result
     if(task_)
         detail::throw_invalid_argument();
 
-    struct BOOST_SYMBOL_VISIBLE
+    struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
         immediate : detacher::owner
     {
         route_result rv;
@@ -193,7 +193,7 @@ post(F&& f) -> route_result
         }
     };
 
-    class BOOST_SYMBOL_VISIBLE model
+    class BOOST_HTTP_PROTO_SYMBOL_VISIBLE model
         : public task
         , public detacher::owner
     {
