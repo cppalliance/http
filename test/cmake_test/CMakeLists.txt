@@ -37,6 +37,7 @@ else()
 
     # Secondary dependencies
 
+    compat
     container_hash
     mp11
     variant2
