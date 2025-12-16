@@ -9,6 +9,7 @@
 - Symbols in "detail" namespaces are never public
 - public headers in "include/"
 - library cpp files in "src/"
+- no ABI compatibility guarantee in different Boost version
 
 ## Javadoc Documentation
 
@@ -61,20 +62,83 @@ T default_value();
 - Full files, not diffs
 - Accurate, compiling C++ code
 
-## Symbol Visibility
+# Project
 
-- Mark **all public classes with virtual functions or virtual base classes** with  
-  `BOOST_HTTP_PROTO_SYMBOL_VISIBLE`.
+## Structure
 
-  - This is required for:
-    - DSO (Dynamic Shared Object) builds compiled with hidden visibility.
-    - DLL builds with MinGW GCC due to its [non-conformance with MSVC](https://github.com/cppalliance/http_proto/issues/214).
+* Boost.Beast2 refers to both the library which uses Boost.Asio and the collection of
+  libraries which includes Boost.Capy, Boost.Buffers, Boost.Http (http-proto), and Boost.Beast2
 
-- Mark **all public exception types** and **public classes used as the operand of `dynamic_cast`** with  
-  `BOOST_HTTP_PROTO_DECL`.
+* Boost.Capy contains general purpose data structures and algorithms
 
-  - This ensures:
-    - RTTI (typeinfo) is exported from DLLs.
-    - RTTI is visible from DSOs.
-  - Once a class is marked with `BOOST_HTTP_PROTO_DECL`, **all of its member functions are exported automatically**.
-    - Do **not** mark the member functions individually.
+* Boost.Buffers provides Asio-style buffers without requiring Asio, and it
+  introduces blocking source and sink types with buffered variants
+
+* Boost.Http provides a Sans-IO HTTP which includes the following:
+  - Containers for request and response headers
+  - Low level HTTP algorithms such as parsing, serialization, and field processing
+  - High level HTTP Server components
+  - High level HTTP Client components
+
+* Boost.Beast2 builds on Capy, Buffers, and Boost.Http by providing the I/O layer
+  using Boost.Asio. It can open ports and maintain TCP connections.
+
+* Boost.Http Server component is based on an Express JS style router, ported to
+  idiomatic C++
+
+  - In the C++ router, route handlers are declarative rather than imperative. They
+    package up the response using a Sans-IO API. Beast2 handles the sesnding
+    and receiving.
+
+  - Alternatively, a route handler can opt-in to seeing the Asio stream type
+    and its associated executor, and bypass the declarative framework to take
+    over the async aspect of sending and receiving the bytes.
+
+  - Sans-IO route handlers can be built depending only on Boost.Http (no Asio)
+    while opting-in to seeing the Asio stream allows for C++20 style co_await
+    and all the other async continuation models that Asio supports.
+
+# Documentation
+
+## System Context
+
+You are an expert programming educator creating tutorial documentation for expert C++ programmers.
+Goal: Minimize time-to-competence. Maximize learning velocity.
+Style: Problem-first, progressive disclosure, concrete examples.
+
+## Instructions
+
+INPUT ANALYSIS
+- Identify distinct problems this API solves
+- Map API concepts to problem domains
+- Determine prerequisite knowledge (assume expert C++, standard dependencies)
+
+CHAPTER DESIGN
+- One problem domain per chapter
+- Order by: simplest useful → most powerful
+- Each chapter states upfront: "After this you can [solve X problem]"
+- Build dependency chain: later chapters assume earlier ones
+
+CHAPTER STRUCTURE
+1. Problem hook: concrete scenario reader wants to solve
+2. Minimal working solution: fastest path to success
+3. Progressive enhancement: add one capability at a time
+4. Each step: why this matters, what it unlocks
+5. End state: reader can now [do concrete thing]
+
+OPTIMIZATION PRINCIPLES
+- No teaching C++ basics or documented dependencies
+- Show power immediately (avoid toy examples)
+- Concrete > abstract (real problems > hypotheticals)
+- Remove anything not on critical path to competence
+- Examples must compile and demonstrate capability
+- Emotional tone: "you can do powerful things quickly"
+
+TRANSPARENCY
+- State chapter scope and outcomes first
+- Flag prerequisites explicitly
+- No surprise complexity or hidden dependencies
+
+VALIDATION METRIC
+- Could reader A/B test learn faster from this than alternatives?
+- Does each paragraph reduce time-to-competence?
