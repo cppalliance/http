@@ -170,7 +170,7 @@ operator()(
         setMaxAge(v, options_);
         setExposeHeaders(v, options_);
 
-        if(options_.preFligthContinue)
+        if(options_.preFlightContinue)
             return route::next;
         // Safari and others need this for 204 or may hang
         p.res.set_status(options_.result);
