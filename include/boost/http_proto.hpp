@@ -28,7 +28,6 @@
 #include <boost/http_proto/request_parser.hpp>
 #include <boost/http_proto/response.hpp>
 #include <boost/http_proto/response_base.hpp>
-#include <boost/http_proto/response_parser.hpp>
 #include <boost/http_proto/serializer.hpp>
 #include <boost/http_proto/sink.hpp>
 #include <boost/http_proto/source.hpp>
@@ -37,7 +36,7 @@
 #include <boost/http_proto/status.hpp>
 #include <boost/http_proto/string_body.hpp>
 #include <boost/http_proto/version.hpp>
-
+ 
 #include <boost/http_proto/rfc/combine_field_values.hpp>
 #include <boost/http_proto/rfc/list_rule.hpp>
 //#include <boost/http_proto/rfc/media_type.hpp>
@@ -50,6 +49,7 @@
 #include <boost/http_proto/server/basic_router.hpp>
 #include <boost/http_proto/server/cors.hpp>
 #include <boost/http_proto/server/route_handler.hpp>
+#include <boost/http_proto/server/router.hpp>
 #include <boost/http_proto/server/router_types.hpp>
 
 #endif

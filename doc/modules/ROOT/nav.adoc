@@ -7,6 +7,13 @@
 * Serializing
 * Parsing
 * xref:Message.adoc[]
+* Server
+** xref:server/router.adoc[Router]
+// ** xref:server/middleware.adoc[Middleware]
+// ** xref:server/errors.adoc[Error Handling]
+// ** xref:server/params.adoc[Route Parameters]
+// ** xref:server/advanced.adoc[Advanced Topics]
+// ** xref:server/cors.adoc[CORS]
 * Design Requirements
 ** xref:design_requirements/serializer.adoc[Serializer]
 ** xref:design_requirements/parser.adoc[Parser]
