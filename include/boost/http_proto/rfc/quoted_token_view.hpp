@@ -50,10 +50,6 @@ class quoted_token_view final
         : string_view_base(s)
         , n_(n)
     {
-        BOOST_ASSERT(s.size() >= 2);
-        BOOST_ASSERT(s.front() == '\"');
-        BOOST_ASSERT(s.back() == '\"');
-        BOOST_ASSERT(n_ <= s_.size() - 2);
     }
 
 public:

@@ -18,25 +18,55 @@ namespace http_proto {
 struct quoted_token_rule_test
 {
     void
+    bad(core::string_view s)
+    {
+        http_proto::bad(quoted_token_rule, s);
+    }
+
+    void
+    ok(
+        core::string_view s,
+        core::string_view r,
+        std::size_t escapes = 0)
+    {
+        auto rv = grammar::parse(
+            s, quoted_token_rule);
+        if(! BOOST_TEST(rv.has_value()))
+            return;
+        BOOST_TEST(rv.value() == r);
+        BOOST_TEST(
+            rv->unescaped_size() == rv->size() - escapes);
+    }
+
+    void
     run()
     {
-        auto const& t = quoted_token_rule;
-
         // token
-        bad(t, "");
-        ok(t, "x");
-        ok(t,
+        bad("");
+        bad(" ");
+        bad("a b");
+        ok("x", "x");
+        ok(
+            "!#$%&'*+-.^_`|~"
+            "0123456789"
+            "abcdefghijklmnopqrstuvwxyz"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
             "!#$%&'*+-.^_`|~"
             "0123456789"
             "abcdefghijklmnopqrstuvwxyz"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-        bad(t, "a b");
 
         // quoted-string
-        ok(t, "\"\"");
-        ok(t, "\"x\"");
-        ok(t, "\"\\,\"");
-        ok(t, "\"abc\\ def\"");
+        bad(R"(")");
+        bad(R"("" )");
+        bad(R"( "")");
+        bad(R"(""")");
+        bad(R"("\")");
+        ok(R"("")", R"()");
+        ok(R"("x")", R"(x)");
+        ok(R"("\\")", R"(\\)", 1);
+        ok(R"("abc\ def")", R"(abc\ def)", 1);
+        ok(R"("a\"b\"c")", R"(a\"b\"c)", 2);
     }
 };
 

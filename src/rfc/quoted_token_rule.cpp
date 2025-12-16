@@ -81,7 +81,7 @@ parse(
         return rv.error();
     }
     // quoted-string
-    auto const it0 = it++;
+    auto const it0 = ++it;
     std::size_t n = 0;
     for(;;)
     {
@@ -116,7 +116,7 @@ parse(
         ++n;
     }
     return value_type(core::string_view(
-        it0, ++it - it0), n);
+        it0, it++ - it0), n);
 }
 
 } // implementation_defined
