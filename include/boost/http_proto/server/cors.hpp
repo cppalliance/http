@@ -26,7 +26,7 @@ struct cors_options
     std::string exposedHeaders;
     std::chrono::seconds max_age{ 0 };
     status result = status::no_content;
-    bool preFligthContinue = false;
+    bool preFlightContinue = false;
     bool credentials = false;
 };
 
