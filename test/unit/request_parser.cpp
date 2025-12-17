@@ -344,7 +344,7 @@ struct request_parser_test
         pr.start();
         feed(pr, s);
 
-        auto const& req = pr.get();
+        auto req = pr.get();
         BOOST_TEST(
             req.method() == method::get);
         BOOST_TEST(

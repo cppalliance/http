@@ -34,6 +34,7 @@ namespace http_proto {
 
 namespace {
 
+/*
 std::size_t
 align_down(
     void * ptr,
@@ -48,6 +49,7 @@ align_down(
 
     return 0;
 }
+*/
 
 void
 verify_field_name(
@@ -310,16 +312,6 @@ fields_base(
 {
 }
 
-fields_base::
-fields_base(
-    detail::kind k,
-    void* storage,
-    std::size_t cap) noexcept
-    : fields_base(
-        *detail::header::get_default(k), storage, cap)
-{
-}
-
 // copy s and parse it
 fields_base::
 fields_base(
@@ -369,32 +361,13 @@ fields_base(
     h.copy_table(h_.buf + h_.cap);
 }
 
-// construct a complete copy of h
 fields_base::
 fields_base(
-    detail::header const& h,
-    void* storage,
-    std::size_t cap)
-    : h_(h.kind)
-    , external_storage_(true)
+    view_tag_t,
+    detail::header const& h)
+    : h_(h)
+    , view_(true)
 {
-    h_.cbuf = static_cast<char*>(storage);
-    h_.buf = static_cast<char*>(storage);
-    h_.cap = align_down(
-        storage,
-        cap,
-        alignof(detail::header::entry));
-    max_cap_ = h_.cap;
-
-    if(detail::header::bytes_needed(
-        h.size, h.count)
-            >= h_.cap)
-        detail::throw_length_error();
-
-    h.assign_to(h_);
-    std::memcpy(
-        h_.buf, h.cbuf, h.size);
-    h.copy_table(h_.buf + h_.cap);
 }
 
 //------------------------------------------------
@@ -408,7 +381,7 @@ fields_base(fields_base const& other)
 fields_base::
 ~fields_base()
 {
-    if(h_.buf && !external_storage_)
+    if(h_.buf && !view_)
         delete[] h_.buf;
 }
 
@@ -422,6 +395,8 @@ void
 fields_base::
 clear() noexcept
 {
+    clone_if_needed();
+
     if(! h_.buf)
         return;
     using H =
@@ -441,6 +416,8 @@ fields_base::
 reserve_bytes(
     std::size_t n)
 {
+    clone_if_needed();
+
     op_t op(*this);
     if(! op.reserve(n))
         return;
@@ -459,23 +436,23 @@ void
 fields_base::
 shrink_to_fit()
 {
+    clone_if_needed();
+
     if(detail::header::bytes_needed(
         h_.size, h_.count) >=
             h_.cap)
-        return;
-
-    if(external_storage_)
         return;
 
     fields_base tmp(h_);
     tmp.h_.swap(h_);
 }
 
-
 void
 fields_base::
 set_max_capacity_in_bytes(std::size_t n)
 {
+    clone_if_needed();
+
     if(n < h_.cap)
         detail::throw_invalid_argument();
     max_cap_ = n;
@@ -875,6 +852,8 @@ fields_base::
 erase(
     iterator it) noexcept -> iterator
 {
+    clone_if_needed();
+
     auto const id = it->id.value_or(
         detail::header::unknown_field);
     raw_erase(it.i_);
@@ -887,6 +866,8 @@ fields_base::
 erase(
     field id) noexcept
 {
+    clone_if_needed();
+
     auto const i0 = h_.find(id);
     if(i0 == h_.count)
         return 0;
@@ -898,6 +879,8 @@ fields_base::
 erase(
     core::string_view name) noexcept
 {
+    clone_if_needed();
+
     auto const i0 = h_.find(name);
     if(i0 == h_.count)
         return 0;
@@ -917,6 +900,8 @@ set(
     core::string_view value,
     system::error_code& ec)
 {
+    clone_if_needed();
+
     auto rv = verify_field_value(value);
     if(rv.has_error())
     {
@@ -1041,6 +1026,8 @@ set(
     core::string_view value,
     system::error_code& ec)
 {
+    clone_if_needed();
+
     auto rv = verify_field_value(value);
     if(rv.has_error())
     {
@@ -1083,6 +1070,8 @@ set(
     core::string_view value,
     system::error_code& ec)
 {
+    clone_if_needed();
+
     verify_field_name(name , ec);
     if(ec.failed())
         return;
@@ -1149,6 +1138,8 @@ insert(
     system::error_code& ec)
     -> iterator
 {
+    clone_if_needed();
+
     insert_impl(
         id,
         to_string(id),
@@ -1181,6 +1172,8 @@ insert(
     system::error_code& ec)
     -> iterator
 {
+    clone_if_needed();
+
     insert_impl(
         string_to_field(name),
         name,
@@ -1220,7 +1213,7 @@ copy_impl(
     auto const n =
         detail::header::bytes_needed(
             h.size, h.count);
-    if(n <= h_.cap && (!h.is_default() || external_storage_))
+    if(n <= h_.cap && !view_ && !h.is_default())
     {
         // no realloc
         h.assign_to(h_);
@@ -1233,12 +1226,22 @@ copy_impl(
         return;
     }
 
-    // static storages cannot reallocate
-    if(external_storage_)
-        detail::throw_length_error();
-
     fields_base tmp(h);
     tmp.h_.swap(h_);
+    std::swap(tmp.view_, view_);
+}
+
+void
+fields_base::
+clone_if_needed()
+{
+    if(view_)
+    {
+        fields_base tmp(h_);
+        tmp.h_.swap(h_);
+        tmp.view_ = true;
+        view_ = false;
+    }
 }
 
 void

@@ -7,7 +7,7 @@
 // Official repository: https://github.com/cppalliance/http_proto
 //
 
-#include <boost/http_proto/response_base.hpp>
+#include <boost/http_proto/response.hpp>
 
 #include <cstring>
 
@@ -15,13 +15,15 @@ namespace boost {
 namespace http_proto {
 
 void
-response_base::
+response::
 set_start_line_impl(
     http_proto::status sc,
     unsigned short si,
     core::string_view rs,
     http_proto::version v)
 {
+    clone_if_needed();
+
     // TODO: check validity
     auto const vs = to_string(v);
     auto const new_prefix =
@@ -58,10 +60,12 @@ set_start_line_impl(
 }
 
 void
-response_base::
+response::
 set_version(
     http_proto::version v)
 {
+    clone_if_needed();
+
     if(v == h_.version)
         return;
     if(h_.is_default())

@@ -150,30 +150,6 @@ public:
             }
         }
 
-        // response(response_base const&)
-        {
-            {
-                response_base const& r1 = response();
-                response r2 = response(r1);
-                check(r1, status::ok, 200, "OK", version::http_1_1);
-                check(r2, status::ok, 200, "OK", version::http_1_1);
-                BOOST_TEST(
-                    r1.buffer().data() == r2.buffer().data());
-                BOOST_TEST(r1.capacity_in_bytes() == 0);
-                BOOST_TEST(r2.capacity_in_bytes() == 0);
-            }
-            {
-                response_base const& r1 = response(status::not_found, version::http_1_0);
-                response r2 = response(r1);
-                check(r1, status::not_found, 404, "Not Found", version::http_1_0);
-                check(r2, status::not_found, 404, "Not Found", version::http_1_0);
-                BOOST_TEST(
-                    r1.buffer().data() != r2.buffer().data());
-                BOOST_TEST(r1.capacity_in_bytes() > 0);
-                BOOST_TEST(r2.capacity_in_bytes() > 0);
-            }
-        }
-
         // operator=(response&&)
         {
             response r1;
@@ -190,18 +166,6 @@ public:
             r1 = r2;
             check(r1, status::not_found, 404, "Not Found", version::http_1_0);
             check(r2, status::not_found, 404, "Not Found", version::http_1_0);
-            BOOST_TEST(
-                r1.buffer().data() != r2.buffer().data());
-            BOOST_TEST(r1.capacity_in_bytes() > 0);
-            BOOST_TEST(r2.capacity_in_bytes() > 0);
-        }
-
-        // operator=(response_base const&)
-        {
-            response r1;
-            response_base const& r2 = response(status::not_found, version::http_1_0);
-            r1 = r2;
-            check(r1, status::not_found, 404, "Not Found", version::http_1_0);
             BOOST_TEST(
                 r1.buffer().data() != r2.buffer().data());
             BOOST_TEST(r1.capacity_in_bytes() > 0);

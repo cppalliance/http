@@ -12,12 +12,14 @@
 #ifndef BOOST_HTTP_PROTO_RESPONSE_HPP
 #define BOOST_HTTP_PROTO_RESPONSE_HPP
 
-#include <boost/http_proto/response_base.hpp>
+#include <boost/http_proto/detail/config.hpp>
+#include <boost/http_proto/message_base.hpp>
+#include <boost/http_proto/status.hpp>
 
 namespace boost {
 namespace http_proto {
 
-/** A modifiable container for HTTP responses.
+/** A container for HTTP responses.
 
     This container owns a response, represented by
     a buffer which is managed by performing
@@ -44,12 +46,21 @@ namespace http_proto {
     @endcode
 
     @see
-        @ref static_response,
-        @ref response_base.
+        @ref response_parser,
+        @ref request.
 */
 class response
-    : public response_base
+    : public message_base
 {
+    friend class response_parser;
+
+    response(
+        view_tag_t,
+        detail::header const& h) noexcept
+        : message_base(view_tag, h)
+    {
+    }
+
 public:
     //--------------------------------------------
     //
@@ -75,7 +86,10 @@ public:
         @par Complexity
         Constant.
     */
-    response() noexcept = default;
+    response() noexcept
+        : message_base(detail::kind::response)
+    {
+    }
 
     /** Constructor.
 
@@ -114,7 +128,7 @@ public:
     explicit
     response(
         core::string_view s)
-        : response_base(s)
+        : message_base(detail::kind::response, s)
     {
     }
 
@@ -255,29 +269,6 @@ public:
     */
     response(response const&) = default;
 
-    /** Constructor.
-
-        The newly constructed object contains
-        a copy of `r`.
-
-        @par Postconditions
-        @code
-        this->buffer() == r.buffer() && this->buffer.data() != r.buffer().data()
-        @endcode
-
-        @par Complexity
-        Linear in `r.size()`.
-
-        @par Exception Safety
-        Calls to allocate may throw.
-
-        @param r The response to copy.
-    */
-    response(response_base const& r)
-        : response_base(r)
-    {
-    }
-
     /** Assignment
 
         The contents of `r` are transferred to
@@ -342,40 +333,6 @@ public:
         return *this;
     }
 
-    /** Assignment.
-
-        The contents of `r` are copied and
-        the previous contents of `this` are
-        discarded.
-
-        @par Postconditions
-        @code
-        this->buffer() == r.buffer() && this->buffer().data() != r.buffer().data()
-        @endcode
-
-        @par Complexity
-        Linear in `r.size()`.
-
-        @par Exception Safety
-        Strong guarantee.
-        Calls to allocate may throw.
-        Exception thrown if max capacity exceeded.
-
-        @throw std::length_error
-        Max capacity would be exceeded.
-
-        @param r The response to copy.
-
-        @return A reference to this object.
-    */
-    response&
-    operator=(
-        response_base const& r)
-    {
-        copy_impl(r.h_);
-        return *this;
-    }
-
     //--------------------------------------------
 
     /** Swap.
@@ -405,6 +362,7 @@ public:
     {
         h_.swap(other.h_);
         std::swap(max_cap_, other.max_cap_);
+        std::swap(view_, other.view_);
     }
 
     /** Swap.
@@ -446,6 +404,183 @@ public:
     {
         v0.swap(v1);
     }
+
+    //--------------------------------------------
+    //
+    // Observers
+    //
+    //--------------------------------------------
+
+    /** Return the reason string.
+
+        This field is obsolete in HTTP/1
+        and should only be used for display
+        purposes.
+    */
+    core::string_view
+    reason() const noexcept
+    {
+        return core::string_view(
+            h_.cbuf + 13,
+            h_.prefix - 15);
+    }
+
+    /** Return the status code.
+    */
+    http_proto::status
+    status() const noexcept
+    {
+        return h_.res.status;
+    }
+
+    /** Return the status code as an integral.
+    */
+    unsigned short
+    status_int() const noexcept
+    {
+        return h_.res.status_int;
+    }
+
+    //--------------------------------------------
+    //
+    // Modifiers
+    //
+    //--------------------------------------------
+
+    /** Set the status code and version of the response.
+
+        The reason-phrase will be set to the
+        standard text for the specified status
+        code.
+
+        This is more efficient than setting the
+        properties individually.
+
+        @par Exception Safety
+        Strong guarantee.
+        Calls to allocate may throw.
+        Exception thrown if max capacity exceeded.
+
+        @throw std::length_error
+        Max capacity would be exceeded.
+        @throw std::invalid_argument
+        `sc == status::unknown`
+
+        @param sc The status code to set. This
+        must not be @ref status::unknown.
+
+        @param v The version to set.
+    */
+    void
+    set_start_line(
+        http_proto::status sc,
+        http_proto::version v =
+            http_proto::version::http_1_1)
+    {
+        set_start_line_impl(sc,
+            static_cast<unsigned short>(sc),
+                to_string(sc), v);
+    }
+
+    /** Set the HTTP version of the response
+
+        @par Exception Safety
+        Strong guarantee.
+        Calls to allocate may throw.
+        Exception thrown if maximum capacity exceeded.
+
+        @throw std::length_error
+        Maximum capacity would be exceeded.
+
+        @param v The version to set.
+    */
+    BOOST_HTTP_PROTO_DECL
+    void
+    set_version(
+        http_proto::version v);
+
+    /** Set the status code of the response.
+
+        The reason-phrase will be set to the
+        standard text for the specified status
+        code. The version will remain unchanged.
+
+        @par Exception Safety
+        Strong guarantee.
+        Calls to allocate may throw.
+        Exception thrown if maximum capacity exceeded.
+
+        @throw std::length_error
+        Maximum capacity would be exceeded.
+        @throw std::invalid_argument
+        `sc == status::unknown`
+
+        @param sc The status code to set. This
+        must not be @ref status::unknown.
+    */
+    void
+    set_status(
+        http_proto::status sc)
+    {
+        if(sc == http_proto::status::unknown)
+            detail::throw_invalid_argument();
+        set_start_line_impl(sc,
+            static_cast<unsigned short>(sc),
+            to_string(sc),
+            version());
+    }
+
+    /** Set the status code and version of the response.
+
+        The reason-phrase will be set to the
+        standard text for the specified status
+        code.
+
+        This is more efficient than setting the
+        properties individually.
+
+        @par Exception Safety
+        Strong guarantee.
+        Calls to allocate may throw.
+        Exception thrown on invalid input.
+        Exception thrown if max capacity exceeded.
+
+        @throw system_error
+        Input is invalid.
+
+        @throw std::length_error
+        Max capacity would be exceeded.
+
+        @param si An integral representing the
+        status code to set.
+
+        @param reason A string view representing the
+        reason string to set.
+
+        @param v The version to set.
+    */
+    void
+    set_start_line(
+        unsigned short si,
+        core::string_view reason,
+        http_proto::version v =
+            http_proto::version::http_1_1)
+    {
+        set_start_line_impl(
+            int_to_status(si),
+            si,
+            reason,
+            v);
+    }
+
+private:
+    BOOST_HTTP_PROTO_DECL
+    void
+    set_start_line_impl(
+        http_proto::status sc,
+        unsigned short si,
+        core::string_view reason,
+        http_proto::version v);
 };
 
 } // http_proto

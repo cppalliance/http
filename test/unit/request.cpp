@@ -115,7 +115,7 @@ struct request_test
         {
             {
                 // default
-                request_base const& r1 = request();
+                request r1;
                 request r2(r1);
                 check(r2, 0,
                     "GET / HTTP/1.1\r\n"
@@ -128,7 +128,7 @@ struct request_test
                     r2.version() == version::http_1_1);
             }
             {
-                request_base const& r1 = request(cs);
+                request r1(cs);
                 request r2(r1);
                 check(r2, 2, cs);
                 BOOST_TEST(
@@ -203,27 +203,6 @@ struct request_test
             {
                 request r1(cs);
                 request r2;
-                r1 = r2;
-                check(r1, 0,
-                    "GET / HTTP/1.1\r\n"
-                    "\r\n");
-                BOOST_TEST(
-                    r1.buffer().data() !=
-                        r2.buffer().data());
-                BOOST_TEST(
-                    r1.method() == method::get);
-                BOOST_TEST(
-                    r1.method_text() == "GET");
-                BOOST_TEST(
-                    r1.version() == version::http_1_1);
-            }
-        }
-
-        // operator=(request_base const&)
-        {
-            {
-                request r1(cs);
-                request_base const& r2 = request();
                 r1 = r2;
                 check(r1, 0,
                     "GET / HTTP/1.1\r\n"
