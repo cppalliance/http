@@ -15,7 +15,7 @@
 #include <boost/http_proto/error.hpp>
 #include <boost/http_proto/method.hpp>
 #include <boost/http_proto/parser.hpp>
-#include <boost/http_proto/static_request.hpp>
+#include <boost/http_proto/request.hpp>
 
 namespace boost {
 namespace http_proto {
@@ -161,7 +161,7 @@ public:
             @ref got_header.
     */
     BOOST_HTTP_PROTO_DECL
-    static_request const&
+    request
     get() const;
 };
 

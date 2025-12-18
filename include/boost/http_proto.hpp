@@ -24,16 +24,12 @@
 #include <boost/http_proto/method.hpp>
 #include <boost/http_proto/parser.hpp>
 #include <boost/http_proto/request.hpp>
-#include <boost/http_proto/request_base.hpp>
 #include <boost/http_proto/request_parser.hpp>
 #include <boost/http_proto/response.hpp>
-#include <boost/http_proto/response_base.hpp>
 #include <boost/http_proto/response_parser.hpp>
 #include <boost/http_proto/serializer.hpp>
 #include <boost/http_proto/sink.hpp>
 #include <boost/http_proto/source.hpp>
-#include <boost/http_proto/static_request.hpp>
-#include <boost/http_proto/static_response.hpp>
 #include <boost/http_proto/status.hpp>
 #include <boost/http_proto/string_body.hpp>
 #include <boost/http_proto/version.hpp>

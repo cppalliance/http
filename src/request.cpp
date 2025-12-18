@@ -9,7 +9,7 @@
 // Official repository: https://github.com/cppalliance/http_proto
 //
 
-#include <boost/http_proto/request_base.hpp>
+#include <boost/http_proto/request.hpp>
 
 #include <cstring>
 
@@ -17,9 +17,11 @@ namespace boost {
 namespace http_proto {
 
 void
-request_base::
+request::
 set_expect_100_continue(bool b)
 {
+    clone_if_needed();
+
     if(h_.md.expect.count == 0)
     {
         BOOST_ASSERT(
@@ -76,13 +78,15 @@ set_expect_100_continue(bool b)
 //------------------------------------------------
 
 void
-request_base::
+request::
 set_start_line_impl(
     http_proto::method m,
     core::string_view ms,
     core::string_view t,
     http_proto::version v)
 {
+    clone_if_needed();
+
     // TODO: check validity
     auto const vs = to_string(v);
     auto const new_prefix =

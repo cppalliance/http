@@ -37,7 +37,7 @@ class fields_base
     detail::header h_;
     std::size_t max_cap_ =
         std::numeric_limits<std::size_t>::max();
-    bool external_storage_ = false;
+    bool view_ = false;
 
     using entry =
         detail::header::entry;
@@ -45,6 +45,9 @@ class fields_base
         detail::header::offset_type;
     using table =
         detail::header::table;
+
+    struct view_tag_t {};
+    static constexpr view_tag_t view_tag{};
 
     class op_t;
     class prefix_op_t
@@ -65,25 +68,17 @@ class fields_base
 
     friend class fields;
     friend class message_base;
-    friend class request_base;
     friend class request;
-    friend class static_request;
-    friend class response_base;
     friend class response;
-    friend class static_response;
     friend class parser;
+    friend class request_parser;
+    friend class response_parser;
     friend class serializer;
 
     BOOST_HTTP_PROTO_DECL
     explicit
     fields_base(
         detail::kind k) noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    fields_base(
-        detail::kind k,
-        void* storage,
-        std::size_t cap) noexcept;
 
     BOOST_HTTP_PROTO_DECL
     fields_base(
@@ -101,9 +96,8 @@ class fields_base
 
     BOOST_HTTP_PROTO_DECL
     fields_base(
-        detail::header const& h,
-        void* storage,
-        std::size_t cap);
+        view_tag_t,
+        detail::header const& h);
 
 public:
     //--------------------------------------------
@@ -1348,6 +1342,9 @@ private:
     void
     copy_impl(
         detail::header const&);
+
+    void
+    clone_if_needed();
 
     BOOST_HTTP_PROTO_DECL
     void

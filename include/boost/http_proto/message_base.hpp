@@ -18,8 +18,7 @@
 namespace boost {
 namespace http_proto {
 
-/** Mixin for modifing common metadata
-    in HTTP request and response messages.
+/** Mixin for common metadata in HTTP request and response messages.
 
     This type is useful for modifying common
     properties shared by both requests
@@ -28,15 +27,13 @@ namespace http_proto {
     @see
         @ref response,
         @ref request,
-        @ref static_response,
-        @ref static_request,
         @ref metadata.
 */
 class message_base
     : public fields_base
 {
-    friend class request_base;
-    friend class response_base;
+    friend class request;
+    friend class response;
 
     using fields_base::fields_base;
 

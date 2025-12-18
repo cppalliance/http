@@ -21,11 +21,11 @@ response_parser(
 {
 }
 
-static_response const&
+response
 response_parser::
 get() const
 {
-    return safe_get_response();
+    return { response::view_tag, safe_get_header() };
 }
 
 } // http_proto
