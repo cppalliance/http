@@ -773,7 +773,7 @@ public:
         {
             BOOST_ASSERT(
                 m_.h_.size < svc_.cfg.headers.max_size);
-            std::size_t n = fb_.capacity() - fb_.size();
+            std::size_t n = fb_.capacity();
             BOOST_ASSERT(n <= svc_.max_overread());
             n = clamp(n, svc_.cfg.max_prepare);
             mbp_[0] = fb_.prepare(n);
