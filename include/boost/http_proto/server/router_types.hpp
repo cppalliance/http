@@ -299,6 +299,20 @@ class basic_router;
 class route_params_base
 {
 public:
+    /** Return true if the request method matches `m`
+    */
+    bool is_method(
+        http_proto::method m) const noexcept
+    {
+        return verb_ == m;
+    }
+
+    /** Return true if the request method matches `s`
+    */
+    BOOST_HTTP_PROTO_DECL
+    bool is_method(
+        core::string_view s) const noexcept;
+
     /** The mount path of the current router
 
         This is the portion of the request path

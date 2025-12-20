@@ -8,6 +8,7 @@
 //
 
 #include <boost/http_proto/server/router_types.hpp>
+#include <boost/url/grammar/ci_string.hpp>
 #include <boost/assert.hpp>
 #include <cstring>
 
@@ -76,6 +77,17 @@ owner::
 do_detach()
 {
     detail::throw_logic_error();
+}
+
+bool
+route_params_base::
+is_method(
+    core::string_view s) const noexcept
+{
+    auto m = http_proto::string_to_method(s);
+    if(m != http_proto::method::unknown)
+        return verb_ == m;
+    return s == verb_str_;
 }
 
 } // http_proto

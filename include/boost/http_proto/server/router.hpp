@@ -16,6 +16,8 @@
 namespace boost {
 namespace http_proto {
 
+struct route_params;
+
 /** A router for HTTP servers
 
     This is a specialization of `basic_router` using
