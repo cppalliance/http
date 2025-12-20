@@ -27,6 +27,8 @@ on_write(
     do
     {
         buffers::const_buffer b(*it++);
+        if(b.size() == 0)
+            continue;
         rv += on_write(
             b,
             it != end_ || more);
