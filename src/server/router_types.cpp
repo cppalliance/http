@@ -42,7 +42,7 @@ message(
     {
     case route::close:      return "route::close";
     case route::complete:   return "route::complete";
-    case route::detach:     return "route::detach";
+    case route::suspend:     return "route::suspend";
     case route::next:       return "route::next";
     case route::next_route: return "route::next_route";
     case route::send:       return "route::send";
@@ -72,9 +72,9 @@ route_cat_type route_cat;
 } // detail
 
 resumer
-detacher::
+suspender::
 owner::
-do_detach()
+do_suspend()
 {
     detail::throw_logic_error();
 }

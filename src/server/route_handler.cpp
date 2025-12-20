@@ -51,6 +51,19 @@ set_body(std::string s)
     return *this;
 }
 
+#ifdef BOOST_HTTP_PROTO_HAS_CORO
+
+auto
+route_params::
+spawn(
+    capy::task<route_result>) ->
+        route_result
+{
+    detail::throw_invalid_argument();
+}
+
+#endif
+
 void
 route_params::
 do_post()

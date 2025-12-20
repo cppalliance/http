@@ -13,12 +13,14 @@
 #include <boost/http_proto/detail/config.hpp>
 #include <boost/http_proto/server/router_types.hpp>
 #include <boost/capy/datastore.hpp>
+#include <boost/capy/task.hpp>
 #include <boost/http_proto/request.hpp>  // VFALCO forward declare?
 #include <boost/http_proto/request_parser.hpp>  // VFALCO forward declare?
 #include <boost/http_proto/response.hpp>        // VFALCO forward declare?
 #include <boost/http_proto/serializer.hpp>      // VFALCO forward declare?
 #include <boost/url/url_view.hpp>
 #include <boost/system/error_code.hpp>
+#include <functional>
 #include <memory>
 
 namespace boost {
@@ -73,12 +75,11 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     */
     capy::datastore session_data;
 
-    /** The detacher for this session.
-        This can be used to detach from the
-        session and take over managing the
-        connection.
+    /** The suspender for this session.
+
+        This can be used to suepend from the router and resume routing later.
     */
-    detacher detach;
+    suspender suspend;
 
     /** Destructor
     */
@@ -109,17 +110,50 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     route_params&
     set_body(std::string s);
 
+#ifdef BOOST_HTTP_PROTO_HAS_CORO
+
+    /** Spawn a coroutine for this route.
+
+        This function is used to spawn a coroutine
+        for the route handler. The coroutine is
+        passed a reference to the route_params object,
+        and when it returns, the returned route_result
+        is returned from this function.
+
+        @par Example
+        @code
+        auto handler =
+            []( route_params& rp ) -> route_result
+            {
+                return rp.spawn(
+                    []( route_params& rp ) -> capy::task<route_result>
+                    {
+                        co_return route_result::next;
+                    });
+            };
+        @endcode
+        @param coro The coroutine to spawn.
+        @return The route result, which must be returned immediately
+            from the route handler.
+    */
+    BOOST_HTTP_PROTO_DECL
+    virtual auto spawn(
+        capy::task<route_result> coro) ->
+            route_result;
+
+#endif
+
     // VFALCO this doc isn't quite right because it doesn't explain
     // the possibility that post will return the final result immediately,
     // and it needs to remind the user that calling a function which
     // returns route_result means they have to return the value right away
     // without doing anything else.
     //
-    // VFALCO we have to detect calls to detach inside `f` and throw
+    // VFALCO we have to detect calls to suspend inside `f` and throw
     //
     /** Submit cooperative work.
 
-        This function detaches the current handler from the session,
+        This function suspend the current handler from the session,
         and immediately invokes the specified function object @p f.
         When the function returns normally, the function object is
         placed into an implementation-defined work queue to be invoked
@@ -129,7 +163,7 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
 
         When the function object is invoked, it runs in the same context
         as the original handler invocation. If the function object
-        attempts to call @ref post again, or attempts to call @ref detach,
+        attempts to call @ref post again, or attempts to call @ref suspend
         an exception is thrown.
 
         The function object @p f must have this equivalent signature:
@@ -181,7 +215,7 @@ post(F&& f) -> route_result
         detail::throw_invalid_argument();
 
     struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
-        immediate : detacher::owner
+        immediate : suspender::owner
     {
         route_result rv;
         bool set = false;
@@ -195,7 +229,7 @@ post(F&& f) -> route_result
 
     class BOOST_HTTP_PROTO_SYMBOL_VISIBLE model
         : public task
-        , public detacher::owner
+        , public suspender::owner
     {
     public:
         model(route_params& p,
@@ -236,7 +270,7 @@ post(F&& f) -> route_result
     if(impl.set)
         return impl.rv;
 
-    return detach(
+    return suspend(
         [&](resumer resume)
         {
             task_ = std::unique_ptr<task>(new model(
@@ -245,6 +279,37 @@ post(F&& f) -> route_result
         });
 }
 
+//-----------------------------------------------
+
+#ifdef BOOST_HTTP_PROTO_HAS_CORO
+
+/** Create a route handler from a coroutine function
+
+    This is a convenience function for creating
+    route handlers from coroutine functions.
+
+    @par Signature
+    The coroutine function must have this signature:
+    @code
+    capy::task<route_result>( route_params& rp );
+    @endcode
+
+    @param f The coroutine function to invoke.
+    @return A route handler object.
+*/
+inline
+auto
+co_route(std::function<
+    capy::task<route_result>(route_params&)> f)
+{
+    return
+        [f_ = std::move(f)]( route_params& rp )
+        {
+            return rp.spawn(f_(rp));
+        };
+}
+
+#endif
 
 } // http_proto
 } // boost

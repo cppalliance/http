@@ -600,8 +600,8 @@ struct basic_router_test
         }
         {
             test_router r;
-            r.use(fail(route::detach));
-            check(r,"/", route::detach);
+            r.use(fail(route::suspend));
+            check(r,"/", route::suspend);
         }
         {
             test_router r;
@@ -1470,26 +1470,26 @@ struct basic_router_test
         {
             test_router r;
             r.use(next());
-            r.use(fail(route::detach));
-            check(r,"/", route::detach);
+            r.use(fail(route::suspend));
+            check(r,"/", route::suspend);
         }
         {
             test_router r;
             r.use(next());
-            r.use(fail(route::detach));
+            r.use(fail(route::suspend));
             params req;
             auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-            BOOST_TEST(rv1 == route::detach);
+            BOOST_TEST(rv1 == route::suspend);
         }
         {
             test_router r;
             r.use(next());
-            r.use(fail(route::detach));
+            r.use(fail(route::suspend));
             r.use(next());
             r.use(fail(route::send));
             params req;
             auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-            BOOST_TEST(rv1 == route::detach);
+            BOOST_TEST(rv1 == route::suspend);
             auto rv2 = r.resume(req, route::next);
             BOOST_TEST(rv2 == route::send);
         }
@@ -1500,14 +1500,14 @@ struct basic_router_test
                 test_router r;
                 r.use(
                     next(),
-                    fail(route::detach),
+                    fail(route::suspend),
                     path(),
                     next());
                 return r; }());
             r.use(send());
             params req;
             auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-            BOOST_TEST(rv1 == route::detach);
+            BOOST_TEST(rv1 == route::suspend);
             auto rv2 = r.resume(req, route::next);
             BOOST_TEST(rv2 == route::send);
         }
@@ -1515,29 +1515,29 @@ struct basic_router_test
         // return values
         {
             test_router r;
-            r.use(fail(route::detach));
+            r.use(fail(route::suspend));
             params req;
             {
                 auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-                BOOST_TEST(rv1 == route::detach);
+                BOOST_TEST(rv1 == route::suspend);
                 auto rv2 = r.resume(req, route::send);
                 BOOST_TEST(rv2 == route::send);
             }
             {
                 auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-                BOOST_TEST(rv1 == route::detach);
+                BOOST_TEST(rv1 == route::suspend);
                 auto rv2 = r.resume(req, route::close);
                 BOOST_TEST(rv2 == route::close);
             }
             {
                 auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-                BOOST_TEST(rv1 == route::detach);
+                BOOST_TEST(rv1 == route::suspend);
                 auto rv2 = r.resume(req, route::complete);
                 BOOST_TEST(rv2 == route::complete);
             }
             {
                 auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-                BOOST_TEST(rv1 == route::detach);
+                BOOST_TEST(rv1 == route::suspend);
                 BOOST_TEST_THROWS(r.resume(req, system::error_code()),
                     std::invalid_argument);
             }
@@ -1551,36 +1551,36 @@ struct basic_router_test
                 test_router r;
                 r.use(
                     next(),
-                    fail(route::detach),
+                    fail(route::suspend),
                     path("/api", "/"),
                     next());
                 return r; }());
             r.use("/api", send());
             params req;
             auto rv1 = r.dispatch(GET, urls::url_view("/api"), req);
-            BOOST_TEST(rv1 == route::detach);
+            BOOST_TEST(rv1 == route::suspend);
             auto rv2 = r.resume(req, route::next);
             BOOST_TEST(rv2 == route::send);
         }
 
-        // detach on resume
+        // suspend on resume
         {
             test_router r;
-            r.use(fail(route::detach));
+            r.use(fail(route::suspend));
             params req;
             auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-            BOOST_TEST(rv1 == route::detach);
-            BOOST_TEST_THROWS(r.resume(req, route::detach),
+            BOOST_TEST(rv1 == route::suspend);
+            BOOST_TEST_THROWS(r.resume(req, route::suspend),
                 std::invalid_argument);
         }
 
-        // invalid detach
+        // invalid suspend
         {
             test_router r;
-            r.use(fail(route::detach));
+            r.use(fail(route::suspend));
             params req;
             auto rv1 = r.dispatch(GET, urls::url_view("/"), req);
-            BOOST_TEST(rv1 == route::detach);
+            BOOST_TEST(rv1 == route::suspend);
             BOOST_TEST_THROWS(r.resume(req, system::error_code()),
                 std::invalid_argument);
         }

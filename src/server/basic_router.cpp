@@ -663,9 +663,9 @@ dispatch_impl(
 
     // we cannot do anything after do_dispatch returns,
     // other than return the route_result, or else we
-    // could race with the detached operation trying to resume.
+    // could race with the suspended operation trying to resume.
     auto rv = do_dispatch(p);
-    if(rv == route::detach)
+    if(rv == route::suspend)
         return rv;
     if(p.ep_)
     {
@@ -808,11 +808,11 @@ dispatch_impl(
 
                 // p.pos_ can be incremented further
                 // inside the above call to invoke.
-                if(rv == route::detach)
+                if(rv == route::suspend)
                 {
                     // It is essential that we return immediately, without
-                    // doing anything after route::detach is returned,
-                    // otherwise we could race with the detached operation
+                    // doing anything after route::suspend is returned,
+                    // otherwise we could race with the suspended operation
                     // attempting to call resume().
                     restore_options.cancel();
                     return rv;
@@ -820,10 +820,10 @@ dispatch_impl(
             }
             else
             {
-                // a subrouter never detaches on its own
+                // a subrouter never suspends on its own
                 BOOST_ASSERT(e.handler->count() == 1);
-                // can't detach on resume
-                if(p.ec_ == route::detach)
+                // can't suspend on resume
+                if(p.ec_ == route::suspend)
                     detail::throw_invalid_argument();
                 // do resume
                 p.resume_ = 0;
@@ -884,7 +884,7 @@ do_dispatch(
     BOOST_ASSERT(rv != route::next_route);
     if(rv != route::next)
     {
-        // when rv == route::detach we must return immediately,
+        // when rv == route::suspend we must return immediately,
         // without attempting to perform any additional operations.
         return rv;
     }

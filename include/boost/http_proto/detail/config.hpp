@@ -47,7 +47,15 @@ namespace http_proto {
 #  include <boost/config/auto_link.hpp>
 # endif
 
-//------------------------------------------------
+//-----------------------------------------------
+
+#if defined(__cpp_lib_coroutine) && __cpp_lib_coroutine >= 201902L
+# define BOOST_HTTP_PROTO_HAS_CORO 1
+#elif defined(__cpp_impl_coroutine) && __cpp_impl_coroutines >= 201902L
+# define BOOST_HTTP_PROTO_HAS_CORO 1
+#endif
+
+//-----------------------------------------------
 
 #if defined(BOOST_NO_CXX14_AGGREGATE_NSDMI)
 # define BOOST_HTTP_PROTO_AGGREGATE_WORKAROUND

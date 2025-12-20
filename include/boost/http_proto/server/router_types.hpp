@@ -59,13 +59,15 @@ enum class route
     */
     complete,
 
-    /** The handler detached from the session.
+    /** The handler is suspending the route.
 
-        Ownership of the session or stream has been transferred to
-        the handler. The caller will not perform further I/O or manage
-        the connection after this return value.
+        When the handler returns this value, the router is placed into
+        a suspended state which can later be reactivated by invoking
+        @ref basic_router::resume. Depending on the implementation,
+        this might detach the handler from the session until it is
+        resumed.
     */
-    detach,
+    suspend,
 
     /** The handler declined to process the request.
 
@@ -152,12 +154,12 @@ inline bool is_route_result(
 
 class resumer;
 
-/** Function to detach a route handler from its session
+/** Function to suspend a route handler from its session
 
     This holds an reference to an implementation
-    which detaches the handler from its session.
+    which suspends the router which dispatched the handler.
 */
-class detacher
+class suspender
 {
 public:
     /** Base class of the implementation
@@ -165,29 +167,29 @@ public:
     struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
         owner
     {
-        BOOST_HTTP_PROTO_DECL virtual resumer do_detach();
+        BOOST_HTTP_PROTO_DECL virtual resumer do_suspend();
         virtual void do_resume(route_result const&) = 0;
     };
 
-    detacher() = default;
-    detacher(detacher const&) = default;
-    detacher& operator=(detacher const&) = default;
+    suspender() = default;
+    suspender(suspender const&) = default;
+    suspender& operator=(suspender const&) = default;
 
     explicit
-    detacher(
+    suspender(
         owner& who) noexcept
         : p_(&who)
     {
     }
 
-    /** Detach and invoke the given function
+    /** Suspend and invoke the given function
 
         The function will be invoked with this equivalent signature:
         @code
         void( resumer );
         @endcode
 
-        @return A @ref route_result equal to @ref route::detach
+        @return A @ref route_result equal to @ref route::suspend
     */
     template<class F>
     route_result    
@@ -206,11 +208,11 @@ private:
 
 //------------------------------------------------
 
-/** Function to resume a route handler's session
+/** Function to resume a suspended route.
 
-    This holds a reference to an implementation
-    which resumes the handler's session. The resume
-    function is returned by calling @ref detach.
+    This holds a reference to an implementation which resumes the handler's
+    session. The resume function is typically obtained at the time the
+    route is suspended.
 */
 class resumer
 {
@@ -241,15 +243,15 @@ public:
     */
     explicit
     resumer(
-        detacher::owner& who) noexcept
+        suspender::owner& who) noexcept
         : p_(&who)
     {
     }
 
     /** Resume the session
 
-        A session is resumed as if the detached
-        handler returned the route result in @p rv.
+        When a session is resumed, routing continues as if the handler
+        had returned the @ref route_result contained in @p rv.
 
         @param ec The error code to resume with.
 
@@ -264,7 +266,7 @@ public:
     }
 
 private:
-    detacher::owner* p_
+    suspender::owner* p_
     #if defined(__clang__)
         __attribute__((unused))
     #endif
@@ -273,14 +275,14 @@ private:
 
 template<class F>
 auto    
-detacher::
+suspender::
 operator()(F&& f) ->
     route_result
 {
     if(! p_)
         detail::throw_logic_error();
-    std::forward<F>(f)(p_->do_detach());
-    return route::detach;
+    std::forward<F>(f)(p_->do_suspend());
+    return route::suspend;
 }
 
 //------------------------------------------------

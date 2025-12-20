@@ -818,11 +818,11 @@ public:
                 verb, url, p);
     }
 
-    /** Resume dispatch after a detached handler.
+    /** Resume dispatch after a suspension.
 
         This continues routing after a previous call to @ref dispatch
-        returned @ref route::detach. It recreates the routing state and
-        resumes as if the handler that detached had instead returned
+        returned @ref route::suspend. It recreates the routing state and
+        resumes as if the handler that suspended had instead returned
         the specified @p rv from its body. The regular routing and
         error-dispatch logic then proceeds as described in the
         @ref basic_router class documentation. For example, if @p rv is
@@ -837,7 +837,7 @@ public:
         @param p The params to pass to handlers.
 
         @param rv The @ref route_result to resume with, as if returned
-        by the detached handler.
+        by the suspended handler.
 
         @return The @ref route_result describing how routing completed.
     */
@@ -939,7 +939,7 @@ private:
                 return http_proto::route::next;
             set_resume u(p_);
             auto rv = h(p);
-            if(rv == http_proto::route::detach)
+            if(rv == http_proto::route::suspend)
             {
                 u.apply();
                 return rv;
@@ -957,7 +957,7 @@ private:
                 return http_proto::route::next;
             set_resume u(p_);
             auto rv = h(p, p_.ec_);
-            if(rv == http_proto::route::detach)
+            if(rv == http_proto::route::suspend)
             {
                 u.apply();
                 return rv;
@@ -1021,7 +1021,7 @@ private:
                 set_resume u(p_);
                 // VFALCO What if h throws?
                 auto rv = h(p, ex);
-                if(rv == http_proto::route::detach)
+                if(rv == http_proto::route::suspend)
                 {
                     u.apply();
                     return rv;
