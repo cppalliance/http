@@ -124,9 +124,26 @@ start(
             ConstBufferSequence>::value,
         "ConstBufferSequence type requirements not met");
 
-    start_init(m);
-    start_buffers(
-        m,
+    set_headers(m);
+    start_buffers_impl(
+        ws().emplace<cbs_gen_impl<typename
+            std::decay<ConstBufferSequence>::type>>(
+                std::forward<ConstBufferSequence>(cbs)));
+}
+
+template<
+    class ConstBufferSequence,
+    class>
+void
+serializer::
+start(
+    ConstBufferSequence&& cbs)
+{
+    static_assert(buffers::is_const_buffer_sequence<
+            ConstBufferSequence>::value,
+        "ConstBufferSequence type requirements not met");
+
+    start_buffers_impl(
         ws().emplace<cbs_gen_impl<typename
             std::decay<ConstBufferSequence>::type>>(
                 std::forward<ConstBufferSequence>(cbs)));
@@ -149,10 +166,54 @@ start(
         std::is_constructible<Source, detail::workspace&, Args...>::value,
         "The Source cannot be constructed with the given arguments");
 
-    start_init(m);
+    set_headers(m);
     auto& source = ws().emplace<Source>(
         std::forward<Args>(args)...);
-    start_source(m, source);
+    start_source_impl(source);
+    return source;
+}
+
+template<
+    class Source,
+    class Arg0,
+    class... Args,
+    class>
+Source&
+serializer::
+start(
+    Arg0&& arg0,
+    Args&&... args)
+{
+    static_assert(
+        !std::is_abstract<Source>::value, "");
+    static_assert(
+        std::is_constructible<Source, Arg0, Args...>::value ||
+        std::is_constructible<Source, detail::workspace&, Arg0, Args...>::value,
+        "The Source cannot be constructed with the given arguments");
+
+    auto& source = ws().emplace<Source>(
+        std::forward<Arg0>(arg0),
+        std::forward<Args>(args)...);
+    start_source_impl(source);
+    return source;
+}
+
+template<
+    class Source,
+    class>
+Source&
+serializer::
+start()
+{
+    static_assert(
+        !std::is_abstract<Source>::value, "");
+    static_assert(
+        std::is_default_constructible<Source>::value ||
+        std::is_constructible<Source, detail::workspace&>::value,
+        "The Source cannot be default-constructed");
+
+    auto& source = ws().emplace<Source>();
+    start_source_impl(source);
     return source;
 }
 
