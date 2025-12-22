@@ -534,6 +534,22 @@ public:
     bool
     is_done() const noexcept;
 
+    /** Return true if headers have been set.
+
+        Returns `true` if @ref set_headers has been
+        called and no @ref start or @ref start_stream
+        function has been called since. This indicates
+        that the serializer is ready to begin
+        serialization with a body style.
+
+        @see
+            @ref set_headers,
+            @ref is_done.
+    */
+    BOOST_HTTP_PROTO_DECL
+    bool
+    is_headers_set() const noexcept;
+
     /** Set the message headers for serialization.
 
         This function prepares the serializer with the
@@ -819,10 +835,6 @@ private:
 
     BOOST_HTTP_PROTO_DECL
     void
-    start_empty_impl();
-
-    BOOST_HTTP_PROTO_DECL
-    void
     start_buffers_impl(
         cbs_gen&);
 
@@ -830,10 +842,6 @@ private:
     void
     start_source_impl(
         source&);
-
-    BOOST_HTTP_PROTO_DECL
-    stream
-    start_stream_impl();
 
     impl* impl_ = nullptr;
 };

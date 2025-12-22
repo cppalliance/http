@@ -282,7 +282,7 @@ class serializer::impl
     enum class state
     {
         reset,
-        start,
+        initialized,
         headers_set,
         header,
         body
@@ -309,7 +309,7 @@ class serializer::impl
     detail::array_of_const_buffers prepped_;
     buffers::const_buffer tmp_;
 
-    state state_ = state::start;
+    state state_ = state::initialized;
     style style_ = style::empty;
     uint8_t chunk_header_len_ = 0;
     bool more_input_ = false;
@@ -333,7 +333,7 @@ public:
     reset() noexcept
     {
         ws_.clear();
-        state_ = state::start;
+        state_ = state::initialized;
     }
 
     auto
@@ -639,11 +639,11 @@ public:
         message_base const& m)
     {
         // Precondition violation
-        if(state_ != state::start)
+        if(state_ != state::initialized)
             detail::throw_logic_error();
 
         // TODO: To uphold the strong exception guarantee,
-        // `state_` must be reset to `state::start` if an
+        // `state_` must be reset to `state::initialized` if an
         // exception is thrown during the start operation.
         state_ = state::headers_set;
 
@@ -880,7 +880,13 @@ public:
     bool
     is_done() const noexcept
     {
-        return state_ == state::start;
+        return state_ == state::initialized;
+    }
+
+    bool
+    is_headers_set() const noexcept
+    {
+        return state_ == state::headers_set;
     }
 
     detail::workspace&
@@ -1093,6 +1099,14 @@ is_done() const noexcept
     return impl_->is_done();
 }
 
+bool
+serializer::
+is_headers_set() const noexcept
+{
+    BOOST_ASSERT(impl_);
+    return impl_->is_headers_set();
+}
+
 //------------------------------------------------
 
 detail::workspace&
@@ -1101,14 +1115,6 @@ ws()
 {
     BOOST_ASSERT(impl_);
     return impl_->ws();
-}
-
-void
-serializer::
-start_empty_impl()
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_empty_impl();
 }
 
 void
@@ -1127,14 +1133,6 @@ start_source_impl(
 {
     BOOST_ASSERT(impl_);
     impl_->start_source_impl(source);
-}
-
-auto
-serializer::
-start_stream_impl() -> stream
-{
-    BOOST_ASSERT(impl_);
-    return impl_->start_stream_impl();
 }
 
 //------------------------------------------------
