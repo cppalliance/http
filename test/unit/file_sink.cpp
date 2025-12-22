@@ -57,7 +57,7 @@ struct file_sink_test
     {
         // passing a closed file
         {
-            file f;
+            capy::file f;
             file_sink fsink(std::move(f));
             buffers::const_buffer cb("123", 3);
             auto rs = fsink.write(cb, true);
@@ -70,9 +70,9 @@ struct file_sink_test
     testWrite()
     {
         temp_path path;
-        file f;
+        capy::file f;
         system::error_code ec;
-        f.open(path, file_mode::write, ec);
+        f.open(path, capy::file_mode::write, ec);
         BOOST_TEST(!ec);
         BOOST_TEST(f.is_open());
         file_sink fsink(std::move(f));

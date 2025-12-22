@@ -12,8 +12,8 @@
 #define BOOST_HTTP_PROTO_FILE_SINK_HPP
 
 #include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/file.hpp>
 #include <boost/http_proto/sink.hpp>
+#include <boost/capy/file.hpp>
 
 namespace boost {
 namespace http_proto {
@@ -39,7 +39,7 @@ namespace http_proto {
 class file_sink
     : public sink
 {
-    file f_;
+    capy::file f_;
 
 public:
     /** Constructor.
@@ -49,7 +49,7 @@ public:
     */
     BOOST_HTTP_PROTO_DECL
     explicit
-    file_sink(file&& f) noexcept;
+    file_sink(capy::file&& f) noexcept;
 
     file_sink() = delete;
     file_sink(file_sink const&) = delete;

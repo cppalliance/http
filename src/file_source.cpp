@@ -21,7 +21,7 @@ file_source(file_source&&) noexcept = default;
 
 file_source::
 file_source(
-    file&& f,
+    capy::file&& f,
     std::uint64_t limit) noexcept
     : f_(std::move(f))
     , n_(limit)

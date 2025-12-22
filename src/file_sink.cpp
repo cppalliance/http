@@ -14,7 +14,8 @@ namespace boost {
 namespace http_proto {
 
 file_sink::
-file_sink(file&& f) noexcept
+file_sink(
+    capy::file&& f) noexcept
     : f_(std::move(f))
 {
 }

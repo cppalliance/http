@@ -12,8 +12,8 @@
 #define BOOST_HTTP_PROTO_FILE_SOURCE_HPP
 
 #include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/file.hpp>
 #include <boost/http_proto/source.hpp>
+#include <boost/capy/file.hpp>
 #include <cstdint>
 
 namespace boost {
@@ -41,7 +41,7 @@ namespace http_proto {
 class file_source
     : public source
 {
-    file f_;
+    capy::file f_;
     std::uint64_t n_;
 
 public:
@@ -57,7 +57,7 @@ public:
     */
     BOOST_HTTP_PROTO_DECL
     file_source(
-        file&& f,
+        capy::file&& f,
         std::uint64_t limit =
             std::uint64_t(-1)) noexcept;
 
