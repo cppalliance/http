@@ -18,9 +18,39 @@ namespace http_proto {
 
 struct router_types_test
 {
+    template<typename Error>
+    void
+    check(
+        char const* name,
+        Error ev)
+    {
+        auto const ec = make_error_code(ev);
+        BOOST_TEST(std::string(ec.category().name()) == name);
+        BOOST_TEST(! ec.message().empty());
+        BOOST_TEST(
+            std::addressof(ec.category()) ==
+            std::addressof(make_error_code(ev).category()));
+        BOOST_TEST(ec.category().equivalent(
+            static_cast<typename std::underlying_type<Error>::type>(ev),
+                ec.category().default_error_condition(
+                    static_cast<typename std::underlying_type<Error>::type>(ev))));
+        BOOST_TEST(ec.category().equivalent(ec,
+            static_cast<typename std::underlying_type<Error>::type>(ev)));
+    }
+
     void
     run()
     {
+        {
+            char const* const n = "boost.http.route";
+            check(n, route::close);
+            check(n, route::complete);
+            check(n, route::suspend);
+            check(n, route::next);
+            check(n, route::next_route);
+            check(n, route::send);
+        }
+
         basic_router<route_params_base> r;
         r.add(http_proto::method::post, "/",
             [](route_params_base& rp) ->

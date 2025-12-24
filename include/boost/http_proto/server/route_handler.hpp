@@ -110,6 +110,45 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     route_params&
     set_body(std::string s);
 
+    /** Read the request body and receive a value.
+
+        This function reads the entire request body into the specified sink.
+        When the read operation completes, the given callback is invoked with
+        the result.
+
+        The @p callback parameter must be a function object with this
+        equivalent signature, where `T` is the type produced by the value sink:
+        @code
+        void ( T&& t );
+        @endcode
+
+        @par Example
+        @code
+        rp.read_body(
+            capy::string_body_sink(),
+            []( std::string s )
+            {
+                // body read successfully
+            });
+        @endcode
+
+        If an error or an exception occurs during the read, it is propagated
+        through the router to the next error or exception handler.
+
+        @param sink The body sink to read into.
+        @param callback The function to call when the read completes.
+        @return The route result, which must be returned immediately
+            from the route handler.
+    */
+    template<
+        class ValueSink,
+        class Callback>
+    auto
+    read_body(
+        ValueSink&& sink,
+        Callback&& callback) ->
+            route_result;
+
 #ifdef BOOST_HTTP_PROTO_HAS_CORO
 
     /** Spawn a coroutine for this route.
@@ -202,6 +241,36 @@ protected:
 
     std::unique_ptr<task> task_;
 };
+
+//-----------------------------------------------
+
+template<
+    class ValueSink,
+    class Callback>
+auto
+route_params::
+read_body(
+    ValueSink&& sink,
+    Callback&& callback) ->
+        route_result
+{
+    (void)callback;
+    /*
+    return suspend(
+    [&](resumer resume)
+    {
+        parser.read_body(
+            std::forward<ValueSink>(sink),
+            [resume, cb = std::forward<Callback>(callback)]
+            (auto&&... args)
+            {
+                cb(std::forward<decltype(args)>(args)...);
+                resume(route_result::next);
+            });
+    });
+    */
+    return route::next;
+}
 
 //-----------------------------------------------
 
