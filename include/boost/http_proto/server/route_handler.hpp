@@ -214,8 +214,7 @@ post(F&& f) -> route_result
     if(task_)
         detail::throw_invalid_argument();
 
-    struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
-        immediate : suspender::owner
+    struct immediate : suspender::owner
     {
         route_result rv;
         bool set = false;
@@ -227,9 +226,7 @@ post(F&& f) -> route_result
         }
     };
 
-    class BOOST_HTTP_PROTO_SYMBOL_VISIBLE model
-        : public task
-        , public suspender::owner
+    class model: public task, suspender::owner
     {
     public:
         model(route_params& p,
