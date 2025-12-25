@@ -287,6 +287,12 @@ public:
     parse(
         system::error_code& ec);
 
+    /** Return true if a body has been attached.
+    */
+    BOOST_HTTP_PROTO_DECL
+    bool
+    is_body_set() const noexcept;
+
     /** Attach an elastic buffer body.
 
         This function attaches the specified elastic
@@ -633,10 +639,6 @@ private:
     BOOST_HTTP_PROTO_DECL
     detail::workspace&
     ws() noexcept;
-
-    BOOST_HTTP_PROTO_DECL
-    bool
-    is_body_set() const noexcept;
 
     BOOST_HTTP_PROTO_DECL
     void

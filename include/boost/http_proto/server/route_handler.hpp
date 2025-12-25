@@ -240,6 +240,7 @@ protected:
     virtual void do_post();
 
     std::unique_ptr<task> task_;
+    std::function<void(void)> finish_;
 };
 
 //-----------------------------------------------
@@ -254,22 +255,39 @@ read_body(
     Callback&& callback) ->
         route_result
 {
-    (void)callback;
-    /*
-    return suspend(
-    [&](resumer resume)
+    using T = typename std::decay<ValueSink>::type;
+
+    struct on_finish
     {
-        parser.read_body(
-            std::forward<ValueSink>(sink),
-            [resume, cb = std::forward<Callback>(callback)]
-            (auto&&... args)
-            {
-                cb(std::forward<decltype(args)>(args)...);
-                resume(route_result::next);
-            });
-    });
-    */
-    return route::next;
+        T& sink;
+        resumer resume;
+        typename std::decay<Callback>::type cb;
+
+        on_finish(
+            T& sink_,
+            resumer resume_,
+            Callback&& cb_) 
+            : sink(sink_)
+            , resume(resume_)
+            , cb(std::forward<Callback>(cb_))
+        {
+        }
+
+        void operator()()
+        {
+            resume(std::move(cb)(sink.release()));
+        }
+    };
+
+    return suspend(
+        [&](resumer resume)
+        {
+            finish_ = on_finish(
+                this->parser.set_body<T>(
+                    std::forward<ValueSink>(sink)),
+                resume,
+                std::forward<Callback>(callback));
+        });
 }
 
 //-----------------------------------------------
