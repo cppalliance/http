@@ -13,6 +13,7 @@
 #include <boost/http_proto/detail/config.hpp>
 #include <boost/http_proto/server/router_types.hpp>
 #include <boost/capy/datastore.hpp>
+#include <boost/capy/executor.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/http_proto/request.hpp>  // VFALCO forward declare?
 #include <boost/http_proto/request_parser.hpp>  // VFALCO forward declare?
@@ -80,6 +81,10 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
         This can be used to suepend from the router and resume routing later.
     */
     suspender suspend;
+
+    /** Executor associated with the session.
+    */
+    capy::executor ex;
 
     /** Destructor
     */
@@ -176,70 +181,13 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
             from the route handler.
     */
     BOOST_HTTP_PROTO_DECL
-    virtual auto spawn(
+    auto spawn(
         capy::task<route_result> coro) ->
             route_result;
 
 #endif
 
-    // VFALCO this doc isn't quite right because it doesn't explain
-    // the possibility that post will return the final result immediately,
-    // and it needs to remind the user that calling a function which
-    // returns route_result means they have to return the value right away
-    // without doing anything else.
-    //
-    // VFALCO we have to detect calls to suspend inside `f` and throw
-    //
-    /** Submit cooperative work.
-
-        This function suspend the current handler from the session,
-        and immediately invokes the specified function object @p f.
-        When the function returns normally, the function object is
-        placed into an implementation-defined work queue to be invoked
-        again. Otherwise, if the function calls `resume(rv)` then the
-        session is resumed and behaves as if the original route handler
-        had returned the value `rv`.
-
-        When the function object is invoked, it runs in the same context
-        as the original handler invocation. If the function object
-        attempts to call @ref post again, or attempts to call @ref suspend
-        an exception is thrown.
-
-        The function object @p f must have this equivalent signature:
-        @code
-        void ( resumer resume );
-        @endcode
-
-        @param f The function object to invoke.
-        @param c The continuation function to be invoked when f finishes.
-    */
-    template<class F>
-    auto
-    post(F&& f) -> route_result;
-
 protected:
-    /** A task to be invoked later
-    */
-    struct task
-    {
-        virtual ~task() = default;
-
-        /** Invoke the task.
-
-            @return true if the task resumed the session.
-        */
-        virtual bool invoke() = 0;
-    };
-
-    /** Post task_ to be invoked later
-
-        Subclasses must schedule task_ to be invoked at an unspecified
-        point in the future.
-    */
-    BOOST_HTTP_PROTO_DECL
-    virtual void do_post();
-
-    std::unique_ptr<task> task_;
     std::function<void(void)> finish_;
 };
 
@@ -287,79 +235,6 @@ read_body(
                     std::forward<ValueSink>(sink)),
                 resume,
                 std::forward<Callback>(callback));
-        });
-}
-
-//-----------------------------------------------
-
-template<class F>
-auto
-route_params::
-post(F&& f) -> route_result
-{
-    // task already posted
-    if(task_)
-        detail::throw_invalid_argument();
-
-    struct immediate : suspender::owner
-    {
-        route_result rv;
-        bool set = false;
-        void do_resume(
-            route_result const& rv_) override
-        {
-            rv = rv_;
-            set = true;
-        }
-    };
-
-    class model: public task, suspender::owner
-    {
-    public:
-        model(route_params& p,
-            F&& f, resumer resume)
-            : p_(p)
-            , f_(std::forward<F>(f))
-            , resume_(resume)
-        {
-        }
-
-        bool invoke() override
-        {
-            resumed_ = false;
-            // VFALCO analyze exception safety
-            f_(resumer(*this));
-            return resumed_;
-        }
-
-        void do_resume(
-            route_result const& rv) override
-        {
-            resumed_ = true;
-            resumer resume(resume_);
-            p_.task_.reset(); // destroys *this
-            resume(rv);
-        }
-
-    private:
-        route_params& p_;
-        typename std::decay<F>::type f_;
-        resumer resume_;
-        bool resumed_;
-    };
-
-    // first call
-    immediate impl;
-    f(resumer(impl));
-    if(impl.set)
-        return impl.rv;
-
-    return suspend(
-        [&](resumer resume)
-        {
-            task_ = std::unique_ptr<task>(new model(
-                *this, std::forward<F>(f), resume));
-            do_post();
         });
 }
 

@@ -167,8 +167,10 @@ public:
     struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
         owner
     {
-        BOOST_HTTP_PROTO_DECL virtual resumer do_suspend();
+        BOOST_HTTP_PROTO_DECL
+        virtual resumer do_suspend();
         virtual void do_resume(route_result const&) = 0;
+        virtual void do_resume(std::exception_ptr) = 0;
     };
 
     suspender() = default;
@@ -253,7 +255,7 @@ public:
         When a session is resumed, routing continues as if the handler
         had returned the @ref route_result contained in @p rv.
 
-        @param ec The error code to resume with.
+        @param rv The route result to resume with.
 
         @throw std::invalid_argument If the object is empty.
     */
@@ -263,6 +265,23 @@ public:
         if(! p_)
             detail::throw_invalid_argument();
         p_->do_resume(rv);
+    }
+
+    /** Resume the session with an exception
+
+        When a session is resumed with an exception, the exception
+        is propagated through the router's error handling mechanism.
+
+        @param ep The exception to propagate.
+
+        @throw std::invalid_argument If the object is empty.
+    */
+    void operator()(
+        std::exception_ptr ep) const
+    {
+        if(! p_)
+            detail::throw_invalid_argument();
+        p_->do_resume(ep);
     }
 
 private:
