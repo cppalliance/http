@@ -41,12 +41,14 @@ lib boost_http_proto
    : requirements
      <library>/boost//buffers
      <library>/boost//capy
+     <library>/boost//json
      <library>/boost//url
      <include>../
      <define>BOOST_HTTP_PROTO_SOURCE
    : usage-requirements
      <library>/boost//buffers
      <library>/boost//capy
+     <library>/boost//json
      <library>/boost//url
    ;
 
