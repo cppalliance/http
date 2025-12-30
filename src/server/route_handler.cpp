@@ -73,8 +73,9 @@ spawn(
                     return;
                 }
                 auto rv = std::move(std::get<1>(r));
+                auto resume_ = resume; // would be destroyed
                 h.destroy();
-                resume(rv);
+                resume_(rv);
             };
 
             ex.post([h]() { h.resume(); });
