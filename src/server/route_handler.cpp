@@ -9,8 +9,6 @@
 
 #include <boost/http_proto/server/route_handler.hpp>
 #include <boost/http_proto/string_body.hpp>
-#include <boost/assert.hpp>
-#include <cstring>
 
 namespace boost {
 namespace http_proto {
@@ -56,24 +54,35 @@ set_body(std::string s)
 auto
 route_params::
 spawn(
-    capy::task<route_result>) ->
+    capy::task<route_result> t) ->
         route_result
 {
-    detail::throw_invalid_argument();
+    return this->suspend(
+        [ex = this->ex, t = std::move(t)](resumer resume) mutable
+        {
+            auto h = t.release();
+
+            h.promise().on_done = [resume, h]()
+            {
+                auto& r = h.promise().result;
+                if(r.index() == 2)
+                {
+                    auto ep = std::get<2>(r);
+                    h.destroy();
+                    resume(ep);
+                    return;
+                }
+                auto rv = std::move(std::get<1>(r));
+                auto resume_ = resume; // would be destroyed
+                h.destroy();
+                resume_(rv);
+            };
+
+            ex.post([h]() { h.resume(); });
+        });
 }
 
 #endif
-
-void
-route_params::
-do_post()
-{
-    BOOST_ASSERT(task_);
-    // invoke until task resumes
-    for(;;)
-        if(task_->invoke())
-            break;
-}
 
 } // http_proto
 } // boost

@@ -13,6 +13,7 @@
 #include <boost/http_proto/detail/config.hpp>
 #include <boost/http_proto/server/router_types.hpp>
 #include <boost/capy/datastore.hpp>
+#include <boost/capy/executor.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/http_proto/request.hpp>  // VFALCO forward declare?
 #include <boost/http_proto/request_parser.hpp>  // VFALCO forward declare?
@@ -81,6 +82,10 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     */
     suspender suspend;
 
+    /** Executor associated with the session.
+    */
+    capy::executor ex;
+
     /** Destructor
     */
     BOOST_HTTP_PROTO_DECL
@@ -110,6 +115,45 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
     route_params&
     set_body(std::string s);
 
+    /** Read the request body and receive a value.
+
+        This function reads the entire request body into the specified sink.
+        When the read operation completes, the given callback is invoked with
+        the result.
+
+        The @p callback parameter must be a function object with this
+        equivalent signature, where `T` is the type produced by the value sink:
+        @code
+        void ( T&& t );
+        @endcode
+
+        @par Example
+        @code
+        rp.read_body(
+            capy::string_body_sink(),
+            []( std::string s )
+            {
+                // body read successfully
+            });
+        @endcode
+
+        If an error or an exception occurs during the read, it is propagated
+        through the router to the next error or exception handler.
+
+        @param sink The body sink to read into.
+        @param callback The function to call when the read completes.
+        @return The route result, which must be returned immediately
+            from the route handler.
+    */
+    template<
+        class ValueSink,
+        class Callback>
+    auto
+    read_body(
+        ValueSink&& sink,
+        Callback&& callback) ->
+            route_result;
+
 #ifdef BOOST_HTTP_PROTO_HAS_CORO
 
     /** Spawn a coroutine for this route.
@@ -137,145 +181,60 @@ struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
             from the route handler.
     */
     BOOST_HTTP_PROTO_DECL
-    virtual auto spawn(
+    auto spawn(
         capy::task<route_result> coro) ->
             route_result;
 
 #endif
 
-    // VFALCO this doc isn't quite right because it doesn't explain
-    // the possibility that post will return the final result immediately,
-    // and it needs to remind the user that calling a function which
-    // returns route_result means they have to return the value right away
-    // without doing anything else.
-    //
-    // VFALCO we have to detect calls to suspend inside `f` and throw
-    //
-    /** Submit cooperative work.
-
-        This function suspend the current handler from the session,
-        and immediately invokes the specified function object @p f.
-        When the function returns normally, the function object is
-        placed into an implementation-defined work queue to be invoked
-        again. Otherwise, if the function calls `resume(rv)` then the
-        session is resumed and behaves as if the original route handler
-        had returned the value `rv`.
-
-        When the function object is invoked, it runs in the same context
-        as the original handler invocation. If the function object
-        attempts to call @ref post again, or attempts to call @ref suspend
-        an exception is thrown.
-
-        The function object @p f must have this equivalent signature:
-        @code
-        void ( resumer resume );
-        @endcode
-
-        @param f The function object to invoke.
-        @param c The continuation function to be invoked when f finishes.
-    */
-    template<class F>
-    auto
-    post(F&& f) -> route_result;
-
 protected:
-    /** A task to be invoked later
-    */
-    struct task
-    {
-        virtual ~task() = default;
-
-        /** Invoke the task.
-
-            @return true if the task resumed the session.
-        */
-        virtual bool invoke() = 0;
-    };
-
-    /** Post task_ to be invoked later
-
-        Subclasses must schedule task_ to be invoked at an unspecified
-        point in the future.
-    */
-    BOOST_HTTP_PROTO_DECL
-    virtual void do_post();
-
-    std::unique_ptr<task> task_;
+    std::function<void(void)> finish_;
 };
 
 //-----------------------------------------------
 
-template<class F>
+template<
+    class ValueSink,
+    class Callback>
 auto
 route_params::
-post(F&& f) -> route_result
+read_body(
+    ValueSink&& sink,
+    Callback&& callback) ->
+        route_result
 {
-    // task already posted
-    if(task_)
-        detail::throw_invalid_argument();
+    using T = typename std::decay<ValueSink>::type;
 
-    struct BOOST_HTTP_PROTO_SYMBOL_VISIBLE
-        immediate : suspender::owner
+    struct on_finish
     {
-        route_result rv;
-        bool set = false;
-        void do_resume(
-            route_result const& rv_) override
+        T& sink;
+        resumer resume;
+        typename std::decay<Callback>::type cb;
+
+        on_finish(
+            T& sink_,
+            resumer resume_,
+            Callback&& cb_) 
+            : sink(sink_)
+            , resume(resume_)
+            , cb(std::forward<Callback>(cb_))
         {
-            rv = rv_;
-            set = true;
+        }
+
+        void operator()()
+        {
+            resume(std::move(cb)(sink.release()));
         }
     };
-
-    class BOOST_HTTP_PROTO_SYMBOL_VISIBLE model
-        : public task
-        , public suspender::owner
-    {
-    public:
-        model(route_params& p,
-            F&& f, resumer resume)
-            : p_(p)
-            , f_(std::forward<F>(f))
-            , resume_(resume)
-        {
-        }
-
-        bool invoke() override
-        {
-            resumed_ = false;
-            // VFALCO analyze exception safety
-            f_(resumer(*this));
-            return resumed_;
-        }
-
-        void do_resume(
-            route_result const& rv) override
-        {
-            resumed_ = true;
-            resumer resume(resume_);
-            p_.task_.reset(); // destroys *this
-            resume(rv);
-        }
-
-    private:
-        route_params& p_;
-        typename std::decay<F>::type f_;
-        resumer resume_;
-        bool resumed_;
-    };
-
-    // first call
-    immediate impl;
-    f(resumer(impl));
-    if(impl.set)
-        return impl.rv;
 
     return suspend(
         [&](resumer resume)
         {
-            task_ = std::unique_ptr<task>(new model(
-                *this, std::forward<F>(f), resume));
-            do_post();
+            finish_ = on_finish(
+                this->parser.set_body<T>(
+                    std::forward<ValueSink>(sink)),
+                resume,
+                std::forward<Callback>(callback));
         });
 }
 

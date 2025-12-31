@@ -58,7 +58,7 @@ struct file_source_test
     {
         // passing a closed file
         {
-            file f;
+            capy::file f;
             file_source fsource(std::move(f));
             char buf[16] = {};
             auto rs = fsource.read(
@@ -74,9 +74,9 @@ struct file_source_test
     {
         temp_path path;
         write_file(path, "Hello, World!");
-        file f;
+        capy::file f;
         system::error_code ec;
-        f.open(path, file_mode::read, ec);
+        f.open(path, capy::file_mode::read, ec);
         BOOST_TEST(!ec);
         BOOST_TEST(f.is_open());
         file_source fsource(std::move(f));
@@ -101,9 +101,9 @@ struct file_source_test
     {
         temp_path path;
         write_file(path, "Hello, World!");
-        file f;
+        capy::file f;
         system::error_code ec;
-        f.open(path, file_mode::read, ec);
+        f.open(path, capy::file_mode::read, ec);
         file_source fsource(
             std::move(f),
             6); // Bounded to 6 bytes

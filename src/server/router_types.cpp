@@ -21,7 +21,7 @@ const char*
 route_cat_type::
 name() const noexcept
 {
-    return "boost.http";
+    return "boost.http.route";
 }
 
 std::string
@@ -40,12 +40,12 @@ message(
 {
     switch(static_cast<route>(code))
     {
-    case route::close:      return "route::close";
-    case route::complete:   return "route::complete";
-    case route::suspend:     return "route::suspend";
-    case route::next:       return "route::next";
-    case route::next_route: return "route::next_route";
-    case route::send:       return "route::send";
+    case route::close:      return "close";
+    case route::complete:   return "complete";
+    case route::suspend:    return "suspend";
+    case route::next:       return "next";
+    case route::next_route: return "next_route";
+    case route::send:       return "send";
     default:
         return "?";
     }
