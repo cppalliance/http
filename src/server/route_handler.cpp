@@ -60,25 +60,15 @@ spawn(
     return this->suspend(
         [ex = this->ex, t = std::move(t)](resumer resume) mutable
         {
-            auto h = t.release();
-
-            h.promise().on_done = [resume, h]()
-            {
-                auto& r = h.promise().result;
-                if(r.index() == 2)
+            capy::spawn(ex, std::move(t),
+                [resume](system::result<
+                    route_result, std::exception_ptr> r)
                 {
-                    auto ep = std::get<2>(r);
-                    h.destroy();
-                    resume(ep);
-                    return;
-                }
-                auto rv = std::move(std::get<1>(r));
-                auto resume_ = resume; // would be destroyed
-                h.destroy();
-                resume_(rv);
-            };
-
-            ex.post([h]() { h.resume(); });
+                    if(r.has_error())
+                        resume(r.error());
+                    else
+                        resume(*r);
+                });
         });
 }
 
