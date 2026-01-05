@@ -534,6 +534,295 @@ public:
     bool
     is_done() const noexcept;
 
+    /** Return true if headers have been set.
+
+        Returns `true` if @ref set_headers has been
+        called and no @ref start or @ref start_stream
+        function has been called since. This indicates
+        that the serializer is ready to begin
+        serialization with a body style.
+
+        @see
+            @ref set_headers,
+            @ref is_done.
+    */
+    BOOST_HTTP_PROTO_DECL
+    bool
+    is_headers_set() const noexcept;
+
+    /** Set the message headers for serialization.
+
+        This function prepares the serializer with the
+        HTTP start-line and headers from `m`. After
+        calling this function, one of the @ref start
+        or @ref start_stream overloads that do not
+        take a message parameter must be called to
+        begin serialization.
+
+        Changing the contents of the message after
+        calling this function and before @ref is_done
+        returns `true` results in undefined behavior.
+
+        @par Preconditions
+        @code
+        this->is_done() == true
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error `this->is_done() == false`.
+
+        @param m The request or response headers to serialize.
+
+        @see
+            @ref message_base.
+    */
+    BOOST_HTTP_PROTO_DECL
+    void
+    set_headers(message_base const& m);
+
+    /** Start serializing a message with an empty body.
+
+        This overload requires @ref set_headers to have
+        been called first.
+
+        @par Preconditions
+        @ref set_headers has been called and no @ref start
+        or @ref start_stream function has been called since.
+
+        @par Postconditions
+        @code
+        this->is_done() == false
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if @ref set_headers was not called.
+
+        @throw std::length_error if there is insufficient internal buffer
+        space to start the operation.
+
+        @see
+            @ref set_headers.
+    */
+    BOOST_HTTP_PROTO_DECL
+    void
+    start();
+
+    /** Start serializing a message with a buffer sequence body.
+
+        This overload requires @ref set_headers to have
+        been called first.
+
+        At least one copy of the specified buffer sequence is maintained until
+        the serializer is done, gets reset, or is destroyed, after which all
+        of its copies are destroyed. Ownership of the underlying memory is not
+        transferred; the caller must ensure the memory remains valid until the
+        serializer's copies are destroyed.
+
+        @par Preconditions
+        @ref set_headers has been called and no @ref start
+        or @ref start_stream function has been called since.
+
+        @par Postconditions
+        @code
+        this->is_done() == false
+        @endcode
+
+        @par Constraints
+        @code
+        buffers::is_const_buffer_sequence_v<ConstBufferSequence> == true
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if @ref set_headers was not called.
+
+        @throw std::length_error If there is insufficient internal buffer
+        space to start the operation.
+
+        @param buffers A buffer sequence containing the message body.
+
+        @see
+            @ref set_headers.
+    */
+    template<
+        class ConstBufferSequence,
+        class = typename std::enable_if<
+            buffers::is_const_buffer_sequence<
+                ConstBufferSequence>::value>::type
+    >
+    void
+    start(
+        ConstBufferSequence&& buffers);
+
+    /** Start serializing a message with a @em Source body.
+
+        This overload requires @ref set_headers to have
+        been called first.
+
+        The serializer destroys the Source object when:
+        @li `this->is_done() == true`
+        @li An unrecoverable serialization error occurs
+        @li The serializer is destroyed
+
+        @par Example
+        @code
+        file f("example.zip", file_mode::scan);
+        response.set_payload_size(f.size());
+        serializer.set_headers(response);
+        serializer.start<file_source>(std::move(f));
+        @endcode
+
+        @par Preconditions
+        @ref set_headers has been called and no @ref start
+        or @ref start_stream function has been called since.
+
+        @par Postconditions
+        @code
+        this->is_done() == false
+        @endcode
+
+        @par Constraints
+        @code
+        is_source<Source>::value == true
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if @ref set_headers was not called.
+
+        @throw std::length_error if there is insufficient
+        internal buffer space to start the operation.
+
+        @param args Arguments to be passed to the
+        `Source` constructor.
+
+        @return A reference to the constructed Source object.
+
+        @see
+            @ref set_headers,
+            @ref source,
+            @ref file_source.
+    */
+    template<
+        class Source,
+        class Arg0,
+        class... Args,
+        class = typename std::enable_if<
+            is_source<Source>::value &&
+            !std::is_convertible<
+                Arg0,
+                message_base const&>::value>::type>
+    Source&
+    start(Arg0&& arg0, Args&&... args);
+
+    /** Start serializing a message with a @em Source body.
+
+        This overload requires @ref set_headers to have
+        been called first. This version takes no arguments
+        and default-constructs the Source.
+
+        @par Preconditions
+        @ref set_headers has been called and no @ref start
+        or @ref start_stream function has been called since.
+
+        @par Postconditions
+        @code
+        this->is_done() == false
+        @endcode
+
+        @par Constraints
+        @code
+        is_source<Source>::value == true
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if @ref set_headers was not called.
+
+        @throw std::length_error if there is insufficient
+        internal buffer space to start the operation.
+
+        @return A reference to the constructed Source object.
+
+        @see
+            @ref set_headers,
+            @ref source.
+    */
+    template<
+        class Source,
+        class = typename std::enable_if<
+            is_source<Source>::value>::type>
+    Source&
+    start();
+
+    /** Start serializing a message using a stream interface.
+
+        This overload requires @ref set_headers to have
+        been called first.
+
+        Returns a @ref stream object for writing the body
+        data into the serializer's internal buffer.
+
+        Once the serializer is destroyed, @ref reset
+        is called, or @ref is_done returns true, the
+        only valid operation on the stream is destruction.
+
+        @par Example
+        @code
+        serializer.set_headers(response);
+        serializer::stream st = serializer.start_stream();
+        do
+        {
+            if(st.is_open())
+            {
+                std::size_t n = source.read_some(st.prepare());
+
+                if(ec == error::eof)
+                    st.close();
+                else
+                    st.commit(n);
+            }
+
+            write_some(client, serializer);
+
+        } while(!serializer.is_done());
+        @endcode
+
+        @par Preconditions
+        @ref set_headers has been called and no @ref start
+        or @ref start_stream function has been called since.
+
+        @par Postconditions
+        @code
+        this->is_done() == false
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if @ref set_headers was not called.
+
+        @throw std::length_error if there is insufficient
+        internal buffer space to start the operation.
+
+        @return A @ref stream object for writing the body
+        data into the serializer's internal buffer.
+
+        @see
+            @ref set_headers,
+            @ref stream.
+     */
+    BOOST_HTTP_PROTO_DECL
+    stream
+    start_stream();
+
 private:
     class impl;
     class cbs_gen;
@@ -546,19 +835,12 @@ private:
 
     BOOST_HTTP_PROTO_DECL
     void
-    start_init(
-        message_base const&);
-
-    BOOST_HTTP_PROTO_DECL
-    void
-    start_buffers(
-        message_base const&,
+    start_buffers_impl(
         cbs_gen&);
 
     BOOST_HTTP_PROTO_DECL
     void
-    start_source(
-        message_base const&,
+    start_source_impl(
         source&);
 
     impl* impl_ = nullptr;

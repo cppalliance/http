@@ -282,7 +282,8 @@ class serializer::impl
     enum class state
     {
         reset,
-        start,
+        initialized,
+        headers_set,
         header,
         body
     };
@@ -308,13 +309,17 @@ class serializer::impl
     detail::array_of_const_buffers prepped_;
     buffers::const_buffer tmp_;
 
-    state state_ = state::start;
+    state state_ = state::initialized;
     style style_ = style::empty;
     uint8_t chunk_header_len_ = 0;
     bool more_input_ = false;
     bool is_chunked_ = false;
     bool needs_exp100_continue_ = false;
     bool filter_done_ = false;
+
+    // Stored header buffer from set_headers
+    char const* header_cbuf_ = nullptr;
+    std::size_t header_size_ = 0;
 
 public:
     impl(const capy::polystore& ctx)
@@ -328,7 +333,7 @@ public:
     reset() noexcept
     {
         ws_.clear();
-        state_ = state::start;
+        state_ = state::initialized;
     }
 
     auto
@@ -630,17 +635,17 @@ public:
     }
 
     void
-    start_init(
+    set_headers(
         message_base const& m)
     {
         // Precondition violation
-        if(state_ != state::start)
+        if(state_ != state::initialized)
             detail::throw_logic_error();
 
         // TODO: To uphold the strong exception guarantee,
-        // `state_` must be reset to `state::start` if an
+        // `state_` must be reset to `state::initialized` if an
         // exception is thrown during the start operation.
-        state_ = state::header;
+        state_ = state::headers_set;
 
         // VFALCO what do we do with
         // metadata error code failures?
@@ -695,13 +700,55 @@ public:
             filter_ = nullptr;
             break;
         }
+
+        // Store header buffer for later use
+        header_cbuf_ = m.h_.cbuf;
+        header_size_ = m.h_.size;
     }
 
     void
     start_empty(
         message_base const& m)
     {
-        start_init(m);
+        set_headers(m);
+        start_empty_impl();
+    }
+
+    void
+    start_buffers(
+        message_base const& m,
+        cbs_gen& cbs_gen)
+    {
+        set_headers(m);
+        start_buffers_impl(cbs_gen);
+    }
+
+    void
+    start_source(
+        message_base const& m,
+        source& source)
+    {
+        set_headers(m);
+        start_source_impl(source);
+    }
+
+    stream
+    start_stream(message_base const& m)
+    {
+        set_headers(m);
+        return start_stream_impl();
+    }
+
+    // New methods that use stored header from set_headers()
+
+    void
+    start_empty_impl()
+    {
+        // Precondition violation
+        if(state_ != state::headers_set)
+            detail::throw_logic_error();
+
+        state_ = state::header;
         style_ = style::empty;
 
         prepped_ = make_array(
@@ -713,16 +760,19 @@ public:
         if(!filter_)
             out_finish();
 
-        prepped_.append({ m.h_.cbuf, m.h_.size });
+        prepped_.append({ header_cbuf_, header_size_ });
         more_input_ = false;
     }
 
     void
-    start_buffers(
-        message_base const& m,
+    start_buffers_impl(
         cbs_gen& cbs_gen)
     {
-        // start_init() already called 
+        // Precondition violation
+        if(state_ != state::headers_set)
+            detail::throw_logic_error();
+
+        state_ = state::header;
         style_ = style::buffers;
         cbs_gen_ = &cbs_gen;
 
@@ -736,7 +786,7 @@ public:
                 batch_size + // buffers
                 (is_chunked_ ? 2 : 0)); // chunk header + final chunk
 
-            prepped_.append({ m.h_.cbuf, m.h_.size });
+            prepped_.append({ header_cbuf_, header_size_ });
             more_input_ = (batch_size != 0);
 
             if(is_chunked_)
@@ -750,7 +800,7 @@ public:
                     auto h_len = chunk_header_len(stats.size);
                     buffers::mutable_buffer mb(
                         ws_.reserve_front(h_len), h_len);
-                    write_chunk_header({{ {mb}, {} }}, stats.size);    
+                    write_chunk_header({{ {mb}, {} }}, stats.size);
                     prepped_.append(mb);
                 }
             }
@@ -765,17 +815,20 @@ public:
 
         out_init();
 
-        prepped_.append({ m.h_.cbuf, m.h_.size });
+        prepped_.append({ header_cbuf_, header_size_ });
         tmp_ = {};
         more_input_ = true;
     }
 
     void
-    start_source(
-        message_base const& m,
+    start_source_impl(
         source& source)
     {
-        // start_init() already called 
+        // Precondition violation
+        if(state_ != state::headers_set)
+            detail::throw_logic_error();
+
+        state_ = state::header;
         style_ = style::source;
         source_ = &source;
 
@@ -792,14 +845,18 @@ public:
 
         out_init();
 
-        prepped_.append({ m.h_.cbuf, m.h_.size });
+        prepped_.append({ header_cbuf_, header_size_ });
         more_input_ = true;
     }
 
     stream
-    start_stream(message_base const& m)
+    start_stream_impl()
     {
-        start_init(m);
+        // Precondition violation
+        if(state_ != state::headers_set)
+            detail::throw_logic_error();
+
+        state_ = state::header;
         style_ = style::stream;
 
         prepped_ = make_array(
@@ -815,7 +872,7 @@ public:
 
         out_init();
 
-        prepped_.append({ m.h_.cbuf, m.h_.size });
+        prepped_.append({ header_cbuf_, header_size_ });
         more_input_ = true;
         return stream{ this };
     }
@@ -823,7 +880,13 @@ public:
     bool
     is_done() const noexcept
     {
-        return state_ == state::start;
+        return state_ == state::initialized;
+    }
+
+    bool
+    is_headers_set() const noexcept
+    {
+        return state_ == state::headers_set;
     }
 
     detail::workspace&
@@ -978,6 +1041,22 @@ start(message_base const& m)
     impl_->start_empty(m);
 }
 
+void
+serializer::
+set_headers(message_base const& m)
+{
+    BOOST_ASSERT(impl_);
+    impl_->set_headers(m);
+}
+
+void
+serializer::
+start()
+{
+    BOOST_ASSERT(impl_);
+    impl_->start_empty_impl();
+}
+
 auto
 serializer::
 start_stream(
@@ -985,6 +1064,14 @@ start_stream(
 {
     BOOST_ASSERT(impl_);
     return impl_->start_stream(m);
+}
+
+auto
+serializer::
+start_stream() -> stream
+{
+    BOOST_ASSERT(impl_);
+    return impl_->start_stream_impl();
 }
 
 auto
@@ -1012,6 +1099,14 @@ is_done() const noexcept
     return impl_->is_done();
 }
 
+bool
+serializer::
+is_headers_set() const noexcept
+{
+    BOOST_ASSERT(impl_);
+    return impl_->is_headers_set();
+}
+
 //------------------------------------------------
 
 detail::workspace&
@@ -1024,30 +1119,20 @@ ws()
 
 void
 serializer::
-start_init(message_base const& m)
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_init(m);
-}
-
-void
-serializer::
-start_buffers(
-    message_base const& m,
+start_buffers_impl(
     cbs_gen& cbs_gen)
 {
     BOOST_ASSERT(impl_);
-    impl_->start_buffers(m, cbs_gen);
+    impl_->start_buffers_impl(cbs_gen);
 }
 
 void
 serializer::
-start_source(
-    message_base const& m,
+start_source_impl(
     source& source)
 {
     BOOST_ASSERT(impl_);
-    impl_->start_source(m, source);
+    impl_->start_source_impl(source);
 }
 
 //------------------------------------------------
