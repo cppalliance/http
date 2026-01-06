@@ -5,19 +5,19 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/metadata.hpp>
+#include <boost/http/metadata.hpp>
 
-#include <boost/http_proto/request.hpp>
-#include <boost/http_proto/response.hpp>
+#include <boost/http/request.hpp>
+#include <boost/http/response.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 // These tests check that the message
 // containers correctly track changes
@@ -1250,7 +1250,7 @@ struct metadata_test
 
 TEST_SUITE(
     metadata_test,
-    "boost.http_proto.metadata");
+    "boost.http.metadata");
 
-} // http_proto
+} // http
 } // boost

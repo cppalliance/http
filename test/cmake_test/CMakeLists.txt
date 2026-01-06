@@ -13,15 +13,15 @@ set(__ignore__ ${CMAKE_C_COMPILER})
 set(__ignore__ ${CMAKE_C_FLAGS})
 
 if(BOOST_CI_INSTALL_TEST)
-  find_package(Boost CONFIG REQUIRED COMPONENTS http_proto)
+  find_package(Boost CONFIG REQUIRED COMPONENTS http)
 else()
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-  set(BOOST_INCLUDE_LIBRARIES http_proto)
+  set(BOOST_INCLUDE_LIBRARIES http)
   add_subdirectory(../../../.. boostorg/boost)
 endif()
 
 add_executable(main main.cpp)
-target_link_libraries(main Boost::http_proto)
+target_link_libraries(main Boost::http)
 
 enable_testing()
 add_test(NAME main COMMAND main)

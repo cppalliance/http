@@ -42,7 +42,7 @@ User-Agent: Boost\r\n
 [source]
 ----
 HTTP/1.1 200 OK\r\n
-Server: Boost.Http.Proto\r\n
+Server: Boost.HTTP\r\n
 Content-Length: 13\r\n
 \r\n
 Hello, world!

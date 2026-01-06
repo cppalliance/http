@@ -13,130 +13,130 @@
 
 [width=100%]
 |===
-3+| *HTTP PROTO* | *RFC*
+3+| *HTTP* | *RFC*
 
 | *Types (1/2)*
 
-cpp:boost::http_proto::fields[fields]
+cpp:boost::http::fields[fields]
 
-cpp:boost::http_proto::fields_base[fields_base]
+cpp:boost::http::fields_base[fields_base]
 
-cpp:boost::http_proto::file[file]
+cpp:boost::http::file[file]
 
-cpp:boost::http_proto::file_sink[file_sink]
+cpp:boost::http::file_sink[file_sink]
 
-cpp:boost::http_proto::file_source[file_source]
+cpp:boost::http::file_source[file_source]
 
-cpp:boost::http_proto::header_limits[header_limits]
+cpp:boost::http::header_limits[header_limits]
 
-cpp:boost::http_proto::message_base[message_base]
+cpp:boost::http::message_base[message_base]
 
-cpp:boost::http_proto::metadata[metadata]
+cpp:boost::http::metadata[metadata]
 
-cpp:boost::http_proto::parser[parser]
+cpp:boost::http::parser[parser]
 
-cpp:boost::http_proto::request[request]
+cpp:boost::http::request[request]
 
-cpp:boost::http_proto::request_base[request_base]
+cpp:boost::http::request_base[request_base]
 
-cpp:boost::http_proto::request_parser[request_parser]
+cpp:boost::http::request_parser[request_parser]
 
-cpp:boost::http_proto::response[response]
+cpp:boost::http::response[response]
 
-cpp:boost::http_proto::response_base[response_base]
+cpp:boost::http::response_base[response_base]
 
-cpp:boost::http_proto::response_parser[response_parser]
+cpp:boost::http::response_parser[response_parser]
 
-cpp:boost::http_proto::serializer[serializer]
+cpp:boost::http::serializer[serializer]
 
 | **Types (2/2)**
 
-cpp:boost::http_proto::sink[sink]
+cpp:boost::http::sink[sink]
 
-cpp:boost::http_proto::source[source]
+cpp:boost::http::source[source]
 
-cpp:boost::http_proto::static_request[static_request]
+cpp:boost::http::static_request[static_request]
 
-cpp:boost::http_proto::static_response[static_response]
+cpp:boost::http::static_response[static_response]
 
-cpp:boost::http_proto::string_body[string_body]
+cpp:boost::http::string_body[string_body]
 
 **Functions**
 
-cpp:boost::http_proto::combine_field_values[combine_field_values]
+cpp:boost::http::combine_field_values[combine_field_values]
 
-cpp:boost::http_proto::install_parser_service[install_parser_service]
+cpp:boost::http::install_parser_service[install_parser_service]
 
-cpp:boost::http_proto::install_serializer_service[install_serializer_service]
+cpp:boost::http::install_serializer_service[install_serializer_service]
 
-cpp:boost::http_proto::int_to_status[int_to_status]
+cpp:boost::http::int_to_status[int_to_status]
 
-cpp:boost::http_proto::obsolete_reason[obsolete_reason]
+cpp:boost::http::obsolete_reason[obsolete_reason]
 
-cpp:boost::http_proto::string_to_field[string_to_field]
+cpp:boost::http::string_to_field[string_to_field]
 
-cpp:boost::http_proto::string_to_method[string_to_method]
+cpp:boost::http::string_to_method[string_to_method]
 
-cpp:boost::http_proto::to_status_class[to_status_class]
+cpp:boost::http::to_status_class[to_status_class]
 
-cpp:boost::http_proto::to_string[to_string]
+cpp:boost::http::to_string[to_string]
 
-// cpp:boost::http_proto::operator<<[operator<<]
+// cpp:boost::http::operator<<[operator<<]
 
 | **Constants**
 
-cpp:boost::http_proto::condition[condition]
+cpp:boost::http::condition[condition]
 
-cpp:boost::http_proto::content_coding[content_coding]
+cpp:boost::http::content_coding[content_coding]
 
-cpp:boost::http_proto::error[error]
+cpp:boost::http::error[error]
 
-cpp:boost::http_proto::field[field]
+cpp:boost::http::field[field]
 
-cpp:boost::http_proto::file_mode[file_mode]
+cpp:boost::http::file_mode[file_mode]
 
-cpp:boost::http_proto::method[method]
+cpp:boost::http::method[method]
 
-cpp:boost::http_proto::payload[payload]
+cpp:boost::http::payload[payload]
 
-cpp:boost::http_proto::status[status]
+cpp:boost::http::status[status]
 
-cpp:boost::http_proto::status_class[status_class]
+cpp:boost::http::status_class[status_class]
 
-cpp:boost::http_proto::version[version]
+cpp:boost::http::version[version]
 
 **Type Traits**
 
-cpp:boost::http_proto::is_sink[is_sink]
+cpp:boost::http::is_sink[is_sink]
 
-cpp:boost::http_proto::is_source[is_source]
+cpp:boost::http::is_source[is_source]
 
 | **Grammar**
 
-cpp:boost::http_proto::parameter_rule[parameter_rule]
+cpp:boost::http::parameter_rule[parameter_rule]
 
-cpp:boost::http_proto::quoted_token_rule[quoted_token_rule]
+cpp:boost::http::quoted_token_rule[quoted_token_rule]
 
-cpp:boost::http_proto::token_rule[token_rule]
+cpp:boost::http::token_rule[token_rule]
 
-cpp:boost::http_proto::upgrade_protocol_rule[upgrade_protocol_rule]
+cpp:boost::http::upgrade_protocol_rule[upgrade_protocol_rule]
 
-cpp:boost::http_proto::upgrade_rule[upgrade_rule]
+cpp:boost::http::upgrade_rule[upgrade_rule]
 
 **Types**
 
-cpp:boost::http_proto::upgrade_protocol[upgrade_protocol]
+cpp:boost::http::upgrade_protocol[upgrade_protocol]
 
-cpp:boost::http_proto::parameter[parameter]
+cpp:boost::http::parameter[parameter]
 
-cpp:boost::http_proto::quoted_token_view[quoted_token_view]
+cpp:boost::http::quoted_token_view[quoted_token_view]
 
 **Functions**
 
-cpp:boost::http_proto::list_rule[list_rule]
+cpp:boost::http::list_rule[list_rule]
 
 **Constants**
 
-cpp:boost::http_proto::tchars[tchars]
+cpp:boost::http::tchars[tchars]
 
 |===

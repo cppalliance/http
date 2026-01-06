@@ -4,23 +4,23 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/response_base.hpp>
+#include <boost/http/response_base.hpp>
 
 #include <cstring>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 void
 response_base::
 set_start_line_impl(
-    http_proto::status sc,
+    http::status sc,
     unsigned short si,
     core::string_view rs,
-    http_proto::version v)
+    http::version v)
 {
     // TODO: check validity
     auto const vs = to_string(v);
@@ -60,7 +60,7 @@ set_start_line_impl(
 void
 response_base::
 set_version(
-    http_proto::version v)
+    http::version v)
 {
     if(v == h_.version)
         return;
@@ -79,7 +79,7 @@ set_version(
         auto op = prefix_op_t(
             *this, h_.prefix, nullptr);
         char* dest = h_.buf;
-        if(v == http_proto::version::http_1_1)
+        if(v == http::version::http_1_1)
             dest[7] = '1';
         else
             dest[7] = '0';
@@ -89,5 +89,5 @@ set_version(
     h_.on_start_line();
 }
 
-} // http_proto
+} // http
 } // boost

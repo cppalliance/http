@@ -4,11 +4,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/error.hpp>
+#include <boost/http/error.hpp>
 #include <boost/url/grammar/error.hpp>
 
 #include <memory>
@@ -16,7 +16,7 @@
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 class error_test
 {
@@ -118,7 +118,7 @@ public:
     }
 };
 
-TEST_SUITE(error_test, "boost.http_proto.error");
+TEST_SUITE(error_test, "boost.http.error");
 
-} // http_proto
+} // http
 } // boost

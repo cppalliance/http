@@ -5,13 +5,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/fields.hpp>
+#include <boost/http/fields.hpp>
 
-#include <boost/http_proto/field.hpp>
+#include <boost/http/field.hpp>
 #include <boost/core/detail/string_view.hpp>
 
 #include "test_helpers.hpp"
@@ -21,7 +21,7 @@
 #include <utility>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct fields_test
 {
@@ -342,7 +342,7 @@ struct fields_test
 
 TEST_SUITE(
     fields_test,
-    "boost.http_proto.fields");
+    "boost.http.fields");
 
-} // http_proto
+} // http
 } // boost

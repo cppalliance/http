@@ -4,19 +4,19 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/server/route_handler.hpp>
+#include <boost/http/server/route_handler.hpp>
 
-#include <boost/http_proto/server/basic_router.hpp>
-#include <boost/http_proto/request.hpp>
+#include <boost/http/server/basic_router.hpp>
+#include <boost/http/request.hpp>
 
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct route_handler_test
 {
@@ -25,7 +25,7 @@ struct route_handler_test
 
     void check(
         test_router& r,
-        http_proto::method verb,
+        http::method verb,
         core::string_view url,
         route_result rv0 = route::send)
     {
@@ -38,7 +38,7 @@ struct route_handler_test
 
     void testData()
     {
-        static auto const POST = http_proto::method::post;
+        static auto const POST = http::method::post;
 
         struct auth_token
         {
@@ -98,7 +98,7 @@ struct route_handler_test
 
 TEST_SUITE(
     route_handler_test,
-    "boost.http_proto.server.route_handler");
+    "boost.http.server.route_handler");
 
-} // http_proto
+} // http
 } // boost

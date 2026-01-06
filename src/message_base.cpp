@@ -5,19 +5,19 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/message_base.hpp>
-#include <boost/http_proto/rfc/list_rule.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
-#include <boost/http_proto/detail/except.hpp>
+#include <boost/http/message_base.hpp>
+#include <boost/http/rfc/list_rule.hpp>
+#include <boost/http/rfc/token_rule.hpp>
+#include <boost/http/detail/except.hpp>
 #include "detail/number_string.hpp"
 #include <boost/url/grammar/parse.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 void
 message_base::
@@ -85,12 +85,12 @@ set_keep_alive(bool value)
         switch(h_.version)
         {
         default:
-        case http_proto::version::http_1_1:
+        case http::version::http_1_1:
             if(! value)
                 set(field::connection, "close");
             break;
 
-        case http_proto::version::http_1_0:
+        case http::version::http_1_0:
             if(value)
                 set(field::connection, "keep-alive");
             break;
@@ -166,7 +166,7 @@ set_keep_alive(bool value)
     switch(h_.version)
     {
     default:
-    case http_proto::version::http_1_1:
+    case http::version::http_1_1:
         if(! value)
         {
             // add one "close" token if needed
@@ -175,7 +175,7 @@ set_keep_alive(bool value)
         }
         break;
 
-    case http_proto::version::http_1_0:
+    case http::version::http_1_0:
         if(value)
         {
             // add one "keep-alive" token if needed
@@ -186,5 +186,5 @@ set_keep_alive(bool value)
     }
 }
 
-} // http_proto
+} // http
 } // boost

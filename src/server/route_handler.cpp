@@ -4,14 +4,14 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/server/route_handler.hpp>
-#include <boost/http_proto/string_body.hpp>
+#include <boost/http/server/route_handler.hpp>
+#include <boost/http/string_body.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 route_params::
 ~route_params()
@@ -21,7 +21,7 @@ route_params::
 route_params&
 route_params::
 status(
-    http_proto::status code)
+    http::status code)
 {
     res.set_start_line(code, res.version());
     return *this;
@@ -31,10 +31,10 @@ route_params&
 route_params::
 set_body(std::string s)
 {
-    if(! res.exists(http_proto::field::content_type))
+    if(! res.exists(http::field::content_type))
     {
         // VFALCO TODO detect Content-Type
-        res.set(http_proto::field::content_type,
+        res.set(http::field::content_type,
             "text/plain; charset=UTF-8");
     }
 
@@ -44,12 +44,12 @@ set_body(std::string s)
     }
 
     serializer.start(res,
-        http_proto::string_body(std::string(s)));
+        http::string_body(std::string(s)));
 
     return *this;
 }
 
-#ifdef BOOST_HTTP_PROTO_HAS_CORO
+#ifdef BOOST_HTTP_HAS_CORO
 
 auto
 route_params::
@@ -74,5 +74,5 @@ spawn(
 
 #endif
 
-} // http_proto
+} // http
 } // boost

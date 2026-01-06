@@ -4,17 +4,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/server/cors.hpp>
+#include <boost/http/server/cors.hpp>
 #include "src/rfc/detail/rules.hpp"
 
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 #if 0
 class field_item
@@ -102,7 +102,7 @@ struct cors_test
 
 TEST_SUITE(
     cors_test,
-    "boost.http_proto.server.cors");
+    "boost.http.server.cors");
 
-} // http_proto
+} // http
 } // boost

@@ -5,17 +5,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/detail/workspace.hpp>
-#include <boost/http_proto/detail/except.hpp>
+#include <boost/http/detail/workspace.hpp>
+#include <boost/http/detail/except.hpp>
 #include <boost/assert.hpp>
 #include <boost/core/exchange.hpp>
 #include <utility>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 workspace::
@@ -205,5 +205,5 @@ bump_down(
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost

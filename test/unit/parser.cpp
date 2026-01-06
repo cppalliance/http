@@ -5,13 +5,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/parser.hpp>
-#include <boost/http_proto/request_parser.hpp>
-#include <boost/http_proto/response_parser.hpp>
+#include <boost/http/parser.hpp>
+#include <boost/http/request_parser.hpp>
+#include <boost/http/response_parser.hpp>
 
 #include <boost/buffers/copy.hpp>
 #include <boost/buffers/flat_buffer.hpp>
@@ -92,7 +92,7 @@ This all speaks to DynamicBuffer as the correct API
 //------------------------------------------------
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct parser_test
 {
@@ -2194,7 +2194,7 @@ struct parser_test
 
 TEST_SUITE(
     parser_test,
-    "boost.http_proto.parser");
+    "boost.http.parser");
 
-} // http_proto
+} // http
 } // boost

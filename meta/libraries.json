@@ -1,6 +1,6 @@
 {
-    "key": "http_proto",
-    "name": "HTTP Proto",
+    "key": "http",
+    "name": "HTTP",
     "authors": [
         "Vinnie Falco"
     ],

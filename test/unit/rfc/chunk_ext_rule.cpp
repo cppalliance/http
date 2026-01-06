@@ -4,13 +4,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 #if 0
 
 // Test that header file is self-contained.
-#include <boost/http_proto/rfc/chunk_ext_rule.hpp>
+#include <boost/http/rfc/chunk_ext_rule.hpp>
 
 #include <boost/url/grammar/parse.hpp>
 #include <boost/url/grammar/range.hpp>
@@ -20,7 +20,7 @@
 #include <initializer_list>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 static
 bool
@@ -135,9 +135,9 @@ public:
 
 TEST_SUITE(
     chunk_ext_rule_test,
-    "boost.http_proto.chunk_ext_rule");
+    "boost.http.chunk_ext_rule");
 
-} // http_proto
+} // http
 } // boost
 
 #endif

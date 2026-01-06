@@ -4,19 +4,19 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/fields.hpp>
-#include <boost/http_proto/request.hpp>
-#include <boost/http_proto/response.hpp>
+#include <boost/http/fields.hpp>
+#include <boost/http/request.hpp>
+#include <boost/http/response.hpp>
 
 #include "test_suite.hpp"
 
 #include <boost/core/ignore_unused.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct natvis_test
 {
@@ -43,7 +43,7 @@ struct natvis_test
     }
 };
 
-TEST_SUITE(natvis_test, "boost.http_proto.natvis");
+TEST_SUITE(natvis_test, "boost.http.natvis");
 
-} // http_proto
+} // http
 } // boost

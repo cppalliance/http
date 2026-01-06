@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/rfc/upgrade_rule.hpp>
+#include <boost/http/rfc/upgrade_rule.hpp>
 
 #include "test_rule.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct upgrade_rule_test
 {
@@ -32,7 +32,7 @@ struct upgrade_rule_test
 
 TEST_SUITE(
     upgrade_rule_test,
-    "boost.http_proto.upgrade_rule");
+    "boost.http.upgrade_rule");
 
-} // http_proto
+} // http
 } // boost

@@ -6,13 +6,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/detail/except.hpp>
-#include <boost/http_proto/detail/header.hpp>
-#include <boost/http_proto/message_base.hpp>
-#include <boost/http_proto/serializer.hpp>
+#include <boost/http/detail/except.hpp>
+#include <boost/http/detail/header.hpp>
+#include <boost/http/message_base.hpp>
+#include <boost/http/serializer.hpp>
 
 #include "src/detail/array_of_const_buffers.hpp"
 #include "src/detail/brotli_filter_base.hpp"
@@ -34,7 +34,7 @@
 #include <stddef.h>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 namespace {
 
@@ -95,7 +95,7 @@ class zlib_filter
 public:
     zlib_filter(
         const capy::polystore& ctx,
-        http_proto::detail::workspace& ws,
+        http::detail::workspace& ws,
         int comp_level,
         int window_bits,
         int mem_level)
@@ -161,7 +161,7 @@ class brotli_filter
 public:
     brotli_filter(
         const capy::polystore& ctx,
-        http_proto::detail::workspace&,
+        http::detail::workspace&,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
         : svc_(ctx.get<capy::brotli::encode_service>())
@@ -349,7 +349,7 @@ public:
 
             needs_exp100_continue_ = false;
 
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 error::expect_100_continue);
         }
 
@@ -422,7 +422,7 @@ public:
 
             case style::stream:
                 if(out_.size() == 0 && is_header_done() && more_input_)
-                    BOOST_HTTP_PROTO_RETURN_EC(
+                    BOOST_HTTP_RETURN_EC(
                         error::need_data);
                 break;
             }
@@ -570,7 +570,7 @@ public:
                 }
 
                 if(out_.size() == 0 && is_header_done() && more_input_)
-                    BOOST_HTTP_PROTO_RETURN_EC(
+                    BOOST_HTTP_RETURN_EC(
                         error::need_data);
                 break;
             }
@@ -1118,5 +1118,5 @@ close() noexcept
     impl_ = nullptr;
 }
 
-} // http_proto
+} // http
 } // boost

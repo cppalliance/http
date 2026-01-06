@@ -5,12 +5,12 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/serializer.hpp>
-#include <boost/http_proto/response.hpp>
+#include <boost/http/serializer.hpp>
+#include <boost/http/response.hpp>
 
 #include <boost/buffers/copy.hpp>
 #include <boost/buffers/make_buffer.hpp>
@@ -27,7 +27,7 @@
 #include <vector>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct serializer_test
 {
@@ -982,7 +982,7 @@ struct serializer_test
 
 TEST_SUITE(
     serializer_test,
-    "boost.http_proto.serializer");
+    "boost.http.serializer");
 
-} // http_proto
+} // http
 } // boost

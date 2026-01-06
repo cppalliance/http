@@ -4,7 +4,7 @@
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
-# Official repository: https://github.com/vinniefalco/http_proto
+# Official repository: https://github.com/vinniefalco/http
 #
 
 import ../../config/checks/config : requires ;
@@ -19,32 +19,32 @@ constant c11-requires :
     ]
     ;
 
-path-constant HTTP_PROTO_ROOT : .. ;
+path-constant HTTP_ROOT : .. ;
 
-project boost/http_proto
+project boost/http
     : requirements
       $(c11-requires)
-      <link>shared:<define>BOOST_HTTP_PROTO_DYN_LINK=1
-      <link>static:<define>BOOST_HTTP_PROTO_STATIC_LINK=1
+      <link>shared:<define>BOOST_HTTP_DYN_LINK=1
+      <link>static:<define>BOOST_HTTP_STATIC_LINK=1
     : usage-requirements
-      <link>shared:<define>BOOST_HTTP_PROTO_DYN_LINK=1
-      <link>static:<define>BOOST_HTTP_PROTO_STATIC_LINK=1
-    : source-location $(HTTP_PROTO_ROOT)
+      <link>shared:<define>BOOST_HTTP_DYN_LINK=1
+      <link>static:<define>BOOST_HTTP_STATIC_LINK=1
+    : source-location $(HTTP_ROOT)
     ;
 
-alias http_proto_sources : [ glob-tree-ex ./src : *.cpp ] ;
+alias http_sources : [ glob-tree-ex ./src : *.cpp ] ;
 
-explicit http_proto_sources ;
+explicit http_sources ;
 
-lib boost_http_proto
-   : http_proto_sources
+lib boost_http
+   : http_sources
    : requirements
      <library>/boost//buffers
      <library>/boost//capy
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
      <include>../
-     <define>BOOST_HTTP_PROTO_SOURCE
+     <define>BOOST_HTTP_SOURCE
    : usage-requirements
      <library>/boost//buffers
      <library>/boost//capy
@@ -52,4 +52,4 @@ lib boost_http_proto
      <library>/boost//url
    ;
 
-boost-install boost_http_proto ;
+boost-install boost_http ;

@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/status.hpp>
-#include <boost/http_proto/detail/except.hpp>
+#include <boost/http/status.hpp>
+#include <boost/http/detail/except.hpp>
 //#include <boost/throw_exception.hpp>
 #include <ostream>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 status
 int_to_status(unsigned v)
@@ -213,5 +213,5 @@ operator<<(std::ostream& os, status v)
     return os << to_string(v);
 }
 
-} // http_proto
+} // http
 } // boost

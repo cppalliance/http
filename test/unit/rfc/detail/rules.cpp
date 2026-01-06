@@ -4,7 +4,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
@@ -12,10 +12,10 @@
 
 #include "test_rule.hpp"
 
-#if defined(BOOST_HTTP_PROTO_STATIC_LINK)
+#if defined(BOOST_HTTP_STATIC_LINK)
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 struct rules_test
@@ -58,10 +58,10 @@ struct rules_test
 
 TEST_SUITE(
     rules_test,
-    "boost.http_proto.rules_test");
+    "boost.http.rules_test");
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
-#endif // defined(BOOST_HTTP_PROTO_STATIC_LINK)
+#endif // defined(BOOST_HTTP_STATIC_LINK)

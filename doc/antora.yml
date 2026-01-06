@@ -1,6 +1,6 @@
-name: http_proto
+name: http
 version: ~
-title: Boost.HTTP.Proto
+title: Boost.HTTP
 start_page: index.adoc
 asciidoc:
   attributes:
@@ -13,4 +13,4 @@ ext:
     config: doc/mrdocs.yml
   cpp-tagfiles:
     using-namespaces:
-      - boost::http_proto
+      - boost::http

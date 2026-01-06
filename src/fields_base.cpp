@@ -5,17 +5,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/detail/except.hpp>
-#include <boost/http_proto/detail/header.hpp>
-#include <boost/http_proto/error.hpp>
-#include <boost/http_proto/field.hpp>
-#include <boost/http_proto/fields_base.hpp>
-#include <boost/http_proto/header_limits.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
+#include <boost/http/detail/config.hpp>
+#include <boost/http/detail/except.hpp>
+#include <boost/http/detail/header.hpp>
+#include <boost/http/error.hpp>
+#include <boost/http/field.hpp>
+#include <boost/http/fields_base.hpp>
+#include <boost/http/header_limits.hpp>
+#include <boost/http/rfc/token_rule.hpp>
 
 #include "src/detail/move_chars.hpp"
 #include "src/rfc/detail/rules.hpp"
@@ -30,7 +30,7 @@
 #include <boost/url/grammar/token_rule.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 namespace {
 
@@ -58,7 +58,7 @@ verify_field_name(
         name, detail::field_name_rule);
     if(rv.has_error())
     {
-        ec = BOOST_HTTP_PROTO_ERR(
+        ec = BOOST_HTTP_ERR(
             error::bad_field_name);
     }
 }
@@ -1498,5 +1498,5 @@ length(
         offset(i);
 }
 
-} // http_proto
+} // http
 } // boost

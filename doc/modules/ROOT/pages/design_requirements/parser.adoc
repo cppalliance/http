@@ -4,7 +4,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 = Parser Design Requirements
@@ -35,7 +35,7 @@ Meanwhile parsers and serializes suffer from these problems:
 
 ==== Message Container
 
-In HTTP.Proto the message container implementation always stores the complete
+In HTTP the message container implementation always stores the complete
 message or fields in its correctly serialized form. Insertions and modifications
 are performed in linear time. When the container is reused, the amortized cost
 of reallocation becomes zero. A small lookup table is stored past the end of
@@ -43,7 +43,7 @@ the serialized message, permitting iteration in constant time.
 
 ==== Parser
 
-The HTTP.Proto parser is designed to persist for the lifetime of the connection
+The HTTP parser is designed to persist for the lifetime of the connection
 or application. It allocates a fixed size memory buffer upon construction and
 uses this memory region to perform type-erasure and apply or remove content
 encodings to the body. The parser is a regular class instead of a class
@@ -223,7 +223,7 @@ pr.start();
 
 read_header(stream, pr);
 
-http_proto::file file;
+http::file file;
 system::error_code ec;
 file.open("./index.html", file_mode::write_new, ec);
 if(ec.failed())

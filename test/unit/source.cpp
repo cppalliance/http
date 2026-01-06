@@ -8,7 +8,7 @@
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/source.hpp>
+#include <boost/http/source.hpp>
 
 #include <boost/buffers/slice.hpp>
 #include <boost/buffers/range.hpp>
@@ -16,7 +16,7 @@
 #include "test_helpers.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct source_test
 {
@@ -125,7 +125,7 @@ struct source_test
 
 TEST_SUITE(
     source_test,
-    "boost.http_proto.source");
+    "boost.http.source");
 
-} // http_proto
+} // http
 } // boost

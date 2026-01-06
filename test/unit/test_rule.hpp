@@ -4,13 +4,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_RULE_TESTS_HPP
-#define BOOST_HTTP_PROTO_RULE_TESTS_HPP
+#ifndef BOOST_HTTP_RULE_TESTS_HPP
+#define BOOST_HTTP_RULE_TESTS_HPP
 
-#include <boost/http_proto/detail/config.hpp>
+#include <boost/http/detail/config.hpp>
 #include <boost/url/grammar/parse.hpp>
 #include <boost/url/grammar/type_traits.hpp>
 #include <boost/core/detail/string_view.hpp>
@@ -18,7 +18,7 @@
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 // rule must match the string
 template<class R>
@@ -68,7 +68,7 @@ bad(
         BOOST_TEST_EQ(rv.error(), e);
 }
 
-} // http_proto
+} // http
 } // boost
 
 #endif

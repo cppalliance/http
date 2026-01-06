@@ -6,15 +6,15 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/request_base.hpp>
+#include <boost/http/request_base.hpp>
 
 #include <cstring>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 void
 request_base::
@@ -78,10 +78,10 @@ set_expect_100_continue(bool b)
 void
 request_base::
 set_start_line_impl(
-    http_proto::method m,
+    http::method m,
     core::string_view ms,
     core::string_view t,
-    http_proto::version v)
+    http::version v)
 {
     // TODO: check validity
     auto const vs = to_string(v);
@@ -122,5 +122,5 @@ set_start_line_impl(
     h_.on_start_line();
 }
 
-} // http_proto
+} // http
 } // boost

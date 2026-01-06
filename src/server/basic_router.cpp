@@ -4,14 +4,14 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 #include "src/server/route_rule.hpp"
-#include <boost/http_proto/server/basic_router.hpp>
-#include <boost/http_proto/server/route_handler.hpp>
-#include <boost/http_proto/error.hpp>
-#include <boost/http_proto/detail/except.hpp>
+#include <boost/http/server/basic_router.hpp>
+#include <boost/http/server/route_handler.hpp>
+#include <boost/http/error.hpp>
+#include <boost/http/detail/except.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>
 #include <boost/assert.hpp>
@@ -20,7 +20,7 @@
 #include <vector>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 //namespace detail {
 
@@ -350,8 +350,8 @@ struct any_router::layer
         handler_ptr handler;
 
         // only for end routes
-        http_proto::method verb =
-            http_proto::method::unknown;
+        http::method verb =
+            http::method::unknown;
         std::string verb_str;
         bool all;
 
@@ -363,24 +363,24 @@ struct any_router::layer
         }
 
         entry(
-            http_proto::method verb_,
+            http::method verb_,
             handler_ptr h) noexcept
             : handler(std::move(h))
             , verb(verb_)
             , all(false)
         {
             BOOST_ASSERT(verb !=
-                http_proto::method::unknown);
+                http::method::unknown);
         }
 
         entry(
             core::string_view verb_str_,
             handler_ptr h) noexcept
             : handler(std::move(h))
-            , verb(http_proto::string_to_method(verb_str_))
+            , verb(http::string_to_method(verb_str_))
             , all(false)
         {
-            if(verb != http_proto::method::unknown)
+            if(verb != http::method::unknown)
                 return;
             verb_str = verb_str_;
         }
@@ -390,9 +390,9 @@ struct any_router::layer
         {
             if(all)
                 return true;
-            if(verb != http_proto::method::unknown)
+            if(verb != http::method::unknown)
                 return p.verb_ == verb;
-            if(p.verb_ != http_proto::method::unknown)
+            if(p.verb_ != http::method::unknown)
                 return false;
             return p.verb_str_ == verb_str;
         }
@@ -546,11 +546,11 @@ void
 any_router::
 add_impl(
     layer& e,
-    http_proto::method verb,
+    http::method verb,
     handler_list const& handlers)
 {
     // cannot be unknown
-    if(verb == http_proto::method::unknown)
+    if(verb == http::method::unknown)
         detail::throw_invalid_argument();
 
     e.entries.reserve(e.entries.size() + handlers.n);
@@ -621,7 +621,7 @@ resume_impl(
 route_result
 any_router::
 dispatch_impl(
-    http_proto::method verb,
+    http::method verb,
     core::string_view verb_str,
     urls::url_view const& url,
     route_params_base& p) const
@@ -636,11 +636,11 @@ dispatch_impl(
     p.case_sensitive = false;
     p.strict = false;
 
-    if(verb == http_proto::method::unknown)
+    if(verb == http::method::unknown)
     {
         BOOST_ASSERT(! verb_str.empty());
-        verb = http_proto::string_to_method(verb_str);
-        if(verb == http_proto::method::unknown)
+        verb = http::string_to_method(verb_str);
+        if(verb == http::method::unknown)
             p.verb_str_ = verb_str;
     }
     else
@@ -899,5 +899,5 @@ do_dispatch(
 
 //} // detail
 
-} // http_proto
+} // http
 } // boost

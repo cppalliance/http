@@ -4,14 +4,14 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 #include "src/rfc/detail/rules.hpp"
 
-#include <boost/http_proto/error.hpp>
-#include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
+#include <boost/http/error.hpp>
+#include <boost/http/detail/config.hpp>
+#include <boost/http/rfc/token_rule.hpp>
 
 #include <boost/core/detail/string_view.hpp>
 #include <boost/url/grammar/delim_rule.hpp>
@@ -25,7 +25,7 @@
 #include "src/rfc/detail/rules.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 auto
@@ -61,7 +61,7 @@ parse(
     if(it == end)
     {
         // expected "HTTP/"
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(end - it >= 5)
@@ -69,7 +69,7 @@ parse(
         if(std::memcmp(
             it, "HTTP/", 5) != 0)
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::mismatch);
         }
         it += 5;
@@ -77,39 +77,39 @@ parse(
     if(it == end)
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(! grammar::digit_chars(*it))
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     v = 10 * (*it++ - '0');
     if(it == end)
     {
         // expected "."
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(*it != '.')
     {
         // expected "."
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     ++it;
     if(it == end)
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(! grammar::digit_chars(*it))
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     v += *it++ - '0';
@@ -137,7 +137,7 @@ parse(
     if(it == end)
     {
         // end
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     auto it0 = it;
@@ -145,7 +145,7 @@ parse(
     if(v == -1)
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::mismatch);
     }
     value_type t;
@@ -154,14 +154,14 @@ parse(
     if(it == end)
     {
         // end
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     v = dig(*it);
     if(v == -1)
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::mismatch);
     }
     t.v = t.v + (10 * v);
@@ -169,14 +169,14 @@ parse(
     if(it == end)
     {
         // end
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     v = dig(*it);
     if(v == -1)
     {
         // expected DIGIT
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     t.v = t.v + v;
@@ -211,7 +211,7 @@ parse(
         system::result<value_type>
 {
     if( it == end )
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
 
     value_type v;
@@ -281,14 +281,14 @@ parse(
             // too short to know if we have a potential obs-fold
             // occurrence
             if( end - it < 2 )
-                BOOST_HTTP_PROTO_RETURN_EC(
+                BOOST_HTTP_RETURN_EC(
                     grammar::error::need_more);
 
             if( it[1] != '\n' )
                 goto done;
 
             if( end - it < 3 )
-                BOOST_HTTP_PROTO_RETURN_EC(
+                BOOST_HTTP_RETURN_EC(
                     grammar::error::need_more);
 
             if(! ws(it[2]) )
@@ -339,7 +339,7 @@ parse(
 {
     if(it == end)
     {
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     // check for leading CRLF
@@ -348,17 +348,17 @@ parse(
         ++it;
         if(it == end)
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::need_more);
         }
         if(*it != '\n')
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::mismatch);
         }
         // end of fields
         ++it;
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::end_of_range);
     }
 
@@ -413,5 +413,5 @@ remove_obs_fold(
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost

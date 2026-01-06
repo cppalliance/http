@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/method.hpp>
-#include <boost/http_proto/detail/sv.hpp>
+#include <boost/http/method.hpp>
+#include <boost/http/detail/sv.hpp>
 #include <boost/throw_exception.hpp>
 #include <ostream>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 core::string_view
 to_string(method v)
@@ -304,5 +304,5 @@ operator<<(
     return os;
 }
 
-} // http_proto
+} // http
 } // boost

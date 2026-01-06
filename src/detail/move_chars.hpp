@@ -4,18 +4,18 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/CPPAlliance/http_proto
+// Official repository: https://github.com/CPPAlliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_DETAIL_MOVE_CHARS_HPP
-#define BOOST_HTTP_PROTO_DETAIL_MOVE_CHARS_HPP
+#ifndef BOOST_HTTP_DETAIL_MOVE_CHARS_HPP
+#define BOOST_HTTP_DETAIL_MOVE_CHARS_HPP
 
 #include <boost/core/detail/string_view.hpp>
 #include <cstring>
 #include <functional>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 // Moves characters, and adjusts any passed
@@ -88,7 +88,7 @@ move_chars(
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

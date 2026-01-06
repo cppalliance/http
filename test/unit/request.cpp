@@ -5,20 +5,20 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/request.hpp>
+#include <boost/http/request.hpp>
 
-#include <boost/http_proto/message_base.hpp>
+#include <boost/http/message_base.hpp>
 
 #include <utility>
 
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct request_test
 {
@@ -798,7 +798,7 @@ struct request_test
 
 TEST_SUITE(
     request_test,
-    "boost.http_proto.request");
+    "boost.http.request");
 
-} // http_proto
+} // http
 } // boost

@@ -17,5 +17,5 @@
 * Design Requirements
 ** xref:design_requirements/serializer.adoc[Serializer]
 ** xref:design_requirements/parser.adoc[Parser]
-// * xref:reference:boost/http_proto.adoc[Reference]
+// * xref:reference:boost/http.adoc[Reference]
 * xref:reference.adoc[Reference]

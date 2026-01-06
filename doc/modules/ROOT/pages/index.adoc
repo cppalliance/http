@@ -4,10 +4,10 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-= Boost.HTTP.Proto
+= Boost.HTTP
 
 This is a portable C++ library offering containers and algorithms for implementing
 the HTTP/1.1 protocol. The format is widely used to deliver content on the Internet,
@@ -29,9 +29,9 @@ any actual network activity as the logic is completely isolated from the
 underlying I/O operations. The implementation manages state, ensures RFC
 compliance, and provides the application-level interface for building and
 inspecting HTTP messages and their payloads, and it is necessary to use or
-write the interfacing network implementation on top of HTTP.Proto.
+write the interfacing network implementation on top of HTTP.
 
-The companion library Boost.HTTP.IO uses Boost.HTTP.Proto to implement network
+The companion library Boost.HTTP.IO uses Boost.HTTP to implement network
 I/O using Boost.Asio. The
 https://sans-io.readthedocs.io/[sans-I/O] website goes into more depth regarding
 this innovative approach to designing protocol libraries.
@@ -44,7 +44,7 @@ this innovative approach to designing protocol libraries.
 
 == Tested Compilers
 
-Boost.HTTP.Proto is tested with the following compiler versions:
+Boost.HTTP is tested with the following compiler versions:
 
 * gcc: 5 to 14 (except 8.0.1)
 * clang: 3.9, 4 to 18

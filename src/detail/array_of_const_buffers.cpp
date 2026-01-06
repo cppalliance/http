@@ -5,17 +5,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 #include "src/detail/array_of_const_buffers.hpp"
 
-#include <boost/http_proto/detail/except.hpp>
+#include <boost/http/detail/except.hpp>
 
 #include <boost/buffers/slice.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 array_of_const_buffers::
@@ -78,5 +78,5 @@ append(value_type buf) noexcept
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost

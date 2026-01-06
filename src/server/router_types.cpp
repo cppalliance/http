@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/server/router_types.hpp>
+#include <boost/http/server/router_types.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/assert.hpp>
 #include <cstring>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 namespace detail {
 
@@ -84,11 +84,11 @@ route_params_base::
 is_method(
     core::string_view s) const noexcept
 {
-    auto m = http_proto::string_to_method(s);
-    if(m != http_proto::method::unknown)
+    auto m = http::string_to_method(s);
+    if(m != http::method::unknown)
         return verb_ == m;
     return s == verb_str_;
 }
 
-} // http_proto
+} // http
 } // boost

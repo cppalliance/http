@@ -4,11 +4,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/rfc/quoted_token_rule.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
+#include <boost/http/rfc/quoted_token_rule.hpp>
+#include <boost/http/rfc/token_rule.hpp>
 #include <boost/url/grammar/charset.hpp>
 #include <boost/url/grammar/error.hpp>
 #include <boost/url/grammar/lut_chars.hpp>
@@ -16,7 +16,7 @@
 #include <boost/url/grammar/vchars.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 namespace {
 
@@ -68,7 +68,7 @@ parse(
 {
     if(it == end)
     {
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(*it != '\"')
@@ -90,7 +90,7 @@ parse(
             it, end, qdtext_chars);
         if(it == end)
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::need_more);
         }
         n += static_cast<std::size_t>(it - it1);
@@ -98,18 +98,18 @@ parse(
             break;
         if(*it != '\\')
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         }
         ++it;
         if(it == end)
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::need_more);
         }
         if(! qpchars(*it))
         {
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         }
         ++it;
@@ -120,5 +120,5 @@ parse(
 }
 
 } // implementation_defined
-} // http_proto
+} // http
 } // boost

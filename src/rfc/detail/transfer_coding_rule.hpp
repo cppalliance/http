@@ -5,19 +5,19 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_RFC_TRANSFER_CODING_RULE_HPP
-#define BOOST_HTTP_PROTO_RFC_TRANSFER_CODING_RULE_HPP
+#ifndef BOOST_HTTP_RFC_TRANSFER_CODING_RULE_HPP
+#define BOOST_HTTP_RFC_TRANSFER_CODING_RULE_HPP
 
-#include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/rfc/quoted_token_view.hpp>
+#include <boost/http/detail/config.hpp>
+#include <boost/http/rfc/quoted_token_view.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/url/grammar/range_rule.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 /*
@@ -85,7 +85,7 @@ struct transfer_coding_rule_t
 constexpr transfer_coding_rule_t transfer_coding_rule{};
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

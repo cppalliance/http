@@ -5,19 +5,19 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 #include "src/rfc/detail/transfer_coding_rule.hpp"
 
-#include <boost/http_proto/rfc/detail/ws.hpp>
-#include <boost/http_proto/rfc/quoted_token_rule.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
+#include <boost/http/rfc/detail/ws.hpp>
+#include <boost/http/rfc/quoted_token_rule.hpp>
+#include <boost/http/rfc/token_rule.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/parse.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 auto
@@ -35,13 +35,13 @@ transfer_parameter_rule_t::parse(
     if(it == end)
     {
         it = it0;
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(*it != ';')
     {
         it = it0;
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::mismatch);
     }
     ++it;
@@ -63,13 +63,13 @@ transfer_parameter_rule_t::parse(
     if(it == end)
     {
         it = it0;
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::need_more);
     }
     if(*it != '=')
     {
         it = it0;
-        BOOST_HTTP_PROTO_RETURN_EC(
+        BOOST_HTTP_RETURN_EC(
             grammar::error::syntax);
     }
     ++it;
@@ -145,5 +145,5 @@ parse(
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost

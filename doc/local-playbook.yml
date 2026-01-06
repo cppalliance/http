@@ -1,16 +1,16 @@
 site:
-  title: Boost.Http.Proto
+  title: Boost.HTTP
   url: https://antora.cppalliance.org/develop/lib/doc
-  start_page: http_proto::index.adoc
+  start_page: http::index.adoc
   robots: allow
   keys:
-    repo_url: 'https://github.com/cppalliance/http_proto'
+    repo_url: 'https://github.com/cppalliance/http'
 
 content:
   sources:
     - url: ..
       start_path: doc
-      edit_url: 'https://github.com/cppalliance/http_proto/edit/{refname}/{path}'
+      edit_url: 'https://github.com/cppalliance/http/edit/{refname}/{path}'
 
 ui:
   bundle:

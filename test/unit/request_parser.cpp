@@ -4,12 +4,12 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/request_parser.hpp>
-#include <boost/http_proto/rfc/combine_field_values.hpp>
+#include <boost/http/request_parser.hpp>
+#include <boost/http/rfc/combine_field_values.hpp>
 
 #include <boost/capy/polystore.hpp>
 
@@ -19,7 +19,7 @@
 #include <string>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct request_parser_test
 {
@@ -393,7 +393,7 @@ struct request_parser_test
 
 TEST_SUITE(
     request_parser_test,
-    "boost.http_proto.request_parser");
+    "boost.http.request_parser");
 
-} // http_proto
+} // http
 } // boost

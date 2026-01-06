@@ -4,13 +4,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/rfc/combine_field_values.hpp>
+#include <boost/http/rfc/combine_field_values.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 core::string_view
 combine_field_values(
@@ -56,5 +56,5 @@ combine_field_values(
     return result;
 }
 
-} // http_proto
+} // http
 } // boost

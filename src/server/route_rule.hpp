@@ -4,13 +4,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_SERVER_ROUTE_RULE_HPP
-#define BOOST_HTTP_PROTO_SERVER_ROUTE_RULE_HPP
+#ifndef BOOST_HTTP_SERVER_ROUTE_RULE_HPP
+#define BOOST_HTTP_SERVER_ROUTE_RULE_HPP
 
-#include <boost/http_proto/detail/config.hpp>
+#include <boost/http/detail/config.hpp>
 #include <boost/url/decode_view.hpp>
 #include <boost/url/segments_encoded_view.hpp>
 #include <boost/url/grammar/alpha_chars.hpp>
@@ -19,7 +19,7 @@
 #include <vector>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 namespace grammar = urls::grammar;
 
@@ -199,7 +199,7 @@ constexpr struct
         if(it == end || *it != '(')
             return "";
         if(it == end)
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         auto it0 = it;
         it = grammar::find_if_not(
@@ -208,19 +208,19 @@ constexpr struct
         {
             // too small
             it = it0;
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         }
         if(it == end)
         {
             it = it0;
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         }
         if(*it != ')')
         {
             it0 = it;
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         }
         return core::string_view(++it0, it++);
@@ -238,10 +238,10 @@ constexpr struct
             system::result<value_type>
     {
         if(it == end)
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         if(! grammar::alpha_chars(*it))
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         auto it0 = it++;
         it = grammar::find_if_not(
@@ -275,10 +275,10 @@ struct param_segment_rule_t
             system::result<value_type>
     {
         if(it == end)
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::syntax);
         if(*it != ':' && *it != '*')
-            BOOST_HTTP_PROTO_RETURN_EC(
+            BOOST_HTTP_RETURN_EC(
                 grammar::error::mismatch);
         value_type v;
         v.ptype = *it++;
@@ -371,7 +371,7 @@ struct route_match
     urls::segments_encoded_view path;
 };
 
-} // http_proto
+} // http
 } // boost
 
 #endif

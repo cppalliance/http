@@ -4,17 +4,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/fields_base.hpp>
+#include <boost/http/fields_base.hpp>
 
-#include <boost/http_proto/field.hpp>
-#include <boost/http_proto/fields.hpp>
-#include <boost/http_proto/request.hpp>
-#include <boost/http_proto/response.hpp>
-#include <boost/http_proto/error.hpp>
+#include <boost/http/field.hpp>
+#include <boost/http/fields.hpp>
+#include <boost/http/request.hpp>
+#include <boost/http/response.hpp>
+#include <boost/http/error.hpp>
 
 #include <boost/optional/optional_io.hpp>
 #include <boost/static_assert.hpp>
@@ -26,7 +26,7 @@
 #include <vector>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 // check for overflow
 //BOOST_STATIC_ASSERT(
@@ -1739,7 +1739,7 @@ struct fields_base_test
 
 TEST_SUITE(
     fields_base_test,
-    "boost.http_proto.fields_base");
+    "boost.http.fields_base");
 
-} // http_proto
+} // http
 } // boost
