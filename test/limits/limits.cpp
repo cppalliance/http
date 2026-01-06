@@ -5,13 +5,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/fields.hpp>
-#include <boost/http_proto/request.hpp>
-#include <boost/http_proto/response.hpp>
+#include <boost/http/detail/config.hpp>
+#include <boost/http/fields.hpp>
+#include <boost/http/request.hpp>
+#include <boost/http/response.hpp>
 
 #include "test_suite.hpp"
 
@@ -20,17 +20,17 @@
 
 // These ensure that limits is compiled correctly
 #if \
-    defined(BOOST_HTTP_PROTO_DYN_LINK) || \
-    ( defined(BOOST_ALL_DYN_LINK) && ! defined(BOOST_HTTP_PROTO_STATIC_LINK) )
+    defined(BOOST_HTTP_DYN_LINK) || \
+    ( defined(BOOST_ALL_DYN_LINK) && ! defined(BOOST_HTTP_STATIC_LINK) )
 #error "Limits should not be built with shared linking."
 #endif
 
-#ifndef BOOST_HTTP_PROTO_TEST_LIMITS
-#error "Limits should be built with BOOST_HTTP_PROTO_TEST_LIMITS."
+#ifndef BOOST_HTTP_TEST_LIMITS
+#error "Limits should be built with BOOST_HTTP_TEST_LIMITS."
 #endif
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 constexpr auto max_offset =
     std::numeric_limits<std::uint8_t>::max();
@@ -150,7 +150,7 @@ public:
 
 TEST_SUITE(
     limits_test,
-    "boost.http_proto.limits");
+    "boost.http.limits");
 
-} // http_proto
+} // http
 } // boost

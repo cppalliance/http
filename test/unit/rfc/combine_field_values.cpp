@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/rfc/combine_field_values.hpp>
+#include <boost/http/rfc/combine_field_values.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct combine_field_values_test
 {
@@ -53,7 +53,7 @@ struct combine_field_values_test
 
 TEST_SUITE(
     combine_field_values_test,
-    "boost.http_proto.combine_field_values");
+    "boost.http.combine_field_values");
 
-} // http_proto
+} // http
 } // boost

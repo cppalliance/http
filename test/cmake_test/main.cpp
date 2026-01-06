@@ -1,7 +1,7 @@
-#include <boost/http_proto.hpp>
+#include <boost/http.hpp>
 
 int main() {
-  boost::http_proto::request request;
+  boost::http::request request;
   request.set_payload_size(1337);
   if (request.payload_size() != 1337) {
     throw;

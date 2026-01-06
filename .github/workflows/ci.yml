@@ -8,7 +8,7 @@
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
-# Official repository: https://github.com/CPPAlliance/http_proto/
+# Official repository: https://github.com/CPPAlliance/http/
 #
 
 name: CI
@@ -858,10 +858,10 @@ jobs:
           tar -xf node-v20.9.0-linux-x64-glibc-217.tar.xz --strip-components 1 -C /node20217
           ldd /__e/node20/bin/node
 
-      - name: Clone Boost.HTTP.Proto
+      - name: Clone Boost.HTTP
         uses: actions/checkout@v3
         with:
-          path: http-proto-root
+          path: http-root
 
       - name: Clone Boost.Buffers
         uses: actions/checkout@v3
@@ -904,11 +904,11 @@ jobs:
           boost-dir: boost-source
           modules-exclude-paths: ''
           scan-modules-dir: |
-            http-proto-root
+            http-root
             buffers-root
             capy-root
           scan-modules-ignore: |
-            http_proto
+            http
             buffers
             capy
 
@@ -978,7 +978,7 @@ jobs:
           echo -E "boost_root=$boost_root" >> $GITHUB_OUTPUT
 
           # Patch boost-root with workspace module
-          cp -r "$workspace_root"/http-proto-root "libs/$module"
+          cp -r "$workspace_root"/http-root "libs/$module"
           cp -r "$workspace_root"/buffers-root libs/buffers
           cp -r "$workspace_root"/capy-root libs/capy
 
@@ -989,7 +989,7 @@ jobs:
           ASAN_OPTIONS: ${{ ((matrix.compiler == 'apple-clang' || matrix.compiler == 'clang') && 'detect_invalid_pointer_pairs=0:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1') || 'detect_invalid_pointer_pairs=2:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1' }}
         with:
           source-dir: boost-root
-          modules: http_proto
+          modules: http
           toolset: ${{ matrix.b2-toolset }}
           build-variant: ${{ matrix.build-type }}
           cxx: ${{ steps.setup-cpp.outputs.cxx || matrix.cxx || '' }}
@@ -1029,7 +1029,7 @@ jobs:
           export-compile-commands: ${{ matrix.time-trace }}
           package: false
           package-artifact: false
-          ref-source-dir: boost-root/libs/http_proto
+          ref-source-dir: boost-root/libs/http
           toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
       - name: Set Path
@@ -1061,7 +1061,7 @@ jobs:
 #          extra-args: |
 #            -D BOOST_CI_INSTALL_TEST=ON
 #            -D CMAKE_PREFIX_PATH=${{ steps.patch.outputs.workspace_root }}/.local
-#          ref-source-dir: boost-root/libs/http_proto
+#          ref-source-dir: boost-root/libs/http
 #          trace-commands: true
 #          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
@@ -1083,7 +1083,7 @@ jobs:
 #          install: false
 #          cmake-version: '>=3.20'
 #          extra-args: -D BOOST_CI_INSTALL_TEST=OFF
-#          ref-source-dir: boost-root/libs/http_proto/test/cmake_test
+#          ref-source-dir: boost-root/libs/http/test/cmake_test
 #          toolchain: ${{ (startsWith(matrix.runs-on, 'windows') && steps.patch-user-config.outputs.toolchain) || '' }}
 
       - name: Root Project CMake Workflow
@@ -1114,7 +1114,7 @@ jobs:
         uses: alandefreitas/cpp-actions/flamegraph@v1.9.0
         if: matrix.time-trace
         with:
-          source-dir: boost-root/libs/http_proto
+          source-dir: boost-root/libs/http
           build-dir: boost-root/__build_cmake_test__
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -1157,7 +1157,7 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Clone Boost.HTTProto
+      - name: Clone Boost.HTTP
         uses: actions/checkout@v3
         with:
           # Avoid the common API rate limit exceeded error in boostorg by including 100 latest commits in any case
@@ -1191,10 +1191,10 @@ jobs:
         with:
           apt-get: git cmake
 
-      - name: Clone Boost.Http.Proto
+      - name: Clone Boost.HTTP
         uses: actions/checkout@v3
         with:
-          path: http-proto-root
+          path: http-root
 
       - name: Clone Boost.Buffers
         uses: actions/checkout@v3
@@ -1218,11 +1218,11 @@ jobs:
           boost-dir: boost-source
           modules-exclude-paths: ''
           scan-modules-dir: |
-            http-proto-root
+            http-root
             buffers-root
             capy-root
           scan-modules-ignore: |
-            http_proto
+            http
             buffers
             capy
 
@@ -1256,7 +1256,7 @@ jobs:
           echo -E "boost_root=$boost_root" >> $GITHUB_OUTPUT
 
           # Patch boost-root with workspace module
-          cp -r "$workspace_root"/http-proto-root "libs/$module"
+          cp -r "$workspace_root"/http-root "libs/$module"
           cp -r "$workspace_root"/buffers-root libs/buffers
           cp -r "$workspace_root"/capy-root libs/capy
 
@@ -1276,7 +1276,7 @@ jobs:
           
           BOOST_SRC_DIR="$(pwd)/boost-root"
           export BOOST_SRC_DIR
-          cd boost-root/libs/http_proto
+          cd boost-root/libs/http
           
           cd doc
           bash ./build_antora.sh
@@ -1291,4 +1291,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: antora-docs-${{ matrix.name }}
-          path: boost-root/libs/http_proto/doc/build/site
+          path: boost-root/libs/http/doc/build/site

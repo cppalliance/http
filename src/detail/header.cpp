@@ -5,18 +5,18 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 #include "src/rfc/detail/rules.hpp"
 #include "src/rfc/detail/transfer_coding_rule.hpp"
 
-#include <boost/http_proto/detail/header.hpp>
-#include <boost/http_proto/field.hpp>
-#include <boost/http_proto/header_limits.hpp>
-#include <boost/http_proto/rfc/list_rule.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
-#include <boost/http_proto/rfc/upgrade_rule.hpp>
+#include <boost/http/detail/header.hpp>
+#include <boost/http/field.hpp>
+#include <boost/http/header_limits.hpp>
+#include <boost/http/rfc/list_rule.hpp>
+#include <boost/http/rfc/token_rule.hpp>
+#include <boost/http/rfc/upgrade_rule.hpp>
 #include <boost/assert.hpp>
 #include <boost/assert/source_location.hpp>
 #include <boost/static_assert.hpp>
@@ -29,7 +29,7 @@
 #include <utility>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 //------------------------------------------------
@@ -92,7 +92,7 @@ header(request_tag) noexcept
     , size(18)
     , prefix(16)
     , req{ 3, 1,
-        http_proto::method::get }
+        http::method::get }
 {
 }
 
@@ -104,7 +104,7 @@ header(response_tag) noexcept
     , size(19)
     , prefix(17)
     , res{ 200,
-        http_proto::status::ok }
+        http::status::ok }
 {
 }
 
@@ -177,7 +177,7 @@ keep_alive() const noexcept
     if(md.payload == payload::error)
         return false;
     if( version ==
-        http_proto::version::http_1_1)
+        http::version::http_1_1)
     {
         if(md.connection.close)
             return false;
@@ -490,7 +490,7 @@ on_insert_connection(
     if(! rv)
     {
         md.connection.ec =
-            BOOST_HTTP_PROTO_ERR(
+            BOOST_HTTP_ERR(
                 error::bad_connection);
         return;
     }
@@ -528,7 +528,7 @@ on_insert_content_length(
     {
         // parse failure
         md.content_length.ec =
-            BOOST_HTTP_PROTO_ERR(
+            BOOST_HTTP_ERR(
             error::bad_content_length);
         md.content_length.value = 0;
         update_payload();
@@ -549,7 +549,7 @@ on_insert_content_length(
     }
     // bad: different values
     md.content_length.ec =
-        BOOST_HTTP_PROTO_ERR(
+        BOOST_HTTP_ERR(
             error::multiple_content_length);
     md.content_length.value = 0;
     update_payload();
@@ -572,7 +572,7 @@ on_insert_expect(
             "100-continue"))
     {
         md.expect.ec =
-            BOOST_HTTP_PROTO_ERR(
+            BOOST_HTTP_ERR(
                 error::bad_expect);
         md.expect.is_100_continue = false;
         return;
@@ -617,7 +617,7 @@ on_insert_transfer_encoding(
 
 error:
     md.transfer_encoding.ec =
-        BOOST_HTTP_PROTO_ERR(
+        BOOST_HTTP_ERR(
             error::bad_transfer_encoding);
     md.transfer_encoding.is_chunked = false;
     update_payload();
@@ -637,7 +637,7 @@ on_insert_content_encoding(
     if(!rv)
     {
         md.content_encoding.ec =
-            BOOST_HTTP_PROTO_ERR(
+            BOOST_HTTP_ERR(
                 error::bad_content_encoding);
         md.content_encoding.coding =
             content_coding::unknown;
@@ -685,10 +685,10 @@ on_insert_upgrade(
     if(md.upgrade.ec.failed())
         return;
     if( version !=
-        http_proto::version::http_1_1)
+        http::version::http_1_1)
     {
         md.upgrade.ec =
-            BOOST_HTTP_PROTO_ERR(
+            BOOST_HTTP_ERR(
                 error::bad_upgrade);
         md.upgrade.websocket = false;
         return;
@@ -698,7 +698,7 @@ on_insert_upgrade(
     if(! rv)
     {
         md.upgrade.ec =
-            BOOST_HTTP_PROTO_ERR(
+            BOOST_HTTP_ERR(
                 error::bad_upgrade);
         md.upgrade.websocket = false;
         return;
@@ -1133,7 +1133,7 @@ parse_start_line(
             ec = rv.error();
             if( ec == grammar::error::need_more &&
                 new_size == lim.max_start_line)
-                ec = BOOST_HTTP_PROTO_ERR(
+                ec = BOOST_HTTP_ERR(
                     error::start_line_limit);
             return;
         }
@@ -1151,15 +1151,15 @@ parse_start_line(
         {
         case 10:
             h.version =
-                http_proto::version::http_1_0;
+                http::version::http_1_0;
             break;
         case 11:
             h.version =
-                http_proto::version::http_1_1;
+                http::version::http_1_1;
             break;
         default:
         {
-            ec = BOOST_HTTP_PROTO_ERR(
+            ec = BOOST_HTTP_ERR(
                 error::bad_version);
             return;
         }
@@ -1174,7 +1174,7 @@ parse_start_line(
             ec = rv.error();
             if( ec == grammar::error::need_more &&
                 new_size == lim.max_start_line)
-                ec = BOOST_HTTP_PROTO_ERR(
+                ec = BOOST_HTTP_ERR(
                     error::start_line_limit);
             return;
         }
@@ -1183,15 +1183,15 @@ parse_start_line(
         {
         case 10:
             h.version =
-                http_proto::version::http_1_0;
+                http::version::http_1_0;
             break;
         case 11:
             h.version =
-                http_proto::version::http_1_1;
+                http::version::http_1_1;
             break;
         default:
         {
-            ec = BOOST_HTTP_PROTO_ERR(
+            ec = BOOST_HTTP_ERR(
                 error::bad_version);
             return;
         }
@@ -1236,14 +1236,14 @@ parse_field(
         if( ec == grammar::error::need_more &&
             new_size == lim.max_field)
         {
-            ec = BOOST_HTTP_PROTO_ERR(
+            ec = BOOST_HTTP_ERR(
                 error::field_size_limit);
         }
         return;
     }
     if(h.count >= lim.max_fields)
     {
-        ec = BOOST_HTTP_PROTO_ERR(
+        ec = BOOST_HTTP_ERR(
             error::fields_limit);
         return;
     }
@@ -1299,7 +1299,7 @@ parse(
             if( ec == grammar::error::need_more &&
                 new_size == lim.max_fields)
             {
-                ec = BOOST_HTTP_PROTO_ERR(
+                ec = BOOST_HTTP_ERR(
                     error::headers_limit);
             }
             return;
@@ -1314,7 +1314,7 @@ parse(
             if( ec == grammar::error::need_more &&
                 new_size == lim.max_size)
             {
-                ec = BOOST_HTTP_PROTO_ERR(
+                ec = BOOST_HTTP_ERR(
                     error::headers_limit);
                 return;
             }
@@ -1326,5 +1326,5 @@ parse(
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost

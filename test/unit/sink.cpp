@@ -8,12 +8,12 @@
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/sink.hpp>
+#include <boost/http/sink.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct sink_test
 {
@@ -130,7 +130,7 @@ struct sink_test
 
 TEST_SUITE(
     sink_test,
-    "boost.http_proto.sink");
+    "boost.http.sink");
 
-} // http_proto
+} // http
 } // boost

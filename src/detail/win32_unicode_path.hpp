@@ -7,12 +7,12 @@
 // Official repository: https://github.com/boostorg/beast
 //
 
-#ifndef BOOST_HTTP_PROTO_DETAIL_WIN32_UNICODE_PATH_HPP
-#define BOOST_HTTP_PROTO_DETAIL_WIN32_UNICODE_PATH_HPP
+#ifndef BOOST_HTTP_DETAIL_WIN32_UNICODE_PATH_HPP
+#define BOOST_HTTP_DETAIL_WIN32_UNICODE_PATH_HPP
 
 #ifdef _WIN32
 #include <boost/config.hpp>
-#include <boost/http_proto/error.hpp>
+#include <boost/http/error.hpp>
 #include <boost/winapi/character_code_conversion.hpp>
 #include <boost/winapi/file_management.hpp>
 #include <boost/winapi/get_last_error.hpp>
@@ -20,7 +20,7 @@
 #include <vector>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 class win32_unicode_path
@@ -75,7 +75,7 @@ private:
 };
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

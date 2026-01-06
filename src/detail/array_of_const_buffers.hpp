@@ -5,11 +5,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_DETAIL_ARRAY_OF_BUFFERS_HPP
-#define BOOST_HTTP_PROTO_DETAIL_ARRAY_OF_BUFFERS_HPP
+#ifndef BOOST_HTTP_DETAIL_ARRAY_OF_BUFFERS_HPP
+#define BOOST_HTTP_DETAIL_ARRAY_OF_BUFFERS_HPP
 
 #include <boost/assert.hpp>
 #include <boost/buffers/buffer.hpp>
@@ -17,7 +17,7 @@
 #include <cstdint>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 class array_of_const_buffers
@@ -100,7 +100,7 @@ private:
 };
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

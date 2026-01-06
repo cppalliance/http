@@ -4,15 +4,15 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_TEST_HELPERS_HPP
-#define BOOST_HTTP_PROTO_TEST_HELPERS_HPP
+#ifndef BOOST_HTTP_TEST_HELPERS_HPP
+#define BOOST_HTTP_TEST_HELPERS_HPP
 
-#include <boost/http_proto/fields.hpp>
-#include <boost/http_proto/request.hpp>
-#include <boost/http_proto/response.hpp>
+#include <boost/http/fields.hpp>
+#include <boost/http/request.hpp>
+#include <boost/http/response.hpp>
 #include <boost/buffers/copy.hpp>
 #include <boost/buffers/make_buffer.hpp>
 #include <boost/core/detail/string_view.hpp>
@@ -24,7 +24,7 @@
 #include <string>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 inline
 std::string const&
@@ -105,7 +105,7 @@ bad(
         BOOST_TEST_EQ(rv.error(), e);
 }
 
-} // http_proto
+} // http
 } // boost
 
 #endif

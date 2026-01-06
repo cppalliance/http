@@ -4,13 +4,13 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/rfc/list_rule.hpp>
+#include <boost/http/rfc/list_rule.hpp>
 
-#include <boost/http_proto/rfc/token_rule.hpp>
+#include <boost/http/rfc/token_rule.hpp>
 #include <boost/url/grammar/parse.hpp>
 
 #include "test_suite.hpp"
@@ -18,7 +18,7 @@
 #include <initializer_list>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct list_rule_test
 {
@@ -90,7 +90,7 @@ struct list_rule_test
 
 TEST_SUITE(
     list_rule_test,
-    "boost.http_proto.list_rule");
+    "boost.http.list_rule");
 
-} // http_proto
+} // http
 } // boost

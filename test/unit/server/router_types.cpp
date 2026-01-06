@@ -4,17 +4,17 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/server/router_types.hpp>
-#include <boost/http_proto/server/router.hpp>
+#include <boost/http/server/router_types.hpp>
+#include <boost/http/server/router.hpp>
 
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct router_types_test
 {
@@ -52,12 +52,12 @@ struct router_types_test
         }
 
         basic_router<route_params_base> r;
-        r.add(http_proto::method::post, "/",
+        r.add(http::method::post, "/",
             [](route_params_base& rp) ->
                 route_result
             {
-                BOOST_TEST(  rp.is_method(http_proto::method::post));
-                BOOST_TEST(! rp.is_method(http_proto::method::get));
+                BOOST_TEST(  rp.is_method(http::method::post));
+                BOOST_TEST(! rp.is_method(http::method::get));
                 BOOST_TEST(! rp.is_method("GET"));
                 BOOST_TEST(! rp.is_method("Post"));
                 BOOST_TEST(  rp.is_method("POST"));
@@ -71,7 +71,7 @@ struct router_types_test
 
 TEST_SUITE(
     router_types_test,
-    "boost.http_proto.server.router_types");
+    "boost.http.server.router_types");
 
-} // http_proto
+} // http
 } // boost

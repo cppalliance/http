@@ -4,11 +4,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/file_source.hpp>
+#include <boost/http/file_source.hpp>
 
 #include <boost/buffers/make_buffer.hpp>
 #include <boost/filesystem.hpp>
@@ -17,7 +17,7 @@
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct file_source_test
 {
@@ -144,7 +144,7 @@ struct file_source_test
 
 TEST_SUITE(
     file_source_test,
-    "boost.http_proto.file_source");
+    "boost.http.file_source");
 
-} // http_proto
+} // http
 } // boost

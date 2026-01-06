@@ -4,14 +4,14 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/rfc/parameter.hpp>
+#include <boost/http/rfc/parameter.hpp>
 #include <boost/url/grammar/parse.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace implementation_defined {
 auto
 parameter_rule_t::
@@ -25,5 +25,5 @@ parse(
     return system::error_code{};
 }
 } // implementation_defined
-} // http_proto
+} // http
 } // boost

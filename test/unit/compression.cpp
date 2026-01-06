@@ -5,12 +5,12 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/request_parser.hpp>
-#include <boost/http_proto/response_parser.hpp>
-#include <boost/http_proto/serializer.hpp>
+#include <boost/http/request_parser.hpp>
+#include <boost/http/response_parser.hpp>
+#include <boost/http/serializer.hpp>
 
 #include <boost/buffers.hpp>
 #include <boost/core/detail/string_view.hpp>
@@ -26,7 +26,7 @@
 #include <random>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct zlib_test
 {
@@ -717,7 +717,7 @@ struct zlib_test
 
 TEST_SUITE(
     zlib_test,
-    "boost.http_proto.compression");
+    "boost.http.compression");
 
-} // namespace http_proto
+} // namespace http
 } // namespace boost

@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/rfc/parameter.hpp>
+#include <boost/http/rfc/parameter.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct parameter_test
 {
@@ -25,7 +25,7 @@ struct parameter_test
 
 TEST_SUITE(
     parameter_test,
-    "boost.http_proto.parameter");
+    "boost.http.parameter");
 
-} // http_proto
+} // http
 } // boost

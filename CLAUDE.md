@@ -67,7 +67,7 @@ T default_value();
 ## Structure
 
 * Boost.Beast2 refers to both the library which uses Boost.Asio and the collection of
-  libraries which includes Boost.Capy, Boost.Buffers, Boost.Http (http-proto), and Boost.Beast2
+  libraries which includes Boost.Capy, Boost.Buffers, Boost.Http (http), and Boost.Beast2
 
 * Boost.Capy contains general purpose data structures and algorithms
 

@@ -5,16 +5,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_SRC_RFC_DETAIL_RULES_HPP
-#define BOOST_HTTP_PROTO_SRC_RFC_DETAIL_RULES_HPP
+#ifndef BOOST_HTTP_SRC_RFC_DETAIL_RULES_HPP
+#define BOOST_HTTP_SRC_RFC_DETAIL_RULES_HPP
 
-#include <boost/http_proto/detail/config.hpp>
-#include <boost/http_proto/rfc/detail/ws.hpp>
-#include <boost/http_proto/rfc/token_rule.hpp>
-#include <boost/http_proto/status.hpp>
+#include <boost/http/detail/config.hpp>
+#include <boost/http/rfc/detail/ws.hpp>
+#include <boost/http/rfc/token_rule.hpp>
+#include <boost/http/status.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/system/result.hpp>
 #include <boost/url/grammar/delim_rule.hpp>
@@ -24,7 +24,7 @@
 #include <boost/url/grammar/tuple_rule.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 //------------------------------------------------
@@ -289,7 +289,7 @@ struct field_value_rule_t
 constexpr field_value_rule_t field_value_rule{};
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

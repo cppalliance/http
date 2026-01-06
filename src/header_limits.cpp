@@ -4,15 +4,15 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http_proto/header_limits.hpp>
-#include <boost/http_proto/detail/except.hpp>
-#include <boost/http_proto/detail/header.hpp>
+#include <boost/http/header_limits.hpp>
+#include <boost/http/detail/except.hpp>
+#include <boost/http/detail/header.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 std::size_t
 header_limits::
@@ -35,7 +35,7 @@ valid_space_needed() const
 
     // max_size too large
     if( max_size >
-        BOOST_HTTP_PROTO_MAX_HEADER)
+        BOOST_HTTP_MAX_HEADER)
         detail::throw_invalid_argument();
 
     // max_start_line too small
@@ -70,5 +70,5 @@ valid_space_needed() const
                 detail::header::entry));
 }
 
-} // http_proto
+} // http
 } // boost

@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/rfc/quoted_token_rule.hpp>
+#include <boost/http/rfc/quoted_token_rule.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct quoted_token_rule_test
 {
@@ -42,7 +42,7 @@ struct quoted_token_rule_test
 
 TEST_SUITE(
     quoted_token_rule_test,
-    "boost.http_proto.quoted_token_rule");
+    "boost.http.quoted_token_rule");
 
-} // http_proto
+} // http
 } // boost

@@ -1,44 +1,44 @@
-http://master.http-proto.cpp.al/[image:doc/modules/ROOT/images/repo-logo.png[Boost.Http.Proto]]
+http://master.http.cpp.al/[image:doc/modules/ROOT/images/repo-logo.png[Boost.HTTP]]
 
 [width="100%",cols="7%,66%,27%",options="header",]
 |===
 
 |Branch
-|https://github.com/cppalliance/http_proto/tree/master[`master`]
-|https://github.com/cppalliance/http_proto/tree/develop[`develop`]
+|https://github.com/cppalliance/http/tree/master[`master`]
+|https://github.com/cppalliance/http/tree/develop[`develop`]
 
-|https://develop.http-proto.cpp.al/[Docs]
-|https://master.http-proto.cpp.al/[image:https://img.shields.io/badge/docs-master-brightgreen.svg[Documentation]]
-|https://develop.http-proto.cpp.al/[image:https://img.shields.io/badge/docs-develop-brightgreen.svg[Documentation]]
+|https://develop.http.cpp.al/[Docs]
+|https://master.http.cpp.al/[image:https://img.shields.io/badge/docs-master-brightgreen.svg[Documentation]]
+|https://develop.http.cpp.al/[image:https://img.shields.io/badge/docs-develop-brightgreen.svg[Documentation]]
 
 |https://github.com/[GitHub Actions]
-|https://github.com/cppalliance/http_proto/actions/workflows/ci.yml?query=branch%3Amaster[image:https://github.com/cppalliance/http_proto/actions/workflows/ci.yml/badge.svg?branch=master[CI]]
-|https://github.com/cppalliance/http_proto/actions/workflows/ci.yml?query=branch%3Adevelop[image:https://github.com/cppalliance/http_proto/actions/workflows/ci.yml/badge.svg?branch=develop[CI]]
+|https://github.com/cppalliance/http/actions/workflows/ci.yml?query=branch%3Amaster[image:https://github.com/cppalliance/http/actions/workflows/ci.yml/badge.svg?branch=master[CI]]
+|https://github.com/cppalliance/http/actions/workflows/ci.yml?query=branch%3Adevelop[image:https://github.com/cppalliance/http/actions/workflows/ci.yml/badge.svg?branch=develop[CI]]
 
 
 |https://drone.io/[Drone]
-|https://drone.cpp.al/cppalliance/http_proto/branches[image:https://drone.cpp.al/api/badges/cppalliance/http_proto/status.svg?ref=refs/heads/master[Build Status]]
-|https://drone.cpp.al/cppalliance/http_proto/branches[image:https://drone.cpp.al/api/badges/cppalliance/http_proto/status.svg?ref=refs/heads/develop[Build Status]]
+|https://drone.cpp.al/cppalliance/http/branches[image:https://drone.cpp.al/api/badges/cppalliance/http/status.svg?ref=refs/heads/master[Build Status]]
+|https://drone.cpp.al/cppalliance/http/branches[image:https://drone.cpp.al/api/badges/cppalliance/http/status.svg?ref=refs/heads/develop[Build Status]]
 
 |https://codecov.io[Codecov]
-|https://app.codecov.io/gh/cppalliance/http_proto/tree/master[image:https://codecov.io/gh/cppalliance/http_proto/branch/master/graph/badge.svg[codecov]]
-|https://app.codecov.io/gh/cppalliance/http_proto/tree/develop[image:https://codecov.io/gh/cppalliance/http_proto/branch/develop/graph/badge.svg[codecov]]
+|https://app.codecov.io/gh/cppalliance/http/tree/master[image:https://codecov.io/gh/cppalliance/http/branch/master/graph/badge.svg[codecov]]
+|https://app.codecov.io/gh/cppalliance/http/tree/develop[image:https://codecov.io/gh/cppalliance/http/branch/develop/graph/badge.svg[codecov]]
 
 |===
 
-== Boost.Http.Proto
+== Boost.HTTP
 
 === This is currently **NOT** an official Boost library.
 
 === Overview
 
-Boost.Http.Proto is a portable, low-level C++ library which provides containers
+Boost.HTTP is a portable, low-level C++ library which provides containers
 and algorithms for implementing the HTTP/1.1 protocol described in the document
 https://datatracker.ietf.org/doc/html/rfc7230[Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing],
 henceforth referred to as
 https://datatracker.ietf.org/doc/html/rfc7230[rfc7230].
 
-Boost.Http.Proto offers these features:
+Boost.HTTP offers these features:
 
 * Require only C++11
 * Works without exceptions
@@ -55,20 +55,20 @@ Boost.Http.Proto offers these features:
 ==== Header-Only
 
 To eliminate the requirement to link a program to a static or dynamic
-Boost.Http.Proto library, simply place the following line in *exactly one*
+Boost.HTTP library, simply place the following line in *exactly one*
 source file in your project.
 ```
-#include <boost/http_proto/src.hpp>
+#include <boost/http/src.hpp>
 ```
 
 ==== Embedded
 
-Boost.HTTP.Proto works great on embedded devices.
+Boost.HTTP works great on embedded devices.
 It is designed to work without exceptions if desired.
 
 ==== Supported Compilers
 
-Boost.Http.Proto has been tested with the following compilers:
+Boost.HTTP has been tested with the following compilers:
 
 * clang: 3.8, 4, 5, 6, 7, 8, 9, 10, 11, 12
 * gcc: 5, 6, 7, 8, 9, 10, 11, 12

@@ -9,26 +9,26 @@ file-patterns:
 
 # Filters
 include-symbols:
-  - 'boost::http_proto::**'
+  - 'boost::http::**'
 exclude-symbols:
-  - 'boost::http_proto::fields_view_base::reference::operator->'
+  - 'boost::http::fields_view_base::reference::operator->'
 see-below:
-  - 'boost::http_proto::fields_view_base::iterator'
-  - 'boost::http_proto::fields_view_base::reverse_iterator'
-  - 'boost::http_proto::fields_view_base::subrange'
-  - 'boost::http_proto::file::native_handle_type'
+  - 'boost::http::fields_view_base::iterator'
+  - 'boost::http::fields_view_base::reverse_iterator'
+  - 'boost::http::fields_view_base::subrange'
+  - 'boost::http::file::native_handle_type'
 implementation-defined:
-  - 'boost::http_proto::*::detail'
-  - 'boost::http_proto::detail'
-  - 'boost::http_proto::implementation_defined'
-  - 'boost::http_proto::make_error_code'
-  - 'boost::http_proto::make_error_condition'
+  - 'boost::http::*::detail'
+  - 'boost::http::detail'
+  - 'boost::http::implementation_defined'
+  - 'boost::http::make_error_code'
+  - 'boost::http::make_error_condition'
 inaccessible-members: never
 inaccessible-bases: never
 
 # Generator
 generate: adoc
-base-url: https://www.github.com/cppalliance/http_proto/blob/develop/
+base-url: https://www.github.com/cppalliance/http/blob/develop/
 
 # Style
 verbose: true
@@ -40,4 +40,4 @@ use-system-stdlib: true
 warn-unnamed-param: true
 warn-if-undoc-enum-val: false
 
-cmake: '-DCMAKE_CXX_STANDARD=20 -DBOOST_HTTP_PROTO_MRDOCS_BUILD=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=OFF'
+cmake: '-DCMAKE_CXX_STANDARD=20 -DBOOST_HTTP_MRDOCS_BUILD=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=OFF'

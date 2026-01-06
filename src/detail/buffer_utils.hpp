@@ -4,18 +4,18 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_DETAIL_BUFFER_UTILS_HPP
-#define BOOST_HTTP_PROTO_DETAIL_BUFFER_UTILS_HPP
+#ifndef BOOST_HTTP_DETAIL_BUFFER_UTILS_HPP
+#define BOOST_HTTP_DETAIL_BUFFER_UTILS_HPP
 
 #include <boost/buffers/buffer.hpp>
 #include <boost/core/span.hpp>
 #include <iterator>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 template<typename BufferSequence>
@@ -28,7 +28,7 @@ make_span(BufferSequence const& bs) ->
 }
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

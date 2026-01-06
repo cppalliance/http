@@ -5,11 +5,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_PROTO_DETAIL_FILTER_HPP
-#define BOOST_HTTP_PROTO_DETAIL_FILTER_HPP
+#ifndef BOOST_HTTP_DETAIL_FILTER_HPP
+#define BOOST_HTTP_DETAIL_FILTER_HPP
 
 #include <boost/buffers/buffer_pair.hpp>
 #include <boost/buffers/slice.hpp>
@@ -17,7 +17,7 @@
 #include <boost/system/error_code.hpp>
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 /** Base class for all filters
@@ -85,7 +85,7 @@ protected:
 };
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

@@ -4,7 +4,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 = Server
@@ -41,9 +41,9 @@ appropriate handlers in order.
 
 [source,cpp]
 ----
-#include <boost/http_proto.hpp>
+#include <boost/http.hpp>
 
-using namespace boost::http_proto;
+using namespace boost::http;
 
 basic_router<route_params> router;
 
@@ -259,9 +259,9 @@ basic_router<route_params> router(
 
 [source,cpp]
 ----
-#include <boost/http_proto.hpp>
+#include <boost/http.hpp>
 
-using namespace boost::http_proto;
+using namespace boost::http;
 
 int main()
 {

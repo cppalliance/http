@@ -8,15 +8,15 @@
 // Official repository: https://github.com/cppalliance/buffers
 //
 
-#ifndef BOOST_HTTP_PROTO_DETAIL_BROTLI_FILTER_BASE_HPP
-#define BOOST_HTTP_PROTO_DETAIL_BROTLI_FILTER_BASE_HPP
+#ifndef BOOST_HTTP_DETAIL_BROTLI_FILTER_BASE_HPP
+#define BOOST_HTTP_DETAIL_BROTLI_FILTER_BASE_HPP
 
-#include <boost/http_proto/detail/workspace.hpp>
+#include <boost/http/detail/workspace.hpp>
 
 #include "src/detail/filter.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 namespace detail {
 
 /** Base class for brotli filters
@@ -43,7 +43,7 @@ protected:
 };
 
 } // detail
-} // http_proto
+} // http
 } // boost
 
 #endif

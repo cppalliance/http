@@ -4,16 +4,16 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/status.hpp>
+#include <boost/http/status.hpp>
 
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 class status_test
 {
@@ -171,8 +171,8 @@ public:
     }
 };
 
-TEST_SUITE(status_test, "boost.http_proto.status");
+TEST_SUITE(status_test, "boost.http.status");
 
-} // http_proto
+} // http
 } // boost
 

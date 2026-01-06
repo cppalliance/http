@@ -7,7 +7,7 @@
 # Distributed under the Boost Software License, Version 1.0. (See accompanying
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
-# Official repository: https://github.com/cppalliance/http_proto
+# Official repository: https://github.com/cppalliance/http
 #
 
 #-------------------------------------------------
@@ -16,14 +16,14 @@
 #
 #-------------------------------------------------
 cmake_minimum_required(VERSION 3.8...3.20)
-set(BOOST_HTTP_PROTO_VERSION 1)
+set(BOOST_HTTP_VERSION 1)
 if (BOOST_SUPERPROJECT_VERSION)
-    set(BOOST_HTTP_PROTO_VERSION ${BOOST_SUPERPROJECT_VERSION})
+    set(BOOST_HTTP_VERSION ${BOOST_SUPERPROJECT_VERSION})
 endif ()
-project(boost_http_proto VERSION "${BOOST_HTTP_PROTO_VERSION}" LANGUAGES CXX)
-set(BOOST_HTTP_PROTO_IS_ROOT OFF)
+project(boost_http VERSION "${BOOST_HTTP_VERSION}" LANGUAGES CXX)
+set(BOOST_HTTP_IS_ROOT OFF)
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(BOOST_HTTP_PROTO_IS_ROOT ON)
+    set(BOOST_HTTP_IS_ROOT ON)
 endif ()
 set(__ignore__ ${CMAKE_C_COMPILER})
 
@@ -32,12 +32,12 @@ set(__ignore__ ${CMAKE_C_COMPILER})
 # Options
 #
 #-------------------------------------------------
-if (BOOST_HTTP_PROTO_IS_ROOT)
+if (BOOST_HTTP_IS_ROOT)
     include(CTest)
 endif ()
-option(BOOST_HTTP_PROTO_BUILD_TESTS "Build boost::http_proto tests" ${BUILD_TESTING})
-option(BOOST_HTTP_PROTO_BUILD_EXAMPLES "Build boost::http_proto examples" ${BOOST_HTTP_PROTO_IS_ROOT})
-option(BOOST_HTTP_PROTO_MRDOCS_BUILD "Build the target for MrDocs: see mrdocs.yml" OFF)
+option(BOOST_HTTP_BUILD_TESTS "Build boost::http tests" ${BUILD_TESTING})
+option(BOOST_HTTP_BUILD_EXAMPLES "Build boost::http examples" ${BOOST_HTTP_IS_ROOT})
+option(BOOST_HTTP_MRDOCS_BUILD "Build the target for MrDocs: see mrdocs.yml" OFF)
 
 # Check if environment variable BOOST_SRC_DIR is set
 if (NOT DEFINED BOOST_SRC_DIR AND DEFINED ENV{BOOST_SRC_DIR})
@@ -53,7 +53,7 @@ set(BOOST_SRC_DIR ${DEFAULT_BOOST_SRC_DIR} CACHE STRING "Boost source dir to use
 #
 #-------------------------------------------------
 # The boost super-project requires one explicit dependency per-line.
-set(BOOST_HTTP_PROTO_DEPENDENCIES
+set(BOOST_HTTP_DEPENDENCIES
     Boost::assert
     Boost::buffers
     Boost::capy
@@ -66,33 +66,32 @@ set(BOOST_HTTP_PROTO_DEPENDENCIES
     Boost::throw_exception
     Boost::type_traits
     Boost::url
-    Boost::winapi
-    )
+    Boost::winapi)
 
-foreach (BOOST_HTTP_PROTO_DEPENDENCY ${BOOST_HTTP_PROTO_DEPENDENCIES})
-    if (BOOST_HTTP_PROTO_DEPENDENCY MATCHES "^[ ]*Boost::([A-Za-z0-9_]+)[ ]*$")
-        list(APPEND BOOST_HTTP_PROTO_INCLUDE_LIBRARIES ${CMAKE_MATCH_1})
+foreach (BOOST_HTTP_DEPENDENCY ${BOOST_HTTP_DEPENDENCIES})
+    if (BOOST_HTTP_DEPENDENCY MATCHES "^[ ]*Boost::([A-Za-z0-9_]+)[ ]*$")
+        list(APPEND BOOST_HTTP_INCLUDE_LIBRARIES ${CMAKE_MATCH_1})
     endif ()
 endforeach ()
 # Conditional dependencies
 if (NOT BOOST_URL_MRDOCS_BUILD)
-    if (BOOST_HTTP_PROTO_BUILD_TESTS)
-        set(BOOST_HTTP_PROTO_UNIT_TEST_LIBRARIES filesystem)
+    if (BOOST_HTTP_BUILD_TESTS)
+        set(BOOST_HTTP_UNIT_TEST_LIBRARIES filesystem)
     endif ()
-    if (BOOST_HTTP_PROTO_BUILD_EXAMPLES)
-        # set(BOOST_HTTP_PROTO_EXAMPLE_LIBRARIES json)
+    if (BOOST_HTTP_BUILD_EXAMPLES)
+        # set(BOOST_HTTP_EXAMPLE_LIBRARIES json)
     endif ()
 endif ()
 # Complete dependency list
-set(BOOST_INCLUDE_LIBRARIES ${BOOST_HTTP_PROTO_INCLUDE_LIBRARIES} ${BOOST_HTTP_PROTO_UNIT_TEST_LIBRARIES} ${BOOST_HTTP_PROTO_EXAMPLE_LIBRARIES})
-set(BOOST_EXCLUDE_LIBRARIES http_proto)
+set(BOOST_INCLUDE_LIBRARIES ${BOOST_HTTP_INCLUDE_LIBRARIES} ${BOOST_HTTP_UNIT_TEST_LIBRARIES} ${BOOST_HTTP_EXAMPLE_LIBRARIES})
+set(BOOST_EXCLUDE_LIBRARIES http)
 
 #-------------------------------------------------
 #
 # Add Boost Subdirectory
 #
 #-------------------------------------------------
-if (BOOST_HTTP_PROTO_IS_ROOT)
+if (BOOST_HTTP_IS_ROOT)
     set(CMAKE_FOLDER Dependencies)
     # Find absolute BOOST_SRC_DIR
     if (NOT IS_ABSOLUTE ${BOOST_SRC_DIR})
@@ -140,46 +139,46 @@ endif ()
 #-------------------------------------------------
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-file(GLOB_RECURSE BOOST_HTTP_PROTO_HEADERS CONFIGURE_DEPENDS include/boost/*.hpp include/boost/*.natvis)
-file(GLOB_RECURSE BOOST_HTTP_PROTO_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.hpp)
+file(GLOB_RECURSE BOOST_HTTP_HEADERS CONFIGURE_DEPENDS include/boost/*.hpp include/boost/*.natvis)
+file(GLOB_RECURSE BOOST_HTTP_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.hpp)
 
-source_group("" FILES "include/boost/http_proto.hpp" "build/Jamfile")
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost/http_proto PREFIX "include" FILES ${BOOST_HTTP_PROTO_HEADERS})
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "src" FILES ${BOOST_HTTP_PROTO_SOURCES})
+source_group("" FILES "include/boost/http.hpp" "build/Jamfile")
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost/http PREFIX "include" FILES ${BOOST_HTTP_HEADERS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "src" FILES ${BOOST_HTTP_SOURCES})
 
-function(boost_http_proto_setup_properties target)
+function(boost_http_setup_properties target)
     target_compile_features(${target} PUBLIC cxx_constexpr)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/include")
     target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}")
-    target_link_libraries(${target} PUBLIC ${BOOST_HTTP_PROTO_DEPENDENCIES})
-    target_compile_definitions(${target} PUBLIC BOOST_HTTP_PROTO_NO_LIB)
-    target_compile_definitions(${target} PRIVATE BOOST_HTTP_PROTO_SOURCE)
+    target_link_libraries(${target} PUBLIC ${BOOST_HTTP_DEPENDENCIES})
+    target_compile_definitions(${target} PUBLIC BOOST_HTTP_NO_LIB)
+    target_compile_definitions(${target} PRIVATE BOOST_HTTP_SOURCE)
     if (BUILD_SHARED_LIBS)
-        target_compile_definitions(${target} PUBLIC BOOST_HTTP_PROTO_DYN_LINK)
+        target_compile_definitions(${target} PUBLIC BOOST_HTTP_DYN_LINK)
     else ()
-        target_compile_definitions(${target} PUBLIC BOOST_HTTP_PROTO_STATIC_LINK)
+        target_compile_definitions(${target} PUBLIC BOOST_HTTP_STATIC_LINK)
     endif ()
 endfunction()
 
-if (BOOST_HTTP_PROTO_MRDOCS_BUILD)
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/mrdocs.cpp" "#include <boost/http_proto.hpp>\n")
-    add_library(boost_http_proto_mrdocs "${CMAKE_CURRENT_BINARY_DIR}/mrdocs.cpp")
-    boost_http_proto_setup_properties(boost_http_proto_mrdocs)
-    target_compile_definitions(boost_http_proto_mrdocs PUBLIC BOOST_HTTP_PROTO_MRDOCS)
-    set_target_properties(boost_http_proto_mrdocs PROPERTIES EXPORT_COMPILE_COMMANDS ON)
+if (BOOST_HTTP_MRDOCS_BUILD)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/mrdocs.cpp" "#include <boost/http.hpp>\n")
+    add_library(boost_http_mrdocs "${CMAKE_CURRENT_BINARY_DIR}/mrdocs.cpp")
+    boost_http_setup_properties(boost_http_mrdocs)
+    target_compile_definitions(boost_http_mrdocs PUBLIC BOOST_HTTP_MRDOCS)
+    set_target_properties(boost_http_mrdocs PROPERTIES EXPORT_COMPILE_COMMANDS ON)
     return()
 endif ()
 
-add_library(boost_http_proto include/boost/http_proto.hpp build/Jamfile ${BOOST_HTTP_PROTO_HEADERS} ${BOOST_HTTP_PROTO_SOURCES})
-add_library(Boost::http_proto ALIAS boost_http_proto)
-boost_http_proto_setup_properties(boost_http_proto)
+add_library(boost_http include/boost/http.hpp build/Jamfile ${BOOST_HTTP_HEADERS} ${BOOST_HTTP_SOURCES})
+add_library(Boost::http ALIAS boost_http)
+boost_http_setup_properties(boost_http)
 
 #-------------------------------------------------
 #
 # Tests
 #
 #-------------------------------------------------
-if (BOOST_HTTP_PROTO_BUILD_TESTS)
+if (BOOST_HTTP_BUILD_TESTS)
     add_subdirectory(test)
 endif ()
 
@@ -188,6 +187,6 @@ endif ()
 # Examples
 #
 #-------------------------------------------------
-if (BOOST_HTTP_PROTO_BUILD_EXAMPLES)
+if (BOOST_HTTP_BUILD_EXAMPLES)
     # add_subdirectory(example)
 endif ()

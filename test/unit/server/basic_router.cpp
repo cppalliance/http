@@ -4,20 +4,20 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/http_proto
+// Official repository: https://github.com/cppalliance/http
 //
 
 // Test that header file is self-contained.
-#include <boost/http_proto/server/basic_router.hpp>
+#include <boost/http/server/basic_router.hpp>
 
-#include <boost/http_proto/server/route_handler.hpp>
+#include <boost/http/server/route_handler.hpp>
 
 #include "src/server/route_rule.hpp"
 
 #include "test_suite.hpp"
 
 namespace boost {
-namespace http_proto {
+namespace http {
 
 struct basic_router_test
 {
@@ -55,7 +55,7 @@ struct basic_router_test
 
         explicit handler(
             int want, system::error_code ec =
-                http_proto::error::success)
+                http::error::success)
             : want_(want)
             , ec_(ec)
         {
@@ -311,7 +311,7 @@ struct basic_router_test
     static err_handler err_skip()
     {
         return err_handler(0,
-            http_proto::error::success);
+            http::error::success);
     }
 
     // must be called, expects ec, returns route::send
@@ -368,7 +368,7 @@ struct basic_router_test
     {
         params req;
         auto rv = r.dispatch(
-            http_proto::method::get,
+            http::method::get,
             urls::url_view(url), req);
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);
@@ -376,7 +376,7 @@ struct basic_router_test
 
     void check(
         test_router& r,
-        http_proto::method verb,
+        http::method verb,
         core::string_view url,
         route_result rv0 = route::send)
     {
@@ -457,9 +457,9 @@ struct basic_router_test
     void testUse()
     {
         system::error_code const er =
-            http_proto::error::bad_connection;
+            http::error::bad_connection;
         system::error_code const er2 =
-            http_proto::error::bad_expect;
+            http::error::bad_expect;
 
         // pathless
         {
@@ -790,19 +790,19 @@ struct basic_router_test
             test_router r;
             r.use(skip());
             BOOST_TEST_THROWS(
-                check(r, http_proto::method::unknown, "/", route::next),
+                check(r, http::method::unknown, "/", route::next),
                 std::invalid_argument);
         }
     }
 
     void testRoute()
     {
-        static auto const GET = http_proto::method::get;
-        static auto const POST = http_proto::method::post;
+        static auto const GET = http::method::get;
+        static auto const POST = http::method::post;
         static system::error_code const er =
-            http_proto::error::bad_connection;
+            http::error::bad_connection;
         static system::error_code const er2 =
-            http_proto::error::bad_expect;
+            http::error::bad_expect;
 
         // empty
         {
@@ -1054,7 +1054,7 @@ struct basic_router_test
         {
             test_router r;
             BOOST_TEST_THROWS(
-                r.route("/").add(http_proto::method::unknown, skip()),
+                r.route("/").add(http::method::unknown, skip()),
                 std::invalid_argument);
         }
 
@@ -1093,12 +1093,12 @@ struct basic_router_test
 
     void testSubRouter()
     {
-        static auto const GET = http_proto::method::get;
-        static auto const POST = http_proto::method::post;
+        static auto const GET = http::method::get;
+        static auto const POST = http::method::post;
         static system::error_code const er =
-            http_proto::error::bad_connection;
+            http::error::bad_connection;
         static system::error_code const er2 =
-            http_proto::error::bad_expect;
+            http::error::bad_expect;
 
         // sub-middleware
         {
@@ -1232,11 +1232,11 @@ struct basic_router_test
 
     void testErr()
     {
-        static auto const GET = http_proto::method::get;
+        static auto const GET = http::method::get;
         static system::error_code const er =
-            http_proto::error::bad_connection;
+            http::error::bad_connection;
         static system::error_code const er2 =
-            http_proto::error::bad_content_length;
+            http::error::bad_content_length;
         {
             test_router r;
             r.use(err_skip());
@@ -1412,7 +1412,7 @@ struct basic_router_test
                     return route::send;
                 });
             params req;
-            r.dispatch(http_proto::method::get,
+            r.dispatch(http::method::get,
                 urls::url_view(target), req);
         };
 
@@ -1430,7 +1430,7 @@ struct basic_router_test
 
     void testPctDecode()
     {
-        static auto const GET = http_proto::method::get;
+        static auto const GET = http::method::get;
 
         // slash
         {
@@ -1466,7 +1466,7 @@ struct basic_router_test
 
     void testDetach()
     {
-        static auto const GET = http_proto::method::get;
+        static auto const GET = http::method::get;
         {
             test_router r;
             r.use(next());
@@ -1618,7 +1618,7 @@ struct basic_router_test
 
 TEST_SUITE(
     basic_router_test,
-    "boost.http_proto.server.basic_router");
+    "boost.http.server.basic_router");
 
-} // http_proto
+} // http
 } // boost
