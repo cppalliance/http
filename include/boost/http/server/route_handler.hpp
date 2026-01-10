@@ -12,8 +12,8 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/router_types.hpp>
+#include <boost/capy/affine.hpp>
 #include <boost/capy/datastore.hpp>
-#include <boost/capy/executor.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/http/request.hpp>  // VFALCO forward declare?
 #include <boost/http/request_parser.hpp>  // VFALCO forward declare?
@@ -84,7 +84,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
 
     /** Executor associated with the session.
     */
-    capy::executor ex;
+    capy::any_dispatcher ex;
 
     /** Destructor
     */

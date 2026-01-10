@@ -9,6 +9,7 @@
 
 #include <boost/http/server/route_handler.hpp>
 #include <boost/http/string_body.hpp>
+#include <boost/capy/async_run.hpp>
 
 namespace boost {
 namespace http {
@@ -49,8 +50,6 @@ set_body(std::string s)
     return *this;
 }
 
-#ifdef BOOST_HTTP_HAS_CORO
-
 auto
 route_params::
 spawn(
@@ -60,19 +59,17 @@ spawn(
     return this->suspend(
         [ex = this->ex, t = std::move(t)](resumer resume) mutable
         {
-            capy::spawn(ex, std::move(t),
-                [resume](system::result<
-                    route_result, std::exception_ptr> r)
+            capy::async_run(ex)(std::move(t),
+                [resume](route_result rv)
                 {
-                    if(r.has_error())
-                        resume(r.error());
-                    else
-                        resume(*r);
+                    resume(rv);
+                },
+                [resume](std::exception_ptr ep)
+                {
+                    resume(ep);
                 });
         });
 }
-
-#endif
 
 } // http
 } // boost
