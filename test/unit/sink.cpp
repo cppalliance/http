@@ -37,7 +37,7 @@ struct sink_test
 
         results
         on_write(
-            buffers::const_buffer b,
+            capy::const_buffer b,
             bool) override
         {
             results rv;
@@ -65,11 +65,11 @@ struct sink_test
         for(std::size_t i = 0;;++i)
         {
             test_sink dest(i);
-            buffers::const_buffer cb[3] = {
+            capy::const_buffer cb[3] = {
                 { &pat[0], 3 },
                 { &pat[3], 5 },
                 { &pat[8], 7 } };
-            boost::span<buffers::const_buffer const> bs(cb);
+            boost::span<capy::const_buffer const> bs(cb);
             auto rv = dest.write(bs, false);
             if(rv.ec.failed())
                 continue;
@@ -81,7 +81,7 @@ struct sink_test
         for(std::size_t i = 0;;++i)
         {
             test_sink dest(i);
-            buffers::const_buffer cb(
+            capy::const_buffer cb(
                 &pat[0], pat.size());
             auto rv = dest.write(cb, false);
             if(rv.ec.failed())
@@ -95,7 +95,7 @@ struct sink_test
         {
             test_sink dest(i);
             std::string s = pat;
-            buffers::mutable_buffer mb(
+            capy::mutable_buffer mb(
                 &s[0], s.size());
             auto rv = dest.write(mb, false);
             if(rv.ec.failed())
@@ -108,7 +108,7 @@ struct sink_test
         {
             test_sink dest(99);
             auto rv = dest.write(
-                boost::span<buffers::const_buffer const>{},
+                boost::span<capy::const_buffer const>{},
                 true);
             BOOST_TEST(! rv.ec.failed());
             BOOST_TEST_EQ(rv.bytes, 0);

@@ -11,8 +11,8 @@
 #ifndef BOOST_HTTP_DETAIL_FILTER_HPP
 #define BOOST_HTTP_DETAIL_FILTER_HPP
 
-#include <boost/buffers/buffer_pair.hpp>
-#include <boost/buffers/slice.hpp>
+#include <boost/capy/buffers/buffer_pair.hpp>
+#include <boost/capy/buffers/slice.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -63,9 +63,9 @@ public:
 
     results
     process(
-        buffers::slice_of<
-            boost::span<const buffers::mutable_buffer>> out,
-        buffers::const_buffer_pair in,
+        capy::slice_of<
+            boost::span<const capy::mutable_buffer>> out,
+        capy::const_buffer_pair in,
         bool more);
 
 protected:
@@ -79,8 +79,8 @@ protected:
     virtual
     results
     do_process(
-        buffers::mutable_buffer,
-        buffers::const_buffer,
+        capy::mutable_buffer,
+        capy::const_buffer,
         bool) noexcept = 0;
 };
 

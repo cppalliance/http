@@ -48,7 +48,7 @@ struct sandbox_test
         std::string s;
         read_header( sock, pr );
         char temp[1024];
-        auto mb = buffers::buffer(temp);
+        auto mb = capy::make_buffer(temp);
         while(! pr.is_complete())
         {
             auto[ec, n] = co_await

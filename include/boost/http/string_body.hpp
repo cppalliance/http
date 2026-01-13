@@ -11,7 +11,7 @@
 #define BOOST_HTTP_STRING_BODY_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/buffers/buffer.hpp>
+#include <boost/capy/buffers.hpp>
 #include <string>
 #include <utility>
 
@@ -45,14 +45,14 @@ namespace http {
 class string_body
 {
     std::string s_;
-    buffers::const_buffer cb_;
+    capy::const_buffer cb_;
 
 public:
     /// The type for each buffer.
-    using value_type = buffers::const_buffer;
+    using value_type = capy::const_buffer;
 
     /// The type of a const iterator.
-    using const_iterator = buffers::const_buffer const*;
+    using const_iterator = capy::const_buffer const*;
 
     string_body(
         string_body&& other) noexcept

@@ -10,8 +10,8 @@
 #ifndef BOOST_HTTP_IMPL_SINK_HPP
 #define BOOST_HTTP_IMPL_SINK_HPP
 
-#include <boost/buffers/buffer.hpp>
-#include <boost/buffers/range.hpp>
+#include <boost/capy/buffers.hpp>
+#include <boost/capy/buffers/range.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/assert.hpp>
 
@@ -44,10 +44,10 @@ write_impl(
 {
     results rv;
     constexpr int SmallArraySize = 16;
-    buffers::const_buffer tmp[SmallArraySize];
+    capy::const_buffer tmp[SmallArraySize];
     auto const tmp_end = tmp + SmallArraySize;
-    auto it = buffers::begin(bs);
-    auto const end_ = buffers::end(bs);
+    auto it = capy::begin(bs);
+    auto const end_ = capy::end(bs);
     while(it != end_)
     {
         auto p = tmp;
@@ -59,7 +59,7 @@ write_impl(
             p != tmp_end &&
             it != end_);
         rv += on_write(boost::span<
-            buffers::const_buffer const>(
+            capy::const_buffer const>(
                 tmp, p - tmp),
             it != end_ || more);
         if(rv.ec.failed())

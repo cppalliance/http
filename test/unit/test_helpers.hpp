@@ -13,8 +13,8 @@
 #include <boost/http/fields.hpp>
 #include <boost/http/request.hpp>
 #include <boost/http/response.hpp>
-#include <boost/buffers/copy.hpp>
-#include <boost/buffers/make_buffer.hpp>
+#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/url/grammar/parse.hpp>
 
@@ -40,9 +40,9 @@ std::string
 test_to_string(Buffers const& bs)
 {
     std::string s(
-        buffers::size(bs), 0);
-    s.resize(buffers::copy(
-        buffers::make_buffer(&s[0], s.size()),
+        capy::buffer_size(bs), 0);
+    s.resize(capy::copy(
+        capy::make_buffer(&s[0], s.size()),
         bs));
     return s;
 }

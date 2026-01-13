@@ -43,11 +43,11 @@ read_impl(
 {
     results rv;
     constexpr int SmallArraySize = 16;
-    buffers::mutable_buffer tmp[SmallArraySize];
+    capy::mutable_buffer tmp[SmallArraySize];
     auto const tmp_end =
         tmp + SmallArraySize;
-    auto it = buffers::begin(bs);
-    auto const end_ = buffers::end(bs);
+    auto it = capy::begin(bs);
+    auto const end_ = capy::end(bs);
     while(it != end_)
     {
         auto p = tmp;
@@ -59,7 +59,7 @@ read_impl(
             p != tmp_end &&
             it != end_);
         rv += on_read(boost::span<
-            buffers::mutable_buffer const>(
+            capy::mutable_buffer const>(
                 tmp, p - tmp));
         if(rv.ec.failed())
             return rv;

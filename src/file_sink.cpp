@@ -29,7 +29,7 @@ file_sink::
 auto
 file_sink::
 on_write(
-    buffers::const_buffer b,
+    capy::const_buffer b,
     bool more) -> results
 {
     results rv;

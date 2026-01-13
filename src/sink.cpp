@@ -15,7 +15,7 @@ namespace http {
 auto
 sink::
 on_write(
-    boost::span<buffers::const_buffer const> bs,
+    boost::span<capy::const_buffer const> bs,
     bool more) ->
         results
 {
@@ -26,7 +26,7 @@ on_write(
         return rv;
     do
     {
-        buffers::const_buffer b(*it++);
+        capy::const_buffer b(*it++);
         if(b.size() == 0)
             continue;
         rv += on_write(

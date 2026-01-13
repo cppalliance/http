@@ -59,7 +59,7 @@ struct file_sink_test
         {
             capy::file f;
             file_sink fsink(std::move(f));
-            buffers::const_buffer cb("123", 3);
+            capy::const_buffer cb("123", 3);
             auto rs = fsink.write(cb, true);
             BOOST_TEST_EQ(rs.bytes, 0);
             BOOST_TEST(rs.ec.failed());
@@ -83,7 +83,7 @@ struct file_sink_test
             {} }; // empty
         for(auto s : bufs)
         {
-            buffers::const_buffer cb(s.data(), s.size());
+            capy::const_buffer cb(s.data(), s.size());
             auto rs = fsink.write(cb, s.size() != 0);
             BOOST_TEST_EQ(rs.bytes, cb.size());
             BOOST_TEST(!rs.ec);

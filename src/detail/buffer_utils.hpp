@@ -10,7 +10,7 @@
 #ifndef BOOST_HTTP_DETAIL_BUFFER_UTILS_HPP
 #define BOOST_HTTP_DETAIL_BUFFER_UTILS_HPP
 
-#include <boost/buffers/buffer.hpp>
+#include <boost/capy/buffers.hpp>
 #include <boost/core/span.hpp>
 #include <iterator>
 
@@ -21,10 +21,10 @@ namespace detail {
 template<typename BufferSequence>
 auto
 make_span(BufferSequence const& bs) ->
-    boost::span<typename std::iterator_traits<decltype(buffers::begin(bs))>::value_type const>
+    boost::span<typename std::iterator_traits<decltype(capy::begin(bs))>::value_type const>
 {
-    return { &*buffers::begin(bs),
-        std::size_t(std::distance(buffers::begin(bs), buffers::end(bs))) };
+    return { &*capy::begin(bs),
+        std::size_t(std::distance(capy::begin(bs), capy::end(bs))) };
 }
 
 } // detail

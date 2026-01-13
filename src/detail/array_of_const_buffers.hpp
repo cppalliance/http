@@ -12,7 +12,7 @@
 #define BOOST_HTTP_DETAIL_ARRAY_OF_BUFFERS_HPP
 
 #include <boost/assert.hpp>
-#include <boost/buffers/buffer.hpp>
+#include <boost/capy/buffers.hpp>
 
 #include <cstdint>
 
@@ -23,7 +23,7 @@ namespace detail {
 class array_of_const_buffers
 {
 public:
-    using value_type = buffers::const_buffer;
+    using value_type = capy::const_buffer;
     using iterator = value_type*;
     using const_iterator = iterator;
 

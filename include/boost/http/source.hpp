@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SOURCE_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/buffers/buffer.hpp>
+#include <boost/capy/buffers.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/error_code.hpp>
 #include <cstddef>
@@ -111,8 +111,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     read(MutableBufferSequence const& bs)
     {
         static_assert(
-            buffers::is_mutable_buffer_sequence<
-                MutableBufferSequence>::value,
+            capy::mutable_buffer_sequence<MutableBufferSequence>,
             "Type requirements not met");
 
         return read_impl(bs);
@@ -155,7 +154,7 @@ protected:
     virtual
     results
     on_read(
-        buffers::mutable_buffer b) = 0;
+        capy::mutable_buffer b) = 0;
 
     /** Derived class override.
 
@@ -195,19 +194,19 @@ protected:
     virtual
     results
     on_read(
-        boost::span<buffers::mutable_buffer const> bs);
+        boost::span<capy::mutable_buffer const> bs);
 
 private:
     results
     read_impl(
-        buffers::mutable_buffer const& b)
+        capy::mutable_buffer const& b)
     {
         return on_read(b);
     }
 
     results
     read_impl(
-        boost::span<buffers::mutable_buffer const> const& bs)
+        boost::span<capy::mutable_buffer const> const& bs)
     {
         return on_read(bs);
     }

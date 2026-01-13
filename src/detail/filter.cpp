@@ -10,7 +10,7 @@
 
 #include "src/detail/filter.hpp"
 
-#include <boost/buffers/front.hpp>
+#include <boost/capy/buffers/front.hpp>
 
 namespace boost {
 namespace http {
@@ -19,9 +19,9 @@ namespace detail {
 auto
 filter::
 process(
-    buffers::slice_of<
-        boost::span<const buffers::mutable_buffer>> out,
-    buffers::const_buffer_pair in,
+    capy::slice_of<
+        boost::span<const capy::mutable_buffer>> out,
+    capy::const_buffer_pair in,
     bool more) -> results
 {
     results rv;
@@ -30,7 +30,7 @@ process(
     {
         if(!more && p_more && in[1].size() == 0)
         {
-            if(buffers::size(out) < min_out_buffer())
+            if(capy::buffer_size(out) < min_out_buffer())
             {
                 rv.out_short = true;
                 return rv;
@@ -38,8 +38,8 @@ process(
             p_more = false;
         }
 
-        auto ob = buffers::front(out);
-        auto ib = buffers::front(in);
+        auto ob = capy::front(out);
+        auto ib = capy::front(in);
         auto rs = do_process(ob, ib, p_more);
 
         rv.in_bytes  += rs.in_bytes;
@@ -57,13 +57,13 @@ process(
             return rv;
         }
 
-        buffers::remove_prefix(out, rs.out_bytes);
-        buffers::remove_prefix(in, rs.in_bytes);
+        capy::remove_prefix(out, rs.out_bytes);
+        capy::remove_prefix(in, rs.in_bytes);
 
-        if(buffers::size(out) == 0)
+        if(capy::buffer_size(out) == 0)
             return rv;
 
-        if(buffers::size(in) == 0 && rs.out_bytes < ob.size())
+        if(capy::buffer_size(in) == 0 && rs.out_bytes < ob.size())
             return rv;
     }
 }

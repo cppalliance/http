@@ -15,11 +15,11 @@
 #include <boost/http/static_response.hpp>
 
 #include <boost/assert.hpp>
-#include <boost/buffers/circular_buffer.hpp>
-#include <boost/buffers/copy.hpp>
-#include <boost/buffers/flat_buffer.hpp>
-#include <boost/buffers/front.hpp>
-#include <boost/buffers/slice.hpp>
+#include <boost/capy/buffers/circular_buffer.hpp>
+#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/flat_buffer.hpp>
+#include <boost/capy/buffers/front.hpp>
+#include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/brotli/decode.hpp>
 #include <boost/capy/polystore.hpp>
 #include <boost/capy/zlib/error.hpp>
@@ -128,7 +128,7 @@ class chained_sequence
     char const* end_b_;
 
 public:
-    chained_sequence(buffers::const_buffer_pair const& cbp)
+    chained_sequence(capy::const_buffer_pair const& cbp)
         : pos_(static_cast<char const*>(cbp[0].data()))
         , end_(pos_ + cbp[0].size())
         , begin_b_(static_cast<char const*>(cbp[1].data()))
@@ -325,8 +325,8 @@ private:
     virtual
     results
     do_process(
-        buffers::mutable_buffer out,
-        buffers::const_buffer in,
+        capy::mutable_buffer out,
+        capy::const_buffer in,
         bool more) noexcept override
     {
         strm_.next_out  = static_cast<unsigned char*>(out.data());
@@ -379,8 +379,8 @@ private:
     virtual
     results
     do_process(
-        buffers::mutable_buffer out,
-        buffers::const_buffer in,
+        capy::mutable_buffer out,
+        capy::const_buffer in,
         bool more) noexcept override
     {
         auto* next_in = reinterpret_cast<const std::uint8_t*>(in.data());
@@ -546,15 +546,15 @@ class parser::impl
     std::size_t body_avail_;
     std::size_t nprepare_;
 
-    buffers::flat_buffer fb_;
-    buffers::circular_buffer cb0_;
-    buffers::circular_buffer cb1_;
+    capy::flat_buffer fb_;
+    capy::circular_buffer cb0_;
+    capy::circular_buffer cb1_;
 
-    buffers::mutable_buffer_pair mbp_;
-    buffers::const_buffer_pair cbp_;
+    capy::mutable_buffer_pair mbp_;
+    capy::const_buffer_pair cbp_;
 
     detail::filter* filter_;
-    buffers::any_dynamic_buffer* eb_;
+    capy::any_dynamic_buffer* eb_;
     sink* sink_;
 
     state state_;
@@ -1330,7 +1330,7 @@ public:
                         const std::size_t chunk_avail =
                             clamp(chunk_remain_, cb0_.size());
                         const auto chunk =
-                            buffers::prefix(cb0_.data(), chunk_avail);
+                            capy::prefix(cb0_.data(), chunk_avail);
 
                         if(body_limit_remain() < chunk_avail)
                         {
@@ -1344,7 +1344,7 @@ public:
                         {
                         case style::in_place:
                         {
-                            auto copied = buffers::copy(
+                            auto copied = capy::copy(
                                 cb1_.prepare(cb1_.capacity()),
                                 chunk);
                             chunk_remain_ -= copied;
@@ -1388,7 +1388,7 @@ public:
                                 state_ = state::reset;
                                 return;
                             }
-                            buffers::copy(
+                            capy::copy(
                                 eb_->prepare(chunk_avail),
                                 chunk);
                             chunk_remain_ -= chunk_avail;
@@ -1472,7 +1472,7 @@ public:
                         payload_remain_ -= payload_avail;
                         body_total_     += payload_avail;
                         auto sink_rs = sink_->write(
-                            buffers::prefix(cb0_.data(), payload_avail),
+                            capy::prefix(cb0_.data(), payload_avail),
                             !is_complete);
                         cb0_.consume(sink_rs.bytes);
                         if(sink_rs.ec.failed())
@@ -1503,7 +1503,7 @@ public:
                             }
                             // only happens when an elastic body
                             // is attached in header_done state
-                            buffers::copy(
+                            capy::copy(
                                 eb_->prepare(payload_avail),
                                 cb0_.data());
                             cb0_.consume(payload_avail);
@@ -1550,7 +1550,7 @@ public:
             case style::sink:
             {
                 auto rs = sink_->write(
-                    buffers::prefix(body_buf.data(), body_avail_),
+                    capy::prefix(body_buf.data(), body_avail_),
                     state_ == state::set_body);
                 body_buf.consume(rs.bytes);
                 body_avail_ -= rs.bytes;
@@ -1571,7 +1571,7 @@ public:
                         error::buffer_overflow);
                     return;
                 }
-                buffers::copy(
+                capy::copy(
                     eb_->prepare(body_avail_),
                     body_buf.data());
                 body_buf.consume(body_avail_);
@@ -1607,7 +1607,7 @@ public:
             return {};
         case state::body:
         case state::complete_in_place:
-            cbp_ = buffers::prefix(
+            cbp_ = capy::prefix(
                 (is_plain() ? cb0_ : cb1_).data(),
                 body_avail_);
             return detail::make_span(cbp_);
@@ -1675,7 +1675,7 @@ public:
 
     void
     set_body(
-        buffers::any_dynamic_buffer& eb) noexcept
+        capy::any_dynamic_buffer& eb) noexcept
     {
         eb_ = &eb;
         style_ = style::elastic;
@@ -1743,7 +1743,7 @@ private:
 
                     return filter_->process(
                         eb_->prepare(n),
-                        buffers::prefix(cb0_.data(), payload_avail),
+                        capy::prefix(cb0_.data(), payload_avail),
                         more);
                 }
                 else // in-place and sink 
@@ -1753,7 +1753,7 @@ private:
 
                     return filter_->process(
                         detail::make_span(cb1_.prepare(n)),
-                        buffers::prefix(cb0_.data(), payload_avail),
+                        capy::prefix(cb0_.data(), payload_avail),
                         more);
                 }
             }();
@@ -2051,7 +2051,7 @@ is_body_set() const noexcept
 void
 parser::
 set_body_impl(
-    buffers::any_dynamic_buffer& eb) noexcept
+    capy::any_dynamic_buffer& eb) noexcept
 {
     BOOST_ASSERT(impl_);
     impl_->set_body(eb);

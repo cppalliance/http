@@ -39,14 +39,12 @@ explicit http_sources ;
 lib boost_http
    : http_sources
    : requirements
-     <library>/boost//buffers
      <library>/boost//capy
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
      <include>../
      <define>BOOST_HTTP_SOURCE
    : usage-requirements
-     <library>/boost//buffers
      <library>/boost//capy
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url

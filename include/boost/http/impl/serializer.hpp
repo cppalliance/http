@@ -28,7 +28,7 @@ public:
     // Return the next non-empty buffer or an
     // empty buffer if none remain.
     virtual
-    buffers::const_buffer
+    capy::const_buffer
     next() = 0;
 
     // Return the total size and count of
@@ -48,7 +48,7 @@ template<class ConstBufferSequence>
 class serializer::cbs_gen_impl
     : public cbs_gen
 {
-    using it_t = decltype(buffers::begin(
+    using it_t = decltype(capy::begin(
         std::declval<ConstBufferSequence>()));
 
     ConstBufferSequence cbs_;
@@ -56,19 +56,19 @@ class serializer::cbs_gen_impl
 
 public:
     using const_buffer =
-        buffers::const_buffer;
+        capy::const_buffer;
 
     explicit
     cbs_gen_impl(ConstBufferSequence cbs)
         : cbs_(std::move(cbs))
-        , curr_(buffers::begin(cbs_))
+        , curr_(capy::begin(cbs_))
     {
     }
 
     const_buffer
     next() override
     {
-        while(curr_ != buffers::end(cbs_))
+        while(curr_ != capy::end(cbs_))
         {
             // triggers conversion operator
             const_buffer buf = *curr_++;
@@ -82,7 +82,7 @@ public:
     stats() const override
     {
         stats_t r;
-        for(auto it = curr_; it != buffers::end(cbs_); ++it)
+        for(auto it = curr_; it != capy::end(cbs_); ++it)
         {
             // triggers conversion operator
             const_buffer buf = *it;
@@ -98,7 +98,7 @@ public:
     bool
     is_empty() const override
     {
-        for(auto it = curr_; it != buffers::end(cbs_); ++it)
+        for(auto it = curr_; it != capy::end(cbs_); ++it)
         {
             // triggers conversion operator
             const_buffer buf = *it;
@@ -120,8 +120,8 @@ start(
     message_base const& m,
     ConstBufferSequence&& cbs)
 {
-    static_assert(buffers::is_const_buffer_sequence<
-            ConstBufferSequence>::value,
+    static_assert(
+        capy::const_buffer_sequence<ConstBufferSequence>,
         "ConstBufferSequence type requirements not met");
 
     start_init(m);

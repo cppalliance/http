@@ -20,6 +20,69 @@
 
 namespace boost {
 namespace http {
+namespace detail {
+
+// A wrapper that provides reference semantics for dynamic buffers
+// while satisfying the dynamic_buffer concept
+template<class DynamicBuffer>
+class dynamic_buffer_ref
+{
+    DynamicBuffer* p_;
+
+public:
+    using const_buffers_type = typename DynamicBuffer::const_buffers_type;
+    using mutable_buffers_type = typename DynamicBuffer::mutable_buffers_type;
+
+    explicit
+    dynamic_buffer_ref(DynamicBuffer& b) noexcept
+        : p_(&b)
+    {
+    }
+
+    std::size_t
+    size() const noexcept
+    {
+        return p_->size();
+    }
+
+    std::size_t
+    max_size() const noexcept
+    {
+        return p_->max_size();
+    }
+
+    std::size_t
+    capacity() const noexcept
+    {
+        return p_->capacity();
+    }
+
+    const_buffers_type
+    data() const noexcept
+    {
+        return p_->data();
+    }
+
+    mutable_buffers_type
+    prepare(std::size_t n)
+    {
+        return p_->prepare(n);
+    }
+
+    void
+    commit(std::size_t n)
+    {
+        p_->commit(n);
+    }
+
+    void
+    consume(std::size_t n)
+    {
+        p_->consume(n);
+    }
+};
+
+} // detail
 
 template<class ElasticBuffer>
 typename std::enable_if<
@@ -39,7 +102,7 @@ set_body(
 
     // Check ElasticBuffer type requirements
     static_assert(
-        buffers::is_dynamic_buffer<ElasticBuffer>::value,
+        capy::is_dynamic_buffer<ElasticBuffer>::value,
         "Type requirements not met.");
 
     // body must not already be set
@@ -51,7 +114,7 @@ set_body(
         detail::throw_logic_error();
 
     auto& dyn = ws().emplace<
-        buffers::any_dynamic_buffer_impl<typename
+        capy::any_dynamic_buffer_impl<typename
             std::decay<ElasticBuffer>::type,
                 buffers_N>>(std::forward<ElasticBuffer>(eb));
 
@@ -66,7 +129,7 @@ set_body(
 {
     // Check ElasticBuffer type requirements
     static_assert(
-        buffers::is_dynamic_buffer<ElasticBuffer>::value,
+        capy::is_dynamic_buffer<ElasticBuffer>::value,
         "Type requirements not met.");
 
     // body must not already be set
@@ -77,10 +140,11 @@ set_body(
     if(! got_header())
         detail::throw_logic_error();
 
+    // Use dynamic_buffer_ref to provide reference semantics
     auto& dyn = ws().emplace<
-        buffers::any_dynamic_buffer_impl<typename
-            std::decay<ElasticBuffer>::type&,
-                buffers_N>>(eb);
+        capy::any_dynamic_buffer_impl<
+            detail::dynamic_buffer_ref<ElasticBuffer>,
+            buffers_N>>(eb.get());
 
     set_body_impl(dyn);
 }

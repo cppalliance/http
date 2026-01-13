@@ -10,8 +10,8 @@
 // Test that header file is self-contained.
 #include <boost/http/source.hpp>
 
-#include <boost/buffers/slice.hpp>
-#include <boost/buffers/range.hpp>
+#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers/range.hpp>
 
 #include "test_helpers.hpp"
 
@@ -22,7 +22,7 @@ struct source_test
 {
     struct test_source : source
     {
-        buffers::const_buffer cb_;
+        capy::const_buffer cb_;
         std::size_t fail_;
 
         explicit
@@ -36,7 +36,7 @@ struct source_test
 
         results
         on_read(
-            buffers::mutable_buffer b) override
+            capy::mutable_buffer b) override
         {
             results rv;
             if(fail_-- == 0)
@@ -46,8 +46,8 @@ struct source_test
                     boost::system::generic_category());
                 return rv;
             }
-            auto n = buffers::copy(b, cb_);
-            buffers::remove_prefix(cb_, n);
+            auto n = capy::copy(b, cb_);
+            capy::remove_prefix(cb_, n);
             rv.bytes += n;
             rv.finished = cb_.size() == 0;
             return rv;
@@ -65,11 +65,11 @@ struct source_test
             test_source src(i);
             std::string s(
                 pat.size(), 0);
-            buffers::mutable_buffer mb[3] = {
+            capy::mutable_buffer mb[3] = {
                 { &s[0], 3 },
                 { &s[3], 5 },
                 { &s[8], 7 } };
-            boost::span<buffers::mutable_buffer const> bs(mb);
+            boost::span<capy::mutable_buffer const> bs(mb);
             auto rv = src.read(bs);
             if(rv.ec.failed())
                 continue;
@@ -87,7 +87,7 @@ struct source_test
             test_source src(i);
             std::string s(
                 pat.size(), 0);
-            buffers::mutable_buffer mb(
+            capy::mutable_buffer mb(
                 &s[0], s.size());
             auto rv = src.read(mb);
             if(rv.ec.failed())
@@ -104,7 +104,7 @@ struct source_test
         {
             test_source src(99);
             auto rv = src.read(
-                boost::span<buffers::mutable_buffer const>{});
+                boost::span<capy::mutable_buffer const>{});
             BOOST_TEST(! rv.ec.failed());
             BOOST_TEST_EQ(rv.bytes, 0);
         }

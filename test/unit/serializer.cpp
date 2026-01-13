@@ -12,10 +12,10 @@
 #include <boost/http/serializer.hpp>
 #include <boost/http/response.hpp>
 
-#include <boost/buffers/copy.hpp>
-#include <boost/buffers/make_buffer.hpp>
-#include <boost/buffers/slice.hpp>
-#include <boost/buffers/string_buffer.hpp>
+#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
+#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/capy/polystore.hpp>
 
@@ -40,14 +40,14 @@ struct serializer_test
 
         results
         on_read(
-            buffers::mutable_buffer b) override
+            capy::mutable_buffer b) override
         {
             BOOST_TEST(! is_done_);
             results rv;
             rv.bytes =
-                buffers::copy(
+                capy::copy(
                     b,
-                    buffers::make_buffer(
+                    capy::make_buffer(
                         s_.data(),
                         s_.size()));
             s_ = s_.substr(rv.bytes);
@@ -76,7 +76,7 @@ struct serializer_test
         }
 
         results
-        on_read(buffers::mutable_buffer) override
+        on_read(capy::mutable_buffer) override
         {
             BOOST_TEST(!is_done_);
             is_done_ = true;
@@ -99,10 +99,10 @@ struct serializer_test
         ConstBuffers const& src)
     {
         auto n0 = dest.size();
-        auto n = buffers::size(src);
+        auto n = capy::buffer_size(src);
         dest.resize(n0 + n);
-        buffers::copy(
-            buffers::mutable_buffer(
+        capy::copy(
+            capy::mutable_buffer(
                 &dest[n0], n), src);
         return n;
     }
@@ -111,7 +111,7 @@ struct serializer_test
     std::string
     read_some(serializer& sr)
     {
-        buffers::slice_of<
+        capy::slice_of<
             serializer::const_buffers_type> cbs
                 = sr.prepare().value();
         BOOST_TEST(!sr.is_done());
@@ -120,7 +120,7 @@ struct serializer_test
         // serializer::consume(), allowing tests to cover
         // state management within these functions
         std::string s;
-        buffers::keep_prefix(cbs, 256);
+        capy::keep_prefix(cbs, 256);
         for( auto buf : cbs)
         {
             s.append(
@@ -188,19 +188,19 @@ struct serializer_test
         sr.start(res);
         sr.reset();
 
-        sr.start(res, buffers::const_buffer{});
+        sr.start(res, capy::const_buffer{});
         sr.reset();
 
-        sr.start(res, buffers::mutable_buffer{});
+        sr.start(res, capy::mutable_buffer{});
         sr.reset();
 
         sr.start<test_source>(res, "12345");
         sr.reset();
 
-        sr.start(res, buffers::const_buffer{});
+        sr.start(res, capy::const_buffer{});
         sr.reset();
 
-        sr.start(res, buffers::mutable_buffer{});
+        sr.start(res, capy::mutable_buffer{});
         sr.reset();
 
         sr.start<test_source>(res, "12345");
@@ -240,14 +240,14 @@ struct serializer_test
         // serializer(serializer&&)
         {
             std::string message;
-            buffers::string_buffer buf(&message);
+            capy::string_buffer buf(&message);
             serializer sr1(ctx);
             sr1.start(res);
 
             // consume 5 bytes
             {
                 auto cbs = sr1.prepare().value();
-                auto n = buffers::copy(buf.prepare(5), cbs);
+                auto n = capy::copy(buf.prepare(5), cbs);
                 sr1.consume(n);
                 buf.commit(n);
                 BOOST_TEST_EQ(n, 5);
@@ -258,8 +258,8 @@ struct serializer_test
             // consume the reset from sr2
             {
                 auto cbs = sr2.prepare().value();
-                auto n = buffers::copy(
-                    buf.prepare(buffers::size(cbs)),
+                auto n = capy::copy(
+                    buf.prepare(capy::buffer_size(cbs)),
                     cbs);
                 sr2.consume(n);
                 buf.commit(n);
@@ -322,7 +322,7 @@ struct serializer_test
     {
         response res(headers);
         std::array<
-            buffers::const_buffer, 23> buf;
+            capy::const_buffer, 23> buf;
 
         const auto buf_size =
             (body.size() / buf.size()) + 1;
@@ -395,14 +395,14 @@ struct serializer_test
         {
             BOOST_TEST(stream.capacity() != 0);
             auto mbs = stream.prepare();
-            auto bs = buffers::size(mbs);
+            auto bs = capy::buffer_size(mbs);
             BOOST_TEST_EQ(bs, stream.capacity());
 
             if( bs > body.size() )
                 bs = body.size();
 
-            buffers::copy(
-                mbs, buffers::const_buffer(body.data(), bs));
+            capy::copy(
+                mbs, capy::const_buffer(body.data(), bs));
 
             stream.commit(bs);
             if( bs < body.size() )
@@ -413,20 +413,20 @@ struct serializer_test
             body.remove_prefix(bs);
         };
 
-        auto consume = [&](buffers::const_buffer buf)
+        auto consume = [&](capy::const_buffer buf)
         {
             // we have the prepared buffer sequence
             // representing the serializer's output but we
             // wish to emulate a user consuming it using a
             // smaller, fixed-size buffer
             std::array<char, 16> storage{};
-            buffers::mutable_buffer out_buf(
+            capy::mutable_buffer out_buf(
                 storage.data(), storage.size());
 
             while( buf.size() > 0 )
             {
-                auto n = buffers::copy(out_buf, buf);
-                buffers::remove_prefix(buf, n);
+                auto n = capy::copy(out_buf, buf);
+                capy::remove_prefix(buf, n);
 
                 s.insert(
                     s.end(),
@@ -454,7 +454,7 @@ struct serializer_test
 
             auto cbs = mcbs.value();
             auto end = cbs.end();
-            auto size = buffers::size(cbs);
+            auto size = capy::buffer_size(cbs);
             BOOST_TEST_GT(size, 0);
 
             for(auto pos = cbs.begin(); pos != end; ++pos)
@@ -800,7 +800,7 @@ struct serializer_test
             rv = sr.prepare();
             BOOST_TEST(! rv.has_error());
             BOOST_TEST_EQ(
-                buffers::size(*rv), 0);
+                capy::buffer_size(*rv), 0);
             BOOST_TEST(! sr.is_done());
             sr.consume(0);
             BOOST_TEST(sr.is_done());
@@ -853,7 +853,7 @@ struct serializer_test
             {
                 auto cbs = sr.prepare();
                 BOOST_TEST_EQ(
-                    buffers::size(cbs.value()),
+                    capy::buffer_size(cbs.value()),
                     sv.size());
                 sr.consume(sv.size());
             }
@@ -882,7 +882,7 @@ struct serializer_test
                 stream.close();
                 auto cbs = sr.prepare();
                 BOOST_TEST_EQ(
-                    buffers::size(cbs.value()),
+                    capy::buffer_size(cbs.value()),
                     0);
                 BOOST_TEST(!sr.is_done());
                 sr.consume(0);
@@ -904,12 +904,12 @@ struct serializer_test
 
             auto mbs = stream.prepare();
             BOOST_TEST_GT(
-                buffers::size(mbs), 0);
+                capy::buffer_size(mbs), 0);
             BOOST_TEST(stream.capacity() != 0);
 
             // commit with `n > stream.capacity()`
             BOOST_TEST_THROWS(
-                stream.commit(buffers::size(mbs) + 1),
+                stream.commit(capy::buffer_size(mbs) + 1),
                 std::invalid_argument);
 
             // commiting 0 bytes must be possible
@@ -918,7 +918,7 @@ struct serializer_test
             auto mcbs = sr.prepare();
             auto cbs = mcbs.value();
             BOOST_TEST_EQ(
-                buffers::size(cbs),
+                capy::buffer_size(cbs),
                 sv.size());
             sr.consume(sv.size());
 
@@ -963,7 +963,7 @@ struct serializer_test
         request req;
         sr.start(req);
         auto cbs = sr.prepare().value();
-        sr.consume(buffers::size(cbs) + 1);
+        sr.consume(capy::buffer_size(cbs) + 1);
         BOOST_TEST(sr.is_done());
     }
 

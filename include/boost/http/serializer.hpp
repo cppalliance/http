@@ -15,7 +15,7 @@
 #include <boost/http/detail/workspace.hpp>
 #include <boost/http/source.hpp>
 
-#include <boost/buffers/buffer_pair.hpp>
+#include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
 #include <boost/capy/polystore_fwd.hpp>
 #include <boost/system/result.hpp>
@@ -64,7 +64,7 @@ public:
         area.
     */
     using const_buffers_type =
-        boost::span<buffers::const_buffer const>;
+        boost::span<capy::const_buffer const>;
 
     /** Destructor
     */
@@ -246,7 +246,7 @@ public:
 
         @par Constraints
         @code
-        buffers::is_const_buffer_sequence_v<ConstBufferSequence> == true
+        capy::const_buffer_sequence<ConstBufferSequence>
         @endcode
 
         @par Exception Safety
@@ -275,8 +275,7 @@ public:
     template<
         class ConstBufferSequence,
         class = typename std::enable_if<
-            buffers::is_const_buffer_sequence<
-                ConstBufferSequence>::value>::type
+            capy::const_buffer_sequence<ConstBufferSequence>>::type
     >
     void
     start(
@@ -701,7 +700,7 @@ public:
         of mutable buffers.
     */
     using mutable_buffers_type =
-        buffers::mutable_buffer_pair;
+        capy::mutable_buffer_pair;
 
     /** Constructor.
 

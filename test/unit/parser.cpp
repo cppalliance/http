@@ -13,10 +13,10 @@
 #include <boost/http/request_parser.hpp>
 #include <boost/http/response_parser.hpp>
 
-#include <boost/buffers/copy.hpp>
-#include <boost/buffers/flat_buffer.hpp>
-#include <boost/buffers/make_buffer.hpp>
-#include <boost/buffers/string_buffer.hpp>
+#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/flat_buffer.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
+#include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/capy/polystore.hpp>
 
@@ -82,10 +82,10 @@ This all speaks to DynamicBuffer as the correct API
     parser pr;
     std::string s;
     ...
-    pr.set_body( buffers::dynamic_for( s ) ); // reference semantics
+    pr.set_body( capy::make_any( s ) ); // reference semantics
 
     parser pr;
-    buffers::flat_buffer fb;
+    capy::flat_buffer fb;
     ...
     pr.set_body( fb ); // flat_buffer&
 */
@@ -169,7 +169,7 @@ struct parser_test
 
         results
         on_write(
-            buffers::const_buffer b,
+            capy::const_buffer b,
             bool more) noexcept override
         {
             (void)more;
@@ -239,9 +239,9 @@ struct parser_test
         {
             core::string_view& s = in[0];
             auto const n =
-                buffers::copy(
+                capy::copy(
                 pr.prepare(),
-                buffers::make_buffer(
+                capy::make_buffer(
                     s.data(), s.size()));
             pr.commit(n);
             s.remove_prefix(n);
@@ -300,9 +300,9 @@ struct parser_test
         pr.reset();
         pr.start();
         auto const n =
-            buffers::copy(
+            capy::copy(
             pr.prepare(),
-            buffers::make_buffer(
+            capy::make_buffer(
                 s.data(), s.size()));
         pr.commit(n);
         BOOST_TEST_EQ(n, s.size());
@@ -470,7 +470,7 @@ struct parser_test
             BOOST_TEST_NO_THROW(
                 dest = pr.prepare());
             BOOST_TEST_EQ(
-                buffers::size(dest), n);
+                capy::buffer_size(dest), n);
         };
 
         //
@@ -521,7 +521,7 @@ struct parser_test
             BOOST_TEST_NO_THROW(
                 dest = pr.prepare());
             BOOST_TEST_EQ(
-                buffers::size(dest), n);
+                capy::buffer_size(dest), n);
         };
 
         {
@@ -588,7 +588,7 @@ struct parser_test
             // use-after-free errors are produced under sanitized builds
             std::unique_ptr<std::string> ptmp(new std::string());
             auto &tmp = *ptmp;
-            buffers::string_buffer sb(
+            capy::string_buffer sb(
                 &tmp, dynamic_max_size);
             pr->set_body(std::move(sb));
             pr->parse(ec);
@@ -599,13 +599,13 @@ struct parser_test
                 BOOST_TEST_NO_THROW(
                     dest = pr->prepare());
                 BOOST_TEST_EQ(
-                    buffers::size(dest), n);
+                    capy::buffer_size(dest), n);
             }
 
             // the parser must be manually reset() to clear its inner workspace
             // otherwise, ~workspace itself will wind up clearing the registered
             // buffers which winds up touching the long-dead `ptmp` used by the
-            // `buffers::string_buffer`
+            // `capy::string_buffer`
             pr->reset();
         };
 
@@ -689,12 +689,12 @@ struct parser_test
             // requires small string optimization
             BOOST_TEST_GT(s.capacity(), 0);
             BOOST_TEST_LT(s.capacity(), 5000);
-            pr.set_body(buffers::string_buffer(&s));
+            pr.set_body(capy::string_buffer(&s));
             pr.parse(ec);
             BOOST_TEST(ec == error::need_data);
             auto dest = pr.prepare();
             BOOST_TEST_LE(
-                buffers::size(dest),
+                capy::buffer_size(dest),
                 s.capacity());
             pr.reset();
         }
@@ -766,7 +766,7 @@ struct parser_test
             auto dest = pr.prepare();
             BOOST_TEST_THROWS(
                 pr.commit(
-                    buffers::size(dest) + 1),
+                    capy::buffer_size(dest) + 1),
                 std::invalid_argument);
         }
 
@@ -797,7 +797,7 @@ struct parser_test
             pr.start();
             auto dest = pr.prepare();
             BOOST_TEST_GE(
-                buffers::size(dest), 1);
+                capy::buffer_size(dest), 1);
             BOOST_TEST_NO_THROW(
                 pr.commit(1));
         }
@@ -822,7 +822,7 @@ struct parser_test
             auto dest = pr.prepare();
             BOOST_TEST_THROWS(
                 pr.commit(
-                    buffers::size(dest) + 1),
+                    capy::buffer_size(dest) + 1),
                 std::invalid_argument);
         }
 
@@ -935,7 +935,7 @@ struct parser_test
             std::unique_ptr<std::string> ps(new std::string());
             auto &s = *ps;
             pr.set_body(
-                buffers::string_buffer(&s));
+                capy::string_buffer(&s));
             pr.parse(ec);
             BOOST_TEST(! ec.failed());
             pr.reset();
@@ -962,7 +962,7 @@ struct parser_test
             std::unique_ptr<std::string> ps(new std::string());
             auto &s = *ps;
             pr.set_body(
-                buffers::string_buffer(&s));
+                capy::string_buffer(&s));
             BOOST_TEST_THROWS(
                 pr.commit(1),
                 std::logic_error);
@@ -1014,7 +1014,7 @@ struct parser_test
             ignore_unused(dest);
             BOOST_TEST_THROWS(
                 pr.commit(
-                    buffers::size(dest) + 1),
+                    capy::buffer_size(dest) + 1),
                 std::invalid_argument);
         }
     }
@@ -1083,7 +1083,7 @@ struct parser_test
             std::unique_ptr<std::string> ps(new std::string());
             auto &s = *ps;
             pr.set_body(
-                buffers::string_buffer(&s));
+                capy::string_buffer(&s));
             pr.parse(ec);
             BOOST_TEST(ec == error::need_data);
             BOOST_TEST_NO_THROW(
@@ -1320,7 +1320,7 @@ struct parser_test
             pr_->reset();
             return;
         }
-        buffers::flat_buffer fb(buf, sizeof(buf));
+        capy::flat_buffer fb(buf, sizeof(buf));
         pr_->set_body(std::ref(fb));
         if(! pr_->is_complete())
         {
@@ -1893,9 +1893,9 @@ struct parser_test
                 octets += std::string(100, 'a');
                 remaining -= 100;
 
-                pr.commit(buffers::copy(
+                pr.commit(capy::copy(
                     pr.prepare(),
-                    buffers::const_buffer(
+                    capy::const_buffer(
                         octets.data(), octets.size())));
 
                 pr.parse(ec);
@@ -1906,7 +1906,7 @@ struct parser_test
                 BOOST_TEST(!pr.is_complete());
 
                 pr.consume_body(
-                    buffers::size(pr.pull_body())
+                    capy::buffer_size(pr.pull_body())
                     - 1); // left one byte so the circular buffer doesn't reset
 
                 octets.clear();
@@ -1918,9 +1918,9 @@ struct parser_test
             octets += make_header(i % 100);
             octets += std::string(i % 100, 'a');
 
-            pr.commit(buffers::copy(
+            pr.commit(capy::copy(
                 pr.prepare(),
-                buffers::const_buffer(
+                capy::const_buffer(
                     octets.data(), octets.size())));
 
             // first message
@@ -1997,9 +1997,9 @@ struct parser_test
                 octets += to_hex(1);
                 remaining -= 100;
 
-                pr.commit(buffers::copy(
+                pr.commit(capy::copy(
                     pr.prepare(),
-                    buffers::const_buffer(
+                    capy::const_buffer(
                         octets.data(), octets.size())));
 
                 pr.parse(ec);
@@ -2010,7 +2010,7 @@ struct parser_test
                 BOOST_TEST(!pr.is_complete());
 
                 pr.consume_body(
-                    buffers::size(pr.pull_body()));
+                    capy::buffer_size(pr.pull_body()));
 
                 octets.clear();
             }
@@ -2023,9 +2023,9 @@ struct parser_test
             octets += make_chunk(i % 100 + 1);
             octets += make_chunk(0);
 
-            pr.commit(buffers::copy(
+            pr.commit(capy::copy(
                 pr.prepare(),
-                buffers::const_buffer(
+                capy::const_buffer(
                     octets.data(), octets.size())));
 
             // first message

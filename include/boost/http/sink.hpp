@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SINK_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/buffers/buffer.hpp>
+#include <boost/capy/buffers.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/error_code.hpp>
 #include <cstddef>
@@ -108,8 +108,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         bool more)
     {
         static_assert(
-            buffers::is_const_buffer_sequence<
-                ConstBufferSequence>::value,
+            capy::const_buffer_sequence<ConstBufferSequence>,
             "Type requirements not met");
 
         return write_impl(bs, more);
@@ -149,7 +148,7 @@ protected:
     virtual
     results
     on_write(
-        buffers::const_buffer b,
+        capy::const_buffer b,
         bool more) = 0;
 
     /** Derived class override.
@@ -192,13 +191,13 @@ protected:
     virtual
     results
     on_write(
-        boost::span<const buffers::const_buffer> bs,
+        boost::span<const capy::const_buffer> bs,
         bool more);
 
 private:
     results
     write_impl(
-        buffers::const_buffer const& b,
+        capy::const_buffer const& b,
         bool more)
     {
         return on_write(b, more);
@@ -206,7 +205,7 @@ private:
 
     results
     write_impl(
-        buffers::mutable_buffer const& b,
+        capy::mutable_buffer const& b,
         bool more)
     {
         return on_write(b, more);
@@ -214,7 +213,7 @@ private:
 
     results
     write_impl(
-        boost::span<const buffers::const_buffer> const& bs,
+        boost::span<const capy::const_buffer> const& bs,
         bool more)
     {
         return on_write(bs, more);

@@ -19,8 +19,8 @@
 #include "src/detail/buffer_utils.hpp"
 #include "src/detail/zlib_filter_base.hpp"
 
-#include <boost/buffers/circular_buffer.hpp>
-#include <boost/buffers/copy.hpp>
+#include <boost/capy/buffers/circular_buffer.hpp>
+#include <boost/capy/buffers/copy.hpp>
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/capy/brotli/encode.hpp>
@@ -39,15 +39,15 @@ namespace http {
 namespace {
 
 const
-buffers::const_buffer
+capy::const_buffer
 crlf_and_final_chunk = {"\r\n0\r\n\r\n", 7};
 
 const
-buffers::const_buffer
+capy::const_buffer
 crlf = {"\r\n", 2};
 
 const
-buffers::const_buffer
+capy::const_buffer
 final_chunk = {"0\r\n\r\n", 5};
 
 constexpr
@@ -63,14 +63,14 @@ chunk_header_len(
 
 void
 write_chunk_header(
-    const buffers::mutable_buffer_pair& mbs,
+    const capy::mutable_buffer_pair& mbs,
     std::size_t size) noexcept
 {
     static constexpr char hexdig[] =
         "0123456789ABCDEF";
     char buf[18];
     auto p = buf + 16;
-    auto const n = buffers::size(mbs);
+    auto const n = capy::buffer_size(mbs);
     for(std::size_t i = n - 2; i--;)
     {
         *--p = hexdig[size & 0xf];
@@ -78,9 +78,9 @@ write_chunk_header(
     }
     buf[16] = '\r';
     buf[17] = '\n';
-    auto copied = buffers::copy(
+    auto copied = capy::copy(
         mbs,
-        buffers::const_buffer(p, n));
+        capy::const_buffer(p, n));
     ignore_unused(copied);
     BOOST_ASSERT(copied == n);
 }
@@ -126,8 +126,8 @@ private:
     virtual
     results
     do_process(
-        buffers::mutable_buffer out,
-        buffers::const_buffer in,
+        capy::mutable_buffer out,
+        capy::const_buffer in,
         bool more) noexcept override
     {
         strm_.next_out  = static_cast<unsigned char*>(out.data());
@@ -184,8 +184,8 @@ private:
     virtual
     results
     do_process(
-        buffers::mutable_buffer out,
-        buffers::const_buffer in,
+        capy::mutable_buffer out,
+        capy::const_buffer in,
         bool more) noexcept override
     {
         auto* next_in = reinterpret_cast<const std::uint8_t*>(in.data());
@@ -303,10 +303,10 @@ class serializer::impl
     cbs_gen* cbs_gen_ = nullptr;
     source* source_ = nullptr;
 
-    buffers::circular_buffer out_;
-    buffers::circular_buffer in_;
+    capy::circular_buffer out_;
+    capy::circular_buffer in_;
     detail::array_of_const_buffers prepped_;
-    buffers::const_buffer tmp_;
+    capy::const_buffer tmp_;
 
     state state_ = state::start;
     style style_ = style::empty;
@@ -482,7 +482,7 @@ public:
                         return rs.ec;
                     }
 
-                    buffers::remove_prefix(tmp_, rs.in_bytes);
+                    capy::remove_prefix(tmp_, rs.in_bytes);
                     out_commit(rs.out_bytes);
 
                     if(rs.out_short)
@@ -748,7 +748,7 @@ public:
                 else
                 {
                     auto h_len = chunk_header_len(stats.size);
-                    buffers::mutable_buffer mb(
+                    capy::mutable_buffer mb(
                         ws_.reserve_front(h_len), h_len);
                     write_chunk_header({{ {mb}, {} }}, stats.size);    
                     prepped_.append(mb);
@@ -846,7 +846,7 @@ private:
 
         return {
             ws_.push_array(n,
-                buffers::const_buffer{}),
+                capy::const_buffer{}),
             static_cast<std::uint16_t>(n) };
     }
 
@@ -862,15 +862,15 @@ private:
             detail::throw_length_error();
     }
 
-    buffers::mutable_buffer_pair
+    capy::mutable_buffer_pair
     out_prepare() noexcept
     {
         auto mbp = out_.prepare(out_.capacity());
         if(is_chunked_)
         {
-            buffers::remove_prefix(
+            capy::remove_prefix(
                 mbp, chunk_header_len_);
-            buffers::remove_suffix(
+            capy::remove_suffix(
                 mbp, crlf_and_final_chunk.size());
         }
         return mbp;
@@ -891,7 +891,7 @@ private:
             out_.prepare(n);
             out_.commit(n);
 
-            buffers::copy(out_.prepare(crlf.size()), crlf);
+            capy::copy(out_.prepare(crlf.size()), crlf);
             out_.commit(crlf.size());
         }
         else
@@ -919,7 +919,7 @@ private:
     {
         if(is_chunked_)
         {
-            buffers::copy(
+            capy::copy(
                 out_.prepare(final_chunk.size()), final_chunk);
             out_.commit(final_chunk.size());
         }

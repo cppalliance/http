@@ -12,7 +12,10 @@
 #include <boost/http/response_parser.hpp>
 #include <boost/http/serializer.hpp>
 
-#include <boost/buffers.hpp>
+#include <boost/capy/buffers.hpp>
+#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
 #include <boost/capy/brotli.hpp>
@@ -60,7 +63,7 @@ struct zlib_test
         core::string_view body)
     {
         std::string result;
-        auto buf = buffers::string_buffer(&result);
+        auto buf = capy::string_buffer(&result);
 
         if(encoding == "deflate" || encoding == "gzip")
         {
@@ -240,28 +243,28 @@ struct zlib_test
     serializer_source(
         response const& res,
         serializer& sr,
-        buffers::const_buffer body,
-        buffers::string_buffer out)
+        capy::const_buffer body,
+        capy::string_buffer out)
     {
         class source_t : public source
         {
-            buffers::const_buffer body_;
+            capy::const_buffer body_;
             bool done_ = false;
 
         public:
-            source_t(buffers::const_buffer body)
+            source_t(capy::const_buffer body)
                 : body_(body)
             {
             }
 
             results
-            on_read(buffers::mutable_buffer b)
+            on_read(capy::mutable_buffer b)
             {
                 BOOST_TEST_NOT(done_);
 
                 results rs;
-                auto n = buffers::copy(b, body_);
-                buffers::remove_prefix(body_, n);
+                auto n = capy::copy(b, body_);
+                capy::remove_prefix(body_, n);
                 rs.bytes = n;
                 rs.finished = (body_.size() == 0);
                 done_ = rs.finished;
@@ -273,9 +276,9 @@ struct zlib_test
         do
         {
             auto cbs = sr.prepare();
-            auto n = buffers::size(cbs.value());
+            auto n = capy::buffer_size(cbs.value());
             BOOST_TEST_GT(n, 0);
-            buffers::copy(out.prepare(n), cbs.value());
+            capy::copy(out.prepare(n), cbs.value());
             sr.consume(n);
             out.commit(n);
         } while(!sr.is_done());
@@ -286,8 +289,8 @@ struct zlib_test
     serializer_stream(
         response const& res,
         serializer& sr,
-        buffers::const_buffer body,
-        buffers::string_buffer out)
+        capy::const_buffer body,
+        capy::string_buffer out)
     {
         auto stream = sr.start_stream(res);
         do
@@ -295,8 +298,8 @@ struct zlib_test
             if(stream.is_open())
             {
                 auto mbs = stream.prepare();
-                auto n = buffers::copy(mbs, body);
-                buffers::remove_prefix(body, n);
+                auto n = capy::copy(mbs, body);
+                capy::remove_prefix(body, n);
                 stream.commit(n);
                 if(body.size() == 0)
                     stream.close();
@@ -310,9 +313,9 @@ struct zlib_test
             }
             else
             {
-                auto n = buffers::size(cbs.value());
+                auto n = capy::buffer_size(cbs.value());
                 BOOST_TEST_GT(n, 0);
-                buffers::copy(out.prepare(n), cbs.value());
+                capy::copy(out.prepare(n), cbs.value());
                 sr.consume(n);
                 out.commit(n);
             }
@@ -324,10 +327,10 @@ struct zlib_test
     serializer_buffers(
         response const& res,
         serializer& sr,
-        buffers::const_buffer body,
-        buffers::string_buffer out)
+        capy::const_buffer body,
+        capy::string_buffer out)
     {
-        std::vector<buffers::const_buffer> buf_seq;
+        std::vector<capy::const_buffer> buf_seq;
         do
         {
             auto buf_size = std::min(body.size() / 23, body.size());
@@ -336,16 +339,16 @@ struct zlib_test
             buf_seq.emplace_back(
                 body.data(),
                 body.size() ? buf_size : 0);
-            buffers::remove_prefix(body, buf_size);
+            capy::remove_prefix(body, buf_size);
         } while(body.size() != 0);
 
         sr.start(res, buf_seq);
         do
         {
             auto cbs = sr.prepare();
-            auto n = buffers::size(cbs.value());
+            auto n = capy::buffer_size(cbs.value());
             BOOST_TEST_GT(n, 0);
-            buffers::copy(out.prepare(n), cbs.value());
+            capy::copy(out.prepare(n), cbs.value());
             sr.consume(n);
             out.commit(n);
         }while(!sr.is_done());
@@ -356,8 +359,8 @@ struct zlib_test
     serializer_empty(
         response const& res,
         serializer& sr,
-        buffers::const_buffer body,
-        buffers::string_buffer out)
+        capy::const_buffer body,
+        capy::string_buffer out)
     {
         BOOST_TEST(body.size() == 0);
         // empty body
@@ -365,9 +368,9 @@ struct zlib_test
         do
         {
             auto cbs = sr.prepare();
-            auto n = buffers::size(cbs.value());
+            auto n = capy::buffer_size(cbs.value());
             BOOST_TEST_GT(n, 0);
-            buffers::copy(out.prepare(n), cbs.value());
+            capy::copy(out.prepare(n), cbs.value());
             sr.consume(n);
             out.commit(n);
         }while(!sr.is_done());
@@ -420,8 +423,8 @@ struct zlib_test
             driver(
                 resp,
                 sr,
-                buffers::const_buffer(body.data(), body.size()),
-                buffers::string_buffer(&buf));
+                capy::const_buffer(body.data(), body.size()),
+                capy::string_buffer(&buf));
 
             BOOST_TEST(
                 core::string_view{ buf }.starts_with(resp.buffer()));
@@ -474,16 +477,16 @@ struct zlib_test
     std::string
     parser_pull_body(
         response_parser& pr,
-        buffers::const_buffer input)
+        capy::const_buffer input)
     {
         std::string rs;
-        buffers::string_buffer buf(&rs);
+        capy::string_buffer buf(&rs);
         for(;;)
         {
             if(input.size() != 0)
             {
-                auto n1 = buffers::copy(pr.prepare(), input);
-                buffers::remove_prefix(input, n1);
+                auto n1 = capy::copy(pr.prepare(), input);
+                capy::remove_prefix(input, n1);
                 pr.commit(n1);
             }
 
@@ -496,8 +499,8 @@ struct zlib_test
                     || ec == error::need_data);
 
             // consume in_place body
-            auto n2 = buffers::copy(
-                buf.prepare(buffers::size(pr.pull_body())),
+            auto n2 = capy::copy(
+                buf.prepare(capy::buffer_size(pr.pull_body())),
                 pr.pull_body());
             buf.commit(n2);
             pr.consume_body(n2);
@@ -518,24 +521,24 @@ struct zlib_test
     std::string
     parser_elastic_body(
         response_parser& pr,
-        buffers::const_buffer input)
+        capy::const_buffer input)
     {
         std::string rs;
-        auto n1 = buffers::copy(pr.prepare(), input);
-        buffers::remove_prefix(input, n1);
+        auto n1 = capy::copy(pr.prepare(), input);
+        capy::remove_prefix(input, n1);
         pr.commit(n1);
         system::error_code ec;
         pr.parse(ec);
         BOOST_TEST(pr.got_header());
 
-        buffers::string_buffer buf(&rs);
+        capy::string_buffer buf(&rs);
         pr.set_body(std::ref(buf));
         pr.parse(ec);
 
         while(ec == error::need_data)
         {
-            auto n2 = buffers::copy(pr.prepare(), input);
-            buffers::remove_prefix(input, n2);
+            auto n2 = capy::copy(pr.prepare(), input);
+            capy::remove_prefix(input, n2);
             pr.commit(n2);
             pr.parse(ec);
             if(n2 == 0)
@@ -552,10 +555,10 @@ struct zlib_test
     std::string
     parser_sink_body(
         response_parser& pr,
-        buffers::const_buffer input)
+        capy::const_buffer input)
     {
-        auto n1 = buffers::copy(pr.prepare(), input);
-        buffers::remove_prefix(input, n1);
+        auto n1 = capy::copy(pr.prepare(), input);
+        capy::remove_prefix(input, n1);
         pr.commit(n1);
         system::error_code ec;
         pr.parse(ec);
@@ -575,7 +578,7 @@ struct zlib_test
 
             results
             on_write(
-                buffers::const_buffer b,
+                capy::const_buffer b,
                 bool more) override
             {
                 BOOST_TEST_NOT(done_);
@@ -595,8 +598,8 @@ struct zlib_test
 
         while(ec == error::need_data)
         {
-            auto n2 = buffers::copy(pr.prepare(), input);
-            buffers::remove_prefix(input, n2);
+            auto n2 = capy::copy(pr.prepare(), input);
+            capy::remove_prefix(input, n2);
             pr.commit(n2);
             pr.parse(ec);
             if(n2 == 0)
@@ -699,7 +702,7 @@ struct zlib_test
 
             auto rs = driver(
                 pr,
-                buffers::const_buffer(msg.data(), msg.size()));
+                capy::const_buffer(msg.data(), msg.size()));
 
             BOOST_TEST(rs == body);
 

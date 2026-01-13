@@ -18,8 +18,8 @@
 #include <boost/http/header_limits.hpp>
 #include <boost/http/sink.hpp>
 
-#include <boost/buffers/dynamic_buffer.hpp>
-#include <boost/buffers/buffer_pair.hpp>
+#include <boost/capy/buffers/dynamic_buffer.hpp>
+#include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
 #include <boost/capy/polystore_fwd.hpp>
 
@@ -78,12 +78,12 @@ public:
     /** The type of buffer returned from @ref prepare.
     */
     using mutable_buffers_type =
-        boost::span<buffers::mutable_buffer const>;
+        boost::span<capy::mutable_buffer const>;
 
     /** The type of buffer returned from @ref pull_body.
     */
     using const_buffers_type =
-        boost::span<buffers::const_buffer const>;
+        boost::span<capy::const_buffer const>;
 
     //--------------------------------------------
     //
@@ -205,7 +205,7 @@ public:
         is required to process the input.
 
         @par Preconditions
-        @li `n <= buffers::size(this->prepare())`
+        @li `n <= capy::buffer_size(this->prepare())`
         @li No previous call to @ref commit
         @li No previous call to @ref commit_eof
 
@@ -317,7 +317,7 @@ public:
         read_header(stream, pr);
 
         std::string body;
-        pr.set_body(buffers::string_buffer{&body});
+        pr.set_body(capy::string_buffer{&body});
 
         read(stream, pr);
         @endcode
@@ -328,7 +328,7 @@ public:
 
         @par Constraints
         @code
-        buffers::is_dynamic_buffer<ElasticBuffer>::value == true
+        capy::is_dynamic_buffer<ElasticBuffer>::value == true
         @endcode
 
         @par Exception Safety
@@ -380,7 +380,7 @@ public:
         read_header(stream, pr);
 
         std::string body;
-        buffers::string_buffer buffer(&body);
+        capy::string_buffer buffer(&body);
         pr.set_body(std::ref(buffer));
 
         read(stream, pr);
@@ -392,7 +392,7 @@ public:
 
         @par Constraints
         @code
-        buffers::is_dynamic_buffer<ElasticBuffer>::value == true
+        capy::is_dynamic_buffer<ElasticBuffer>::value == true
         @endcode
 
         @par Exception Safety
@@ -518,7 +518,7 @@ public:
         while(!pr.is_complete())
         {
             read_some(stream, pr);
-            buffers::const_buffer_span cbs = pr.pull_body();
+            capy::const_buffer_span cbs = pr.pull_body();
             // Do something with cbs ...
             pr.consume_body(buffer::buffer_size(cbs));
         }
@@ -545,7 +545,7 @@ public:
 
         @par Preconditions
         @code
-        this->got_header() == true && n <= buffers::size(this->pull_body())
+        this->got_header() == true && n <= capy::buffer_size(this->pull_body())
         @endcode
 
         @par Exception Safety
@@ -642,7 +642,7 @@ private:
 
     BOOST_HTTP_DECL
     void
-    set_body_impl(buffers::any_dynamic_buffer&) noexcept;
+    set_body_impl(capy::any_dynamic_buffer&) noexcept;
 
     BOOST_HTTP_DECL
     void

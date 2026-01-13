@@ -16,7 +16,7 @@ namespace http {
 auto
 source::
 on_read(
-    boost::span<buffers::mutable_buffer const> bs) ->
+    boost::span<capy::mutable_buffer const> bs) ->
         results
 {
     results rv;
@@ -26,7 +26,7 @@ on_read(
         return rv;
     do
     {
-        buffers::mutable_buffer b(*it++);
+        capy::mutable_buffer b(*it++);
         auto rs = on_read(b);
         rv += rs;
         if(rs.ec.failed())

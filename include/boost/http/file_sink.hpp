@@ -68,7 +68,7 @@ private:
     BOOST_HTTP_DECL
     results
     on_write(
-        buffers::const_buffer, bool) override;
+        capy::const_buffer, bool) override;
 };
 
 } // http

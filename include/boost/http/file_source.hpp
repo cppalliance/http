@@ -78,7 +78,7 @@ private:
     BOOST_HTTP_DECL
     results
     on_read(
-        buffers::mutable_buffer b) override;
+        capy::mutable_buffer b) override;
 };
 
 } // http
