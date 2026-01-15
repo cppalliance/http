@@ -24,7 +24,7 @@
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/capy/brotli/encode.hpp>
-#include <boost/capy/polystore.hpp>
+#include <boost/capy/core/polystore.hpp>
 #include <boost/capy/zlib/compression_method.hpp>
 #include <boost/capy/zlib/compression_strategy.hpp>
 #include <boost/capy/zlib/deflate.hpp>

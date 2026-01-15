@@ -21,7 +21,7 @@
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/brotli/decode.hpp>
-#include <boost/capy/polystore.hpp>
+#include <boost/capy/core/polystore.hpp>
 #include <boost/capy/zlib/error.hpp>
 #include <boost/capy/zlib/inflate.hpp>
 #include <boost/url/grammar/ci_string.hpp>

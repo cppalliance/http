@@ -10,7 +10,7 @@
 // Test that header file is self-contained.
 #include <boost/http/response_parser.hpp>
 
-#include <boost/capy/polystore.hpp>
+#include <boost/capy/core/polystore.hpp>
 
 #include "test_suite.hpp"
 

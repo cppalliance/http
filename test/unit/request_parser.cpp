@@ -11,7 +11,7 @@
 #include <boost/http/request_parser.hpp>
 #include <boost/http/rfc/combine_field_values.hpp>
 
-#include <boost/capy/polystore.hpp>
+#include <boost/capy/core/polystore.hpp>
 
 #include "test_suite.hpp"
 

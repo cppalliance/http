@@ -17,7 +17,7 @@
 
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/capy/polystore_fwd.hpp>
+#include <boost/capy/core/polystore_fwd.hpp>
 #include <boost/system/result.hpp>
 
 #include <type_traits>

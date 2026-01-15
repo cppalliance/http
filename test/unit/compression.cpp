@@ -19,7 +19,7 @@
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
 #include <boost/capy/brotli.hpp>
-#include <boost/capy/polystore.hpp>
+#include <boost/capy/core/polystore.hpp>
 #include <boost/capy/zlib.hpp>
 
 #include "test_helpers.hpp"

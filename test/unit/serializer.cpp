@@ -17,7 +17,7 @@
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/capy/polystore.hpp>
+#include <boost/capy/core/polystore.hpp>
 
 #include "test_helpers.hpp"
 

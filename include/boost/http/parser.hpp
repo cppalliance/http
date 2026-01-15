@@ -21,7 +21,7 @@
 #include <boost/capy/buffers/dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/capy/polystore_fwd.hpp>
+#include <boost/capy/core/polystore_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>

@@ -12,9 +12,9 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/router_types.hpp>
-#include <boost/capy/make_affine.hpp>
 #include <boost/capy/datastore.hpp>
 #include <boost/capy/task.hpp>
+#include <boost/capy/ex/make_affine.hpp>
 #include <boost/http/request.hpp>  // VFALCO forward declare?
 #include <boost/http/request_parser.hpp>  // VFALCO forward declare?
 #include <boost/http/response.hpp>        // VFALCO forward declare?

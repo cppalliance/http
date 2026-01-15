@@ -14,7 +14,7 @@
 #include <boost/http/detail/type_traits.hpp>
 #include <boost/http/server/router_types.hpp>
 #include <boost/http/method.hpp>
-#include <boost/capy/detail/call_traits.hpp> // VFALCO fix
+#include <boost/capy/core/detail/call_traits.hpp> // VFALCO fix
 #include <boost/core/detail/string_view.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/core/detail/static_assert.hpp>
