@@ -3,3 +3,24 @@
 !/build/Jamfile
 /out/
 CMakeUserPresets.json
+
+# CMake artifacts (if accidentally run from source dir)
+#CMakeCache.txt
+#CMakeFiles/
+#cmake_install.cmake
+#CTestTestfile.cmake
+#DartConfiguration.tcl
+#build.ninja
+#.ninja_deps
+#.ninja_log
+#*.lib
+#Dependencies/
+#test/**/cmake_install.cmake
+#test/**/CTestTestfile.cmake
+#test/**/test_suite/
+#test/**/*.cmake
+
+# Build artifacts
+#*.exe
+#*.pdb
+#*.dll

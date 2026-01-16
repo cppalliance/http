@@ -7,8 +7,8 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_SERVER_ROUTE_RULE_HPP
-#define BOOST_HTTP_SERVER_ROUTE_RULE_HPP
+#ifndef BOOST_HTTP_SERVER_DETAIL_ROUTE_RULE_HPP
+#define BOOST_HTTP_SERVER_DETAIL_ROUTE_RULE_HPP
 
 #include <boost/http/detail/config.hpp>
 #include <boost/url/decode_view.hpp>
@@ -18,86 +18,13 @@
 #include <boost/url/grammar/parse.hpp>
 #include <vector>
 
+#include "src/server/detail/stable_string.hpp"
+
 namespace boost {
 namespace http {
+namespace detail {
 
 namespace grammar = urls::grammar;
-
-//------------------------------------------------
-
-// avoids SBO
-class stable_string
-{
-    char const* p_ = 0;
-    std::size_t n_ = 0;
-
-public:
-    ~stable_string()
-    {
-        if(p_)
-            delete[] p_;
-    }
-
-    stable_string() = default;
-
-    stable_string(
-        stable_string&& other) noexcept
-        : p_(other.p_)
-        , n_(other.n_)
-    {
-        other.p_ = nullptr;
-        other.n_ = 0;
-    }
-
-    stable_string& operator=(
-        stable_string&& other) noexcept
-    {
-        auto p = p_;
-        auto n = n_;
-        p_ = other.p_;
-        n_ = other.n_;
-        other.p_ = p;
-        other.n_ = n;
-        return *this;
-    }
-
-    explicit
-    stable_string(
-        core::string_view s)
-        : p_(
-            [&]
-            {
-                auto p =new char[s.size()];
-                std::memcpy(p, s.data(), s.size());
-                return p;
-            }())
-        , n_(s.size())
-    {
-    }
-
-    stable_string(
-        char const* it, char const* end)
-        : stable_string(core::string_view(it, end))
-    {
-    }
-
-    char const* data() const noexcept
-    {
-        return p_;
-    }
-
-    std::size_t size() const noexcept
-    {
-        return n_;
-    }
-
-    operator core::string_view() const noexcept
-    {
-        return { data(), size() };
-    }
-};
-
-//------------------------------------------------
 
 /** Rule for parsing a non-empty token of chars
 
@@ -371,6 +298,7 @@ struct route_match
     urls::segments_encoded_view path;
 };
 
+} // detail
 } // http
 } // boost
 

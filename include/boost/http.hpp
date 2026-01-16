@@ -44,7 +44,6 @@
 #include <boost/http/rfc/token_rule.hpp>
 #include <boost/http/rfc/upgrade_rule.hpp>
 
-#include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/cors.hpp>
 #include <boost/http/server/route_handler.hpp>
 #include <boost/http/server/router.hpp>

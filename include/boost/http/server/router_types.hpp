@@ -63,7 +63,7 @@ enum class route
 
         When the handler returns this value, the router is placed into
         a suspended state which can later be reactivated by invoking
-        @ref basic_router::resume. Depending on the implementation,
+        @ref router::resume. Depending on the implementation,
         this might detach the handler from the session until it is
         resumed.
     */
@@ -76,7 +76,7 @@ enum class route
         until one returns @ref send. If none do, the caller proceeds
         to evaluate the next matching route.
 
-        This value is returned by @ref basic_router::dispatch if no
+        This value is returned by @ref router::dispatch if no
         handlers in any route handle the request.
     */
     next,
@@ -307,17 +307,34 @@ operator()(F&& f) ->
 //------------------------------------------------
 
 namespace detail {
-class any_router;
+class router_base;
 } // detail
-template<class>
-class basic_router;
+template<class> class router;
+
+struct route_params_base_privates
+{
+    struct match_result;
+
+    std::string verb_str_;
+    std::string decoded_path_;
+    system::error_code ec_;
+    std::exception_ptr ep_;
+    std::size_t pos_ = 0;
+    std::size_t resume_ = 0;
+    http::method verb_ =
+        http::method::unknown;
+    bool addedSlash_ = false;
+    bool case_sensitive = false;
+    bool strict = false;
+    char kind_ = 0;  // dispatch mode, initialized by flat_router::dispatch()
+};
 
 /** Base class for request objects
 
     This is a required public base for any `Request`
-    type used with @ref basic_router.
+    type used with @ref router.
 */
-class route_params_base
+class route_params_base : public route_params_base_privates
 {
 public:
     /** Return true if the request method matches `m`
@@ -347,26 +364,81 @@ public:
     */
     core::string_view path;
 
+   struct match_result;
+
 private:
-    friend class /*detail::*/any_router;
     template<class>
-    friend class basic_router;
-    struct match_result;
+    friend class router;
+    friend struct route_params_access;
+
     route_params_base& operator=(
         route_params_base const&) = delete;
-
-    std::string verb_str_;
-    std::string decoded_path_;
-    system::error_code ec_;
-    std::exception_ptr ep_;
-    std::size_t pos_ = 0;
-    std::size_t resume_ = 0;
-    http::method verb_ =
-        http::method::unknown;
-    bool addedSlash_ = false;
-    bool case_sensitive = false;
-    bool strict = false;
 };
+
+struct route_params_base::
+    match_result
+{
+    void adjust_path(
+        route_params_base& p,
+        std::size_t n)
+    {
+        n_ = n;
+        if(n_ == 0)
+            return;
+        p.base_path = {
+            p.base_path.data(),
+            p.base_path.size() + n_ };
+        if(n_ < p.path.size())
+        {
+            p.path.remove_prefix(n_);
+        }
+        else
+        {
+            // append a soft slash
+            p.path = { p.decoded_path_.data() +
+                p.decoded_path_.size() - 1, 1};
+            BOOST_ASSERT(p.path == "/");
+        }
+    }
+
+    void restore_path(
+        route_params_base& p)
+    {
+        if( n_ > 0 &&
+            p.addedSlash_ &&
+            p.path.data() ==
+                p.decoded_path_.data() +
+                p.decoded_path_.size() - 1)
+        {
+            // remove soft slash
+            p.path = {
+                p.base_path.data() +
+                p.base_path.size(), 0 };
+        }
+        p.base_path.remove_suffix(n_);
+        p.path = {
+            p.path.data() - n_,
+            p.path.size() + n_ };
+    }
+
+private:
+    std::size_t n_ = 0; // chars moved from path to base_path
+};
+
+
+namespace detail {
+
+struct route_params_access
+{
+    route_params_base& rp;
+
+    route_params_base_privates* operator->() const noexcept
+    {
+        return &rp;
+    }
+};
+
+} // detail
 
 } // http
 } // boost

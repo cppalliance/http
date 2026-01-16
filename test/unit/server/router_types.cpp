@@ -50,22 +50,6 @@ struct router_types_test
             check(n, route::next_route);
             check(n, route::send);
         }
-
-        basic_router<route_params_base> r;
-        r.add(http::method::post, "/",
-            [](route_params_base& rp) ->
-                route_result
-            {
-                BOOST_TEST(  rp.is_method(http::method::post));
-                BOOST_TEST(! rp.is_method(http::method::get));
-                BOOST_TEST(! rp.is_method("GET"));
-                BOOST_TEST(! rp.is_method("Post"));
-                BOOST_TEST(  rp.is_method("POST"));
-                return route::send;
-            });
-        route_params_base rp;
-        auto rv = r.dispatch("POST", "/", rp);
-        BOOST_TEST(rv = route::send);
     }
 };
 

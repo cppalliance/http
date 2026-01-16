@@ -10,8 +10,10 @@
 // Test that header file is self-contained.
 #include <boost/http/server/route_handler.hpp>
 
-#include <boost/http/server/basic_router.hpp>
+#include <boost/http/server/router.hpp>
+#include <boost/http/server/flat_router.hpp>
 #include <boost/http/request.hpp>
+#include <boost/capy/ex/run_sync.hpp>
 
 #include "test_suite.hpp"
 
@@ -20,18 +22,18 @@ namespace http {
 
 struct route_handler_test
 {
-    using test_router =
-        basic_router<route_params>;
+    using test_router = router<route_params>;
 
     void check(
         test_router& r,
         http::method verb,
         core::string_view url,
-        route_result rv0 = route::send)
+        route_result rv0 = route_result{})
     {
+        flat_router fr(std::move(r));
         route_params p;
-        auto rv = r.dispatch(
-            verb, urls::url_view(url), p);
+        auto rv = capy::run_sync()(fr.dispatch(
+            verb, urls::url_view(url), p));
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);
     }
@@ -52,40 +54,40 @@ struct route_handler_test
 
         test_router r;
         r.use(
-            [](route_params& p)
+            [](route_params& p) -> capy::task<route_result>
             {
                 // create session_token
                 auto& st = p.session_data.try_emplace<session_token>();
                 BOOST_TEST_EQ(st.valid, false);
-                return route::next;
+                co_return route::next;
             });
         r.use("/user",
-            [](route_params& p)
+            [](route_params& p) -> capy::task<route_result>
             {
                 // make session token valid
                 auto* st = p.session_data.find<session_token>();
                 if(BOOST_TEST_NE(st, nullptr))
                     st->valid = true;
-                return route::next;
+                co_return route::next;
             });
         r.route("/user/auth")
             .add(POST,
-                [](route_params& p)
+                [](route_params& p) -> capy::task<route_result>
                 {
                     auto& st = p.session_data.get<session_token>();
                     BOOST_TEST_EQ(st.valid, true);
                     // create auth_token each time
                     auto& at = p.route_data.emplace<auth_token>();
                     at.valid = true;
-                    return route::next;
+                    co_return route::next;
                 },
-                [](route_params& p)
+                [](route_params& p) -> capy::task<route_result>
                 {
                     auto& at = p.route_data.get<auth_token>();
                     auto& st = p.session_data.get<session_token>();
                     BOOST_TEST_EQ(at.valid, true);
                     BOOST_TEST_EQ(st.valid, true);
-                    return route::send;
+                    co_return route_result{};
                 });
         check(r, POST, urls::url_view("/user/auth"));
     }

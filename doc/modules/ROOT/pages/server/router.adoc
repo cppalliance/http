@@ -45,9 +45,9 @@ appropriate handlers in order.
 
 using namespace boost::http;
 
-basic_router<route_params> router;
+router<route_params> r;
 
-router.add(method::get, "/hello",
+r.add(method::get, "/hello",
     [](route_params& p)
     {
         p.status(status::ok);
@@ -232,7 +232,7 @@ Configure matching behavior when constructing the router:
 
 [source,cpp]
 ----
-basic_router<route_params> router(
+router<route_params> r(
     router_options()
         .case_sensitive(true)   // Paths are case-sensitive
         .strict(true));         // Trailing slash matters
@@ -265,10 +265,10 @@ using namespace boost::http;
 
 int main()
 {
-    basic_router<route_params> router;
+    router<route_params> r;
 
     // Health check endpoint
-    router.add(method::get, "/health",
+    r.add(method::get, "/health",
         [](route_params& p)
         {
             p.status(status::ok);
@@ -277,7 +277,7 @@ int main()
         });
 
     // API routes
-    router.route("/api/echo")
+    r.route("/api/echo")
         .add(method::post,
             [](route_params& p)
             {
@@ -292,9 +292,10 @@ int main()
                 return route::send;
             });
 
-    // Dispatch a request
+    // Dispatch a request using flat_router
+    flat_router fr(std::move(r));
     route_params p;
-    auto rv = router.dispatch(
+    auto rv = co_await fr.dispatch(
         method::get,
         urls::url_view("/health"),
         p);
