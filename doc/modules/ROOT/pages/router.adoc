@@ -1,0 +1,548 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Router
+
+The router is an Express.js-style request dispatcher for HTTP servers. You
+register handlers for path patterns and HTTP methods, then dispatch incoming
+requests. The router matches requests against registered routes and invokes
+the appropriate handlers in order.
+
+Like the rest of this library, the router is Sans-I/O: it handles routing and
+response generation without performing network operations. A separate I/O
+layer manages connections and drives the protocol.
+
+== Quick Start
+
+[source,cpp]
+----
+#include <boost/http.hpp>
+
+using namespace boost::http;
+
+int main()
+{
+    router<route_params> r;
+    
+    r.add(method::get, "/hello",
+        [](route_params& p)
+        {
+            p.status(status::ok);
+            p.set_body("Hello, world!");
+            return route::send;
+        });
+    
+    r.add(method::get, "/users/:id",
+        [](route_params& p)
+        {
+            auto id = p.param("id");
+            p.status(status::ok);
+            p.set_body("User: " + std::string(id));
+            return route::send;
+        });
+    
+    // Flatten for dispatch
+    flat_router fr(std::move(r));
+    
+    // Dispatch a request
+    route_params params;
+    // ... populate params from parsed request ...
+    auto result = co_await fr.dispatch(method::get, url, params);
+}
+----
+
+== Route Handlers
+
+A handler is any callable that accepts a reference to the params object and
+returns a `route_result`:
+
+[source,cpp]
+----
+route_result handler(route_params& p);
+----
+
+The return value tells the router what to do next:
+
+[cols="1,3"]
+|===
+|Value |Meaning
+
+|`route::send`
+|Response is ready. Send it to the client.
+
+|`route::next`
+|Continue to the next handler in the chain.
+
+|`route::next_route`
+|Skip remaining handlers in this route, try the next route.
+
+|`route::close`
+|Close the connection after sending any response.
+
+|`route::complete`
+|Request fully handled; no response to send.
+
+|`route::detach`
+|Handler took ownership of the session (advanced).
+|===
+
+Most handlers return `route::send` when they produce a response, or
+`route::next` when they perform setup work and defer to later handlers.
+
+== Adding Routes
+
+Use `add()` to register a handler for a specific HTTP method and path:
+
+[source,cpp]
+----
+router.add(method::get, "/users", get_users);
+router.add(method::post, "/users", create_user);
+router.add(method::get, "/users/:id", get_user);
+router.add(method::put, "/users/:id", update_user);
+router.add(method::delete_, "/users/:id", delete_user);
+----
+
+Use `all()` to match any HTTP method:
+
+[source,cpp]
+----
+router.all("/status", check_status);
+----
+
+== Path Patterns
+
+Route paths support named parameters and wildcards:
+
+[cols="1,2,2"]
+|===
+|Pattern |Example URL |Matches
+
+|`/users`
+|`/users`
+|Exact match
+
+|`/users/:id`
+|`/users/42`
+|Named parameter `id` = `"42"`
+
+|`/users/:id/posts/:pid`
+|`/users/42/posts/7`
+|Multiple parameters
+
+|`/files/*`
+|`/files/docs/readme.txt`
+|Wildcard captures remainder
+|===
+
+Access captured parameters in handlers:
+
+[source,cpp]
+----
+r.add(method::get, "/users/:id/posts/:pid",
+    [](route_params& p)
+    {
+        auto user_id = p.param("id");
+        auto post_id = p.param("pid");
+        // ...
+        return route::send;
+    });
+----
+
+== Fluent Route Interface
+
+The `route()` method returns a fluent interface for registering multiple
+handlers on the same path:
+
+[source,cpp]
+----
+router.route("/users/:id")
+    .add(method::get, get_user)
+    .add(method::put, update_user)
+    .add(method::delete_, delete_user)
+    .all(log_access);
+----
+
+This is equivalent to calling `add()` separately for each method, but more
+concise when a path has multiple handlers.
+
+== Handler Chaining
+
+Multiple handlers can be registered for the same route. They execute in
+order until one returns something other than `route::next`:
+
+[source,cpp]
+----
+router.add(method::get, "/admin",
+    [](route_params& p)
+    {
+        // Authentication check
+        if (!is_authenticated(p))
+        {
+            p.status(status::unauthorized);
+            p.set_body("Unauthorized");
+            return route::send;
+        }
+        return route::next;
+    },
+    [](route_params& p)
+    {
+        // Authorization check
+        if (!is_admin(p))
+        {
+            p.status(status::forbidden);
+            p.set_body("Forbidden");
+            return route::send;
+        }
+        return route::next;
+    },
+    [](route_params& p)
+    {
+        // Business logic
+        p.status(status::ok);
+        p.set_body("Admin panel");
+        return route::send;
+    });
+----
+
+This pattern separates concerns: authentication, authorization, and business
+logic each have their own handler.
+
+== Middleware
+
+Use `use()` to add middleware that runs for all routes matching a prefix:
+
+[source,cpp]
+----
+// Global middleware (runs for all routes)
+router.use(
+    [](route_params& p)
+    {
+        p.res.set(field::server, "MyApp/1.0");
+        return route::next;
+    });
+
+// Path-specific middleware
+router.use("/api",
+    [](route_params& p)
+    {
+        // Verify API key
+        if (!p.req.exists(field::authorization))
+        {
+            p.status(status::unauthorized);
+            return route::send;
+        }
+        return route::next;
+    });
+----
+
+Middleware registered with `use()` matches prefix patterns. Middleware
+attached to `"/api"` runs for `"/api"`, `"/api/users"`, and `"/api/data"`.
+
+== Error Handlers
+
+Register error handlers to catch failures during request processing:
+
+[source,cpp]
+----
+// Global error handler
+router.use(
+    [](route_params& p, system::error_code ec)
+    {
+        p.status(status::internal_server_error);
+        p.set_body("Error: " + ec.message());
+        return route::send;
+    });
+
+// Path-specific error handler
+router.use("/api",
+    [](route_params& p, system::error_code ec)
+    {
+        p.status(status::internal_server_error);
+        p.res.set(field::content_type, "application/json");
+        p.set_body("{\"error\":\"" + ec.message() + "\"}");
+        return route::send;
+    });
+----
+
+Error handlers receive the error code that caused the failure. Return
+`route::next` to pass to the next error handler.
+
+== Exception Handlers
+
+Register exception handlers with `except()`:
+
+[source,cpp]
+----
+router.except(
+    [](route_params& p, std::exception_ptr ep)
+    {
+        try
+        {
+            std::rethrow_exception(ep);
+        }
+        catch (std::exception const& e)
+        {
+            p.status(status::internal_server_error);
+            p.set_body(e.what());
+        }
+        return route::send;
+    });
+----
+
+== Router Options
+
+Configure matching behavior when constructing the router:
+
+[source,cpp]
+----
+router<route_params> r(
+    router_options()
+        .case_sensitive(true)   // Paths are case-sensitive
+        .strict(true));         // Trailing slash matters
+----
+
+[cols="1,1,3"]
+|===
+|Option |Default |Description
+
+|`case_sensitive`
+|`false`
+|When true, `/Users` and `/users` are different routes.
+
+|`strict`
+|`false`
+|When true, `/api` and `/api/` are different routes.
+
+|`merge_params`
+|`false`
+|When true, inherit parameters from parent routers.
+|===
+
+== Nested Routers
+
+Mount routers within routers for modular organization:
+
+[source,cpp]
+----
+// API routes
+router<route_params> api;
+api.add(method::get, "/users", list_users);
+api.add(method::get, "/posts", list_posts);
+
+// Admin routes
+router<route_params> admin;
+admin.add(method::get, "/stats", show_stats);
+admin.add(method::post, "/config", update_config);
+
+// Main router
+router<route_params> app;
+app.use("/api", std::move(api));
+app.use("/admin", std::move(admin));
+----
+
+Routes are composed: `/api/users` matches `list_users`, `/admin/stats`
+matches `show_stats`.
+
+== Dispatching Requests
+
+Convert the router to a `flat_router` for efficient dispatch:
+
+[source,cpp]
+----
+// Build routes
+router<route_params> r;
+// ... add routes ...
+
+// Flatten for dispatch (do this once)
+flat_router fr(std::move(r));
+
+// Dispatch requests
+route_params p;
+p.url = parsed_url;
+p.req = parsed_request;
+
+auto result = co_await fr.dispatch(
+    p.req.method(),
+    p.url,
+    p);
+
+switch (result)
+{
+case route::send:
+    // p.res contains response to send
+    co_await send_response(p.res);
+    break;
+    
+case route::next:
+    // No handler matched - send 404
+    send_not_found();
+    break;
+    
+case route::close:
+    // Close connection
+    break;
+}
+----
+
+The `flat_router` pre-processes routes into a structure optimized for
+dispatch performance. Create it once after all routes are registered.
+
+== The route_params Object
+
+The standard `route_params` type contains everything handlers need:
+
+[source,cpp]
+----
+struct route_params : route_params_base
+{
+    urls::url_view url;          // Parsed request target
+    http::request req;           // Request headers
+    http::response res;          // Response to build
+    http::request_parser parser; // For body access
+    http::serializer serializer; // For response output
+    capy::datastore route_data;  // Per-request storage
+    capy::datastore session_data;// Per-session storage
+    suspender suspend;           // For async operations
+    capy::any_executor_ref ex;   // Session executor
+};
+----
+
+Convenience methods simplify common operations:
+
+[source,cpp]
+----
+r.add(method::post, "/data",
+    [](route_params& p)
+    {
+        // Set response status
+        p.status(status::created);
+        
+        // Set response body
+        p.set_body("Created");
+        
+        return route::send;
+    });
+----
+
+== Async Operations
+
+Handlers can perform async work using `suspend`:
+
+[source,cpp]
+----
+r.add(method::get, "/slow",
+    [](route_params& p)
+    {
+        return p.suspend(
+            [](resumer resume)
+            {
+                // Called synchronously
+                schedule_async_work([resume]()
+                {
+                    // Called later, on completion
+                    resume(route::send);
+                });
+            });
+    });
+----
+
+== Reading Request Bodies
+
+Use `read_body` for async body reading:
+
+[source,cpp]
+----
+r.add(method::post, "/upload",
+    [](route_params& p)
+    {
+        return p.read_body(
+            capy::string_body_sink(),
+            [&p](std::string body)
+            {
+                // Body is now available
+                process_upload(body);
+                p.status(status::ok);
+                return route::send;
+            });
+    });
+----
+
+== Complete Example
+
+[source,cpp]
+----
+#include <boost/http.hpp>
+
+using namespace boost::http;
+
+int main()
+{
+    router<route_params> r;
+    
+    // Middleware
+    r.use([](route_params& p)
+    {
+        p.res.set(field::server, "MyApp/1.0");
+        return route::next;
+    });
+    
+    // Health check
+    r.add(method::get, "/health",
+        [](route_params& p)
+        {
+            p.status(status::ok);
+            p.set_body("OK");
+            return route::send;
+        });
+    
+    // API routes
+    r.route("/api/users")
+        .add(method::get,
+            [](route_params& p)
+            {
+                p.status(status::ok);
+                p.res.set(field::content_type, "application/json");
+                p.set_body("[{\"id\":1},{\"id\":2}]");
+                return route::send;
+            })
+        .add(method::post,
+            [](route_params& p)
+            {
+                p.status(status::created);
+                return route::send;
+            });
+    
+    r.add(method::get, "/api/users/:id",
+        [](route_params& p)
+        {
+            auto id = p.param("id");
+            p.status(status::ok);
+            p.set_body("{\"id\":" + std::string(id) + "}");
+            return route::send;
+        });
+    
+    // Error handler
+    r.use([](route_params& p, system::error_code ec)
+    {
+        p.status(status::internal_server_error);
+        p.set_body(ec.message());
+        return route::send;
+    });
+    
+    // Flatten and dispatch
+    flat_router fr(std::move(r));
+    
+    // ... integrate with your I/O layer ...
+}
+----
+
+== Next Steps
+
+* xref:bcrypt.adoc[BCrypt] — secure password hashing for authentication
+* xref:sans_io_philosophy.adoc[Sans-I/O Philosophy] — design rationale

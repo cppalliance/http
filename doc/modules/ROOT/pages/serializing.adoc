@@ -1,0 +1,395 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Serializing
+
+The serializer transforms HTTP messages into bytes for transmission. It handles
+chunked encoding, content compression, and the `Expect: 100-continue` handshake
+automatically.
+
+== Basic Usage
+
+Serialization follows a push model. You provide a message, then pull output
+buffers until complete:
+
+[source,cpp]
+----
+// 1. Install serializer service with configuration
+capy::polystore ctx;
+serializer::config cfg;
+install_serializer_service(ctx, cfg);
+
+// 2. Create serializer
+serializer sr(ctx);
+
+// 3. Start with a message
+response res(status::ok);
+res.set(field::content_type, "text/plain");
+sr.start(res, "Hello, world!");
+
+// 4. Pull output and write to socket
+while (!sr.is_done())
+{
+    auto result = sr.prepare();
+    if (!result)
+        throw system::system_error(result.error());
+    
+    socket.write(*result);
+    sr.consume(capy::buffer_size(*result));
+}
+----
+
+== Configuration
+
+Serializer behavior is controlled through configuration:
+
+[source,cpp]
+----
+capy::polystore ctx;
+
+serializer::config cfg;
+
+// Content encoding (compression)
+cfg.apply_gzip_encoder = true;       // Enable gzip compression
+cfg.apply_deflate_encoder = false;   // Enable deflate compression
+cfg.apply_brotli_encoder = false;    // Requires separate service
+
+// Compression settings
+cfg.zlib_comp_level = 6;             // 0-9 (0=none, 9=best)
+cfg.zlib_window_bits = 15;           // 9-15
+cfg.zlib_mem_level = 8;              // 1-9
+
+// Brotli settings (if enabled)
+cfg.brotli_comp_quality = 5;         // 0-11
+cfg.brotli_comp_window = 18;         // 10-24
+
+// Buffer settings
+cfg.payload_buffer = 8192;           // Internal buffer size
+cfg.max_type_erase = 1024;           // Space for source storage
+
+install_serializer_service(ctx, cfg);
+----
+
+== Body Sources
+
+The serializer supports several ways to provide message body content.
+
+=== No Body
+
+For messages without a body (HEAD responses, 204 No Content, etc.):
+
+[source,cpp]
+----
+response res(status::no_content);
+sr.start(res);  // No body argument
+----
+
+=== Buffer Sequence Body
+
+Provide the body as in-memory buffers:
+
+[source,cpp]
+----
+response res(status::ok);
+res.set(field::content_type, "text/plain");
+res.set_content_length(13);
+
+std::string body = "Hello, world!";
+sr.start(res, capy::buffer(body));
+----
+
+Multiple buffers are supported:
+
+[source,cpp]
+----
+std::string part1 = "Hello, ";
+std::string part2 = "world!";
+std::array<capy::const_buffer, 2> buffers = {
+    capy::buffer(part1),
+    capy::buffer(part2)
+};
+
+sr.start(res, buffers);
+----
+
+=== Source Body
+
+For large or dynamic bodies, use a source:
+
+[source,cpp]
+----
+// From file
+capy::file f("large_file.bin", capy::file_mode::scan);
+res.set_payload_size(f.size());
+sr.start<file_source>(res, std::move(f));
+
+// Pull output
+while (!sr.is_done())
+{
+    auto result = sr.prepare();
+    if (!result)
+        throw system::system_error(result.error());
+    
+    socket.write(*result);
+    sr.consume(capy::buffer_size(*result));
+}
+----
+
+=== Stream Body
+
+For maximum flexibility, push body data incrementally:
+
+[source,cpp]
+----
+response res(status::ok);
+res.set(field::content_type, "application/octet-stream");
+// No content-length - will use chunked encoding
+
+auto stream = sr.start_stream(res);
+
+// Push body data as it becomes available
+while (has_more_data())
+{
+    // Get buffer to write into
+    auto buf = stream.prepare();
+    std::size_t n = generate_data(buf);
+    stream.commit(n);
+    
+    // Output is available
+    auto result = sr.prepare();
+    if (result)
+    {
+        socket.write(*result);
+        sr.consume(capy::buffer_size(*result));
+    }
+}
+
+// Signal end of body
+stream.close();
+
+// Flush remaining output
+while (!sr.is_done())
+{
+    auto result = sr.prepare();
+    if (result)
+    {
+        socket.write(*result);
+        sr.consume(capy::buffer_size(*result));
+    }
+}
+----
+
+== Chunked Encoding
+
+The serializer uses chunked transfer encoding automatically when:
+
+* No `Content-Length` header is set
+* The body size is unknown at start time
+
+[source,cpp]
+----
+response res(status::ok);
+res.set(field::content_type, "text/event-stream");
+// No Content-Length - chunked encoding will be used
+
+auto stream = sr.start_stream(res);
+
+// Send chunks as events occur
+for (auto& event : events)
+{
+    auto buf = stream.prepare();
+    auto n = format_event(event, buf);
+    stream.commit(n);
+    
+    // Flush to client
+    auto result = sr.prepare();
+    socket.write(*result);
+    sr.consume(capy::buffer_size(*result));
+}
+
+stream.close();
+----
+
+== Content Encoding
+
+When compression is enabled and the client accepts it, the serializer
+compresses the body automatically:
+
+[source,cpp]
+----
+// Enable in config
+serializer::config cfg;
+cfg.apply_gzip_encoder = true;
+
+// Check Accept-Encoding from request
+if (request_accepts_gzip(req))
+{
+    res.set(field::content_encoding, "gzip");
+    // Body will be compressed
+}
+
+sr.start(res, large_body);
+----
+
+== Expect: 100-continue
+
+The serializer handles the 100-continue handshake:
+
+[source,cpp]
+----
+response res(status::ok);
+// ... set headers ...
+sr.start(res, body_source);
+
+while (!sr.is_done())
+{
+    auto result = sr.prepare();
+    
+    if (result.error() == error::expect_100_continue)
+    {
+        // Client wants confirmation before sending body
+        // Send 100 Continue response
+        response cont(status::continue_);
+        serializer sr100(ctx);
+        sr100.start(cont);
+        // ... write sr100 output ...
+        
+        // Continue with original response
+        continue;
+    }
+    
+    if (!result)
+        throw system::system_error(result.error());
+    
+    socket.write(*result);
+    sr.consume(capy::buffer_size(*result));
+}
+----
+
+== Error Handling
+
+Serializer errors are reported through the result type:
+
+[source,cpp]
+----
+auto result = sr.prepare();
+
+if (!result)
+{
+    auto ec = result.error();
+    
+    if (ec == error::expect_100_continue)
+    {
+        // Not an error - handle 100-continue
+    }
+    else if (ec == error::need_data)
+    {
+        // Stream body needs more input
+    }
+    else
+    {
+        // Real error (e.g., source read failure)
+        std::cerr << "Serialization error: " << ec.message() << "\n";
+    }
+}
+----
+
+== Custom Sources
+
+Implement the `source` interface for custom body generation:
+
+[source,cpp]
+----
+class my_source : public source
+{
+    std::function<std::string()> generator_;
+    std::string current_;
+    std::size_t pos_ = 0;
+    bool done_ = false;
+    
+public:
+    explicit my_source(std::function<std::string()> gen)
+        : generator_(std::move(gen))
+    {
+    }
+
+protected:
+    results on_read(capy::mutable_buffer b) override
+    {
+        results rv;
+        
+        while (b.size() > 0 && !done_)
+        {
+            // Refill current buffer if empty
+            if (pos_ >= current_.size())
+            {
+                current_ = generator_();
+                pos_ = 0;
+                if (current_.empty())
+                {
+                    done_ = true;
+                    rv.finished = true;
+                    break;
+                }
+            }
+            
+            // Copy to output
+            auto avail = current_.size() - pos_;
+            auto n = std::min(b.size(), avail);
+            std::memcpy(b.data(), current_.data() + pos_, n);
+            pos_ += n;
+            rv.bytes += n;
+            b = capy::mutable_buffer(
+                static_cast<char*>(b.data()) + n,
+                b.size() - n);
+        }
+        
+        return rv;
+    }
+};
+----
+
+== Multiple Messages
+
+Reuse the serializer for multiple messages on the same connection:
+
+[source,cpp]
+----
+serializer sr(ctx);
+
+for (auto& request : requests)
+{
+    // Process request, build response
+    response res = handle(request);
+    
+    // Serialize response
+    sr.start(res, response_body);
+    
+    while (!sr.is_done())
+    {
+        auto result = sr.prepare();
+        if (result)
+        {
+            socket.write(*result);
+            sr.consume(capy::buffer_size(*result));
+        }
+    }
+    
+    // Reset for next message
+    sr.reset();
+}
+----
+
+== Next Steps
+
+With parsing and serialization covered, you can now build complete HTTP
+processing pipelines. For server applications, the router provides
+request dispatch:
+
+* xref:router.adoc[Router] — dispatch requests to handlers

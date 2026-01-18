@@ -1,0 +1,218 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Introduction to HTTP
+
+This section covers the fundamentals of HTTP that you need to understand
+before using the library. After reading this, you'll know how HTTP sessions
+work, what constitutes a message, and what security pitfalls to avoid.
+
+== Sessions
+
+HTTP is a stream-oriented protocol between two connected programs: a client
+and a server. While the connection remains open, the client sends HTTP requests
+and the server sends HTTP responses. These messages are paired in order—each
+request has exactly one corresponding response.
+
+[source]
+----
+Client                                Server
+  |                                      |
+  |-------- Request #1 ----------------->|
+  |<------- Response #1 -----------------|
+  |                                      |
+  |-------- Request #2 ----------------->|
+  |<------- Response #2 -----------------|
+  |                                      |
+  ˅                                      ˅
+----
+
+An HTTP/1.1 session typically proceeds as follows:
+
+1. Client establishes a TCP connection to the server
+2. Client sends a request
+3. Server processes the request and sends a response
+4. Steps 2-3 repeat until either party closes the connection
+
+=== Persistent Connections
+
+HTTP/1.1 connections are persistent by default. The same connection can be
+reused for multiple request/response exchanges, avoiding the overhead of
+establishing new TCP connections.
+
+A connection is closed when:
+
+* Either party sends `Connection: close`
+* An error occurs during parsing or I/O
+* A configurable idle timeout expires
+* The underlying transport is terminated
+
+=== Pipelining
+
+HTTP/1.1 allows clients to send multiple requests without waiting for
+responses (pipelining). Responses must arrive in the same order as requests.
+While the protocol supports this, many implementations handle it poorly,
+which is why this library parses one complete message at a time.
+
+== Messages
+
+HTTP messages consist of three parts: the start line, the headers, and
+an optional message body.
+
+[cols="1a,1a"]
+|===
+|HTTP Request|HTTP Response
+
+|
+[source]
+----
+GET /index.html HTTP/1.1
+User-Agent: Boost
+Host: example.com
+
+----
+|
+[source]
+----
+HTTP/1.1 200 OK
+Server: Boost.HTTP
+Content-Length: 13
+
+Hello, world!
+----
+
+|===
+
+=== Start Line
+
+The start line differs between requests and responses:
+
+**Request line**: `method SP request-target SP HTTP-version CRLF`
+
+**Status line**: `HTTP-version SP status-code SP reason-phrase CRLF`
+
+The library validates start lines strictly. Invalid syntax is rejected
+immediately rather than attempting recovery.
+
+=== Header Fields
+
+Headers are name-value pairs that provide metadata about the message.
+Each header occupies one line, terminated by CRLF:
+
+[source]
+----
+field-name: field-value
+----
+
+Important characteristics:
+
+* Field names are case-insensitive (`Content-Type` equals `content-type`)
+* Field values have leading and trailing whitespace stripped
+* The same field name may appear multiple times
+* Order of fields with the same name is significant
+
+The library tracks several headers automatically and enforces their semantics:
+
+[cols="1a,4a"]
+|===
+|Field|Description
+
+|*Connection*
+|Controls whether the connection stays open. Values include `keep-alive`
+and `close`. The library updates connection state based on this field.
+
+|*Content-Length*
+|Specifies the exact size of the message body in bytes. When present,
+the parser uses this to determine when the body ends.
+
+|*Transfer-Encoding*
+|Indicates transformations applied to the message body. The library
+supports `chunked`, `gzip`, `deflate`, and `brotli` encodings.
+
+|*Upgrade*
+|Requests a protocol switch (e.g., to WebSocket). The library detects
+this and makes the raw connection available for the new protocol.
+
+|===
+
+=== Message Body
+
+The body is a sequence of bytes following the headers. Its length is
+determined by:
+
+* `Content-Length` header (exact byte count)
+* `Transfer-Encoding: chunked` (length encoded in stream)
+* Connection close (for responses without length indication)
+
+The library handles body framing automatically during parsing and
+serialization. You provide or consume the raw body bytes.
+
+== Security Considerations
+
+HTTP implementation bugs frequently lead to security vulnerabilities.
+The library is designed to prevent common attacks by default.
+
+=== Request Smuggling
+
+Request smuggling exploits disagreements between servers about where
+one request ends and the next begins. This happens when:
+
+* Multiple `Content-Length` headers have different values
+* Both `Content-Length` and `Transfer-Encoding: chunked` are present
+* Malformed chunk sizes are interpreted differently
+
+The library rejects ambiguous requests. When both `Content-Length` and
+`Transfer-Encoding` appear, `Transfer-Encoding` takes precedence per
+RFC 9110, and `Content-Length` is removed from the parsed headers.
+
+=== Header Injection
+
+Header injection attacks insert unexpected headers by including CRLF
+sequences in field values. The library forbids CR, LF, and NUL characters
+in header values—attempts to include them throw an exception.
+
+[source,cpp]
+----
+// This throws - newlines not allowed in values
+req.set(field::user_agent, "Bad\r\nInjected-Header: evil");
+----
+
+=== Resource Exhaustion
+
+Attackers can exhaust server memory by sending:
+
+* Extremely long header lines
+* Too many header fields
+* Enormous message bodies
+
+The library provides configurable limits for all of these. When a limit
+is exceeded, parsing fails with a specific error code.
+
+[source,cpp]
+----
+// Configure limits via parser config
+request_parser::config cfg;
+cfg.headers.max_field_size = 8192;   // Max bytes per header line
+cfg.headers.max_fields = 100;         // Max number of headers
+cfg.body_limit = 1024 * 1024;         // Max body size (1 MB)
+----
+
+=== Field Validation
+
+Field names must consist only of valid token characters. Field values
+must not contain control characters except horizontal tab. The library
+validates these constraints on every operation that creates or modifies
+headers.
+
+== Next Steps
+
+Now that you understand HTTP message structure and session management,
+learn how to work with the library's message containers:
+
+* xref:containers.adoc[Containers] — request, response, and fields types

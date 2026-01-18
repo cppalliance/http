@@ -1,0 +1,383 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Parsing
+
+The parser transforms raw bytes from the network into structured HTTP messages.
+It handles the complexity of message framing, chunked transfer encoding, and
+content decoding so you can focus on application logic.
+
+== Parser Types
+
+The library provides two parser types:
+
+[cols="1a,4a"]
+|===
+|Type|Description
+
+|`request_parser`
+|Parses HTTP requests. Use on the server side.
+
+|`response_parser`
+|Parses HTTP responses. Use on the client side.
+
+|===
+
+Both types share the same interface through the `parser` base class. The
+difference is in start-line parsing: requests have a method and target,
+responses have a status code.
+
+== Basic Usage
+
+Parsing follows a pull model. You provide input buffers, call `parse()`,
+and check the result. Here's the typical flow:
+
+[source,cpp]
+----
+// 1. Install parser service with configuration
+capy::polystore ctx;
+request_parser::config cfg;
+install_parser_service(ctx, cfg);
+
+// 2. Create parser
+request_parser pr(ctx);
+
+// 3. Prepare for a new stream
+pr.reset();
+
+// 4. Start parsing a message
+pr.start();
+
+// 5. Feed data and parse
+auto buf = pr.prepare();
+std::size_t n = socket.read_some(buf);
+pr.commit(n);
+
+system::error_code ec;
+pr.parse(ec);
+
+// 6. Check result
+if (pr.got_header())
+{
+    // Headers are available
+    auto const& req = pr.get();
+}
+
+if (pr.is_complete())
+{
+    // Entire message parsed
+    auto body = pr.body();
+}
+----
+
+== Configuration
+
+Parser behavior is controlled through configuration installed on a context:
+
+[source,cpp]
+----
+capy::polystore ctx;
+
+request_parser::config cfg;
+
+// Header limits
+cfg.headers.max_field_size = 8192;   // Max bytes per header line
+cfg.headers.max_fields = 100;         // Max number of headers
+cfg.headers.max_start_line = 8192;   // Max start line length
+
+// Body limits
+cfg.body_limit = 64 * 1024;          // Default: 64KB
+
+// Content decoding
+cfg.apply_gzip_decoder = true;       // Enable gzip decompression
+cfg.apply_deflate_decoder = true;    // Enable deflate decompression
+cfg.apply_brotli_decoder = false;    // Requires separate service
+
+// Buffer settings
+cfg.min_buffer = 4096;               // Minimum internal buffer
+cfg.max_prepare = SIZE_MAX;          // Maximum prepare() result size
+
+install_parser_service(ctx, cfg);
+----
+
+== Parsing Headers
+
+The parser signals when headers are complete:
+
+[source,cpp]
+----
+request_parser pr(ctx);
+pr.reset();
+pr.start();
+
+// Feed data until headers are complete
+while (!pr.got_header())
+{
+    auto buf = pr.prepare();
+    std::size_t n = socket.read_some(buf);
+    pr.commit(n);
+    
+    system::error_code ec;
+    pr.parse(ec);
+    
+    if (ec && ec != condition::need_more_input)
+        throw system::system_error(ec);
+}
+
+// Access the parsed request
+auto const& req = pr.get();
+std::cout << req.method_text() << " " << req.target() << "\n";
+
+for (auto const& f : req)
+    std::cout << f.name << ": " << f.value << "\n";
+----
+
+== Parsing the Body
+
+After headers are parsed, you have several options for handling the body.
+
+=== In-Place Body
+
+The simplest approach reads the body into the parser's internal buffer:
+
+[source,cpp]
+----
+// After headers are complete
+while (!pr.is_complete())
+{
+    auto buf = pr.prepare();
+    std::size_t n = socket.read_some(buf);
+    pr.commit(n);
+    
+    system::error_code ec;
+    pr.parse(ec);
+    if (ec && ec != condition::need_more_input)
+        throw system::system_error(ec);
+}
+
+// Access the complete body
+core::string_view body = pr.body();
+----
+
+This works well for small bodies that fit in the parser's buffer.
+
+=== Dynamic Buffer Body
+
+For larger bodies, attach an elastic buffer:
+
+[source,cpp]
+----
+// After headers complete
+std::string body_storage;
+pr.set_body(capy::string_buffer(&body_storage));
+
+// Continue parsing - body goes into body_storage
+while (!pr.is_complete())
+{
+    auto buf = pr.prepare();
+    std::size_t n = socket.read_some(buf);
+    pr.commit(n);
+    
+    system::error_code ec;
+    pr.parse(ec);
+    if (ec && ec != condition::need_more_input)
+        throw system::system_error(ec);
+}
+
+// Body is now in body_storage
+std::cout << "Body size: " << body_storage.size() << "\n";
+----
+
+=== Sink Body
+
+For streaming or when you need custom processing, use a sink:
+
+[source,cpp]
+----
+// Write body directly to file
+pr.set_body<file_sink>("upload.bin", file_mode::write_new);
+
+while (!pr.is_complete())
+{
+    auto buf = pr.prepare();
+    std::size_t n = socket.read_some(buf);
+    pr.commit(n);
+    
+    system::error_code ec;
+    pr.parse(ec);
+    if (ec && ec != condition::need_more_input)
+        throw system::system_error(ec);
+}
+----
+
+=== Pull-Based Body
+
+For maximum control, pull body chunks manually:
+
+[source,cpp]
+----
+while (!pr.is_complete())
+{
+    auto buf = pr.prepare();
+    std::size_t n = socket.read_some(buf);
+    pr.commit(n);
+    
+    system::error_code ec;
+    pr.parse(ec);
+    if (ec && ec != condition::need_more_input)
+        throw system::system_error(ec);
+    
+    // Process available body data
+    auto body_bufs = pr.pull_body();
+    process(body_bufs);
+    pr.consume_body(capy::buffer_size(body_bufs));
+}
+----
+
+== Body Size Limits
+
+Override the default body limit for a specific message:
+
+[source,cpp]
+----
+// After headers complete
+if (req.exists(field::content_type))
+{
+    auto ct = req.at(field::content_type);
+    if (ct.starts_with("multipart/form-data"))
+    {
+        // Allow larger uploads
+        pr.set_body_limit(100 * 1024 * 1024);  // 100 MB
+    }
+}
+----
+
+== Content Decoding
+
+When enabled in configuration, the parser automatically decompresses
+gzip, deflate, and brotli encoded bodies:
+
+[source,cpp]
+----
+request_parser::config cfg;
+cfg.apply_gzip_decoder = true;
+cfg.apply_deflate_decoder = true;
+// For brotli, also install the brotli decode service
+----
+
+The `Content-Encoding` header is processed automatically. The body
+you receive is the decoded content.
+
+== Handling Multiple Messages
+
+For persistent connections, parse multiple messages in sequence:
+
+[source,cpp]
+----
+request_parser pr(ctx);
+pr.reset();  // Once per connection
+
+while (connection_open)
+{
+    pr.start();  // Once per message
+    
+    // Parse this message
+    while (!pr.is_complete())
+    {
+        auto buf = pr.prepare();
+        std::size_t n = socket.read_some(buf);
+        if (n == 0)
+        {
+            pr.commit_eof();
+            break;
+        }
+        pr.commit(n);
+        
+        system::error_code ec;
+        pr.parse(ec);
+        
+        if (ec == error::end_of_stream)
+            break;  // Clean connection close
+        if (ec && ec != condition::need_more_input)
+            throw system::system_error(ec);
+    }
+    
+    // Process the request
+    handle_request(pr.get());
+}
+----
+
+== Error Handling
+
+The parser reports errors through `system::error_code`:
+
+[source,cpp]
+----
+system::error_code ec;
+pr.parse(ec);
+
+if (ec == condition::need_more_input)
+{
+    // Not an error - need more data
+}
+else if (ec == error::end_of_stream)
+{
+    // Clean EOF - no more messages
+}
+else if (ec)
+{
+    // Parse error
+    std::cerr << "Parse error: " << ec.message() << "\n";
+}
+----
+
+Common errors include:
+
+* Invalid start line syntax
+* Invalid header syntax
+* Header size exceeded
+* Body size exceeded
+* Incomplete chunked encoding
+
+== Custom Sinks
+
+Implement the `sink` interface to handle body data your way:
+
+[source,cpp]
+----
+class my_sink : public sink
+{
+    std::vector<char>& output_;
+    
+public:
+    explicit my_sink(std::vector<char>& out)
+        : output_(out)
+    {
+    }
+
+protected:
+    results on_write(capy::const_buffer b, bool more) override
+    {
+        auto p = static_cast<char const*>(b.data());
+        output_.insert(output_.end(), p, p + b.size());
+        return { {}, b.size() };
+    }
+};
+
+// Use it
+std::vector<char> body_data;
+pr.set_body<my_sink>(body_data);
+----
+
+== Next Steps
+
+Now that you can parse incoming messages, learn how to produce outgoing
+messages:
+
+* xref:serializing.adoc[Serializing] — produce HTTP messages for transmission

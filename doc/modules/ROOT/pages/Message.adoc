@@ -1,3 +1,0 @@
-= Message
-
-image::ClassHierarchy.svg[]

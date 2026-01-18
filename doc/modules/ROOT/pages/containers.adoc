@@ -1,0 +1,465 @@
+//
+// Copyright (c) 2023 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Containers
+
+The library provides modifiable containers for HTTP messages and standalone
+field collections. Unlike some HTTP libraries, the message body is kept
+separate—these containers hold only the start line and headers, avoiding
+the template complexity that comes from parameterizing on body type.
+
+== Container Types
+
+[cols="1a,4a"]
+|===
+|Type|Description
+
+|`fields`
+|A modifiable container of header fields (name-value pairs).
+
+|`request`
+|A modifiable container holding a request line and header fields.
+
+|`response`
+|A modifiable container holding a status line and header fields.
+
+|`static_request`
+|A request container using externally-provided storage.
+
+|`static_response`
+|A response container using externally-provided storage.
+
+|===
+
+All containers maintain this invariant: **contents are always valid HTTP**.
+Operations that would produce malformed output throw an exception. This
+means you can safely serialize any container at any time.
+
+== Working with Fields
+
+The `fields` class stores a collection of header fields. Use it when you
+need headers independent of a full request or response—for example, when
+building trailer fields for chunked encoding.
+
+=== Creating Fields
+
+[source,cpp]
+----
+// Empty fields container
+fields f;
+
+// With initial capacity (bytes)
+fields f(1024);
+
+// Parse from a string
+fields f(
+    "Content-Type: text/html\r\n"
+    "Cache-Control: no-cache\r\n"
+    "\r\n");
+----
+
+=== Adding Fields
+
+[source,cpp]
+----
+fields f;
+
+// Append with field constant (preferred - faster lookup)
+f.append(field::content_type, "text/html");
+f.append(field::cache_control, "no-cache");
+
+// Append with string name
+f.append("X-Custom-Header", "custom-value");
+----
+
+Multiple fields with the same name are allowed:
+
+[source,cpp]
+----
+f.append(field::set_cookie, "session=abc123");
+f.append(field::set_cookie, "theme=dark");
+// Both Set-Cookie headers are preserved
+----
+
+=== Querying Fields
+
+[source,cpp]
+----
+// Check if a field exists
+if (f.exists(field::content_type)) { /* ... */ }
+
+// Get the value (throws if not found)
+auto ct = f.at(field::content_type);
+
+// Get the value or a default
+auto ct = f.value_or(field::content_type, "application/octet-stream");
+
+// Count occurrences
+std::size_t n = f.count(field::set_cookie);
+
+// Iterate all fields
+for (auto const& fld : f)
+{
+    std::cout << fld.name << ": " << fld.value << "\n";
+}
+----
+
+=== Modifying Fields
+
+[source,cpp]
+----
+// Replace all occurrences with a single value
+f.set(field::content_type, "application/json");
+
+// Erase all occurrences
+f.erase(field::cache_control);
+
+// Erase a specific field by iterator
+auto it = f.find(field::content_type);
+if (it != f.end())
+    f.erase(it);
+----
+
+== Working with Requests
+
+The `request` class represents a complete HTTP request (minus the body).
+
+=== Creating Requests
+
+[source,cpp]
+----
+// Default: GET / HTTP/1.1
+request req;
+
+// With method and target
+request req(method::post, "/api/users");
+
+// With method, target, and version
+request req(method::get, "/", version::http_1_0);
+
+// Parse from a string
+request req(
+    "POST /api/data HTTP/1.1\r\n"
+    "Host: example.com\r\n"
+    "Content-Length: 13\r\n"
+    "\r\n");
+----
+
+=== Request Properties
+
+[source,cpp]
+----
+request req(method::get, "/api/users");
+
+// Access start line components
+method m = req.method();            // method::get
+auto target = req.target();         // "/api/users"
+version v = req.version();          // version::http_1_1
+
+// For unknown methods
+auto text = req.method_text();      // "GET"
+
+// Modify start line
+req.set_method(method::post);
+req.set_target("/api/users/123");
+req.set_version(version::http_1_0);
+
+// Or set all at once (more efficient)
+req.set_start_line(method::put, "/api/users/123", version::http_1_1);
+----
+
+=== Request Headers
+
+Requests inherit all field operations from `fields_base`:
+
+[source,cpp]
+----
+request req(method::get, "/");
+req.set(field::host, "example.com");
+req.set(field::accept, "application/json");
+req.append(field::accept_encoding, "gzip, deflate");
+
+// Serialized form
+std::cout << req.buffer();
+----
+
+Output:
+
+----
+GET / HTTP/1.1
+Host: example.com
+Accept: application/json
+Accept-Encoding: gzip, deflate
+
+----
+
+== Working with Responses
+
+The `response` class represents a complete HTTP response (minus the body).
+
+=== Creating Responses
+
+[source,cpp]
+----
+// Default: HTTP/1.1 200 OK
+response res;
+
+// With status code
+response res(status::not_found);
+
+// With status and version
+response res(status::created, version::http_1_0);
+
+// Parse from a string
+response res(
+    "HTTP/1.1 404 Not Found\r\n"
+    "Content-Type: text/plain\r\n"
+    "\r\n");
+----
+
+=== Response Properties
+
+[source,cpp]
+----
+response res(status::ok);
+
+// Access start line components
+status s = res.status();              // status::ok
+unsigned code = res.status_int();     // 200
+auto reason = res.reason();           // "OK"
+version v = res.version();            // version::http_1_1
+
+// Modify status
+res.set_status(status::created);
+
+// Set status with custom reason (rarely needed)
+res.set_status(200, "All Good");
+
+// Set version
+res.set_version(version::http_1_0);
+
+// Set all at once
+res.set_start_line(status::accepted, version::http_1_1);
+----
+
+=== Common Response Patterns
+
+[source,cpp]
+----
+// JSON API response
+response res(status::ok);
+res.set(field::content_type, "application/json");
+res.set_content_length(json_body.size());
+
+// Redirect
+response res(status::moved_permanently);
+res.set(field::location, "https://example.com/new-path");
+
+// Error with body
+response res(status::bad_request);
+res.set(field::content_type, "text/plain");
+res.set_content_length(error_message.size());
+----
+
+== Methods and Status Codes
+
+=== HTTP Methods
+
+The `method` enumeration provides constants for standard HTTP methods:
+
+[source,cpp]
+----
+method::get        // GET
+method::head       // HEAD
+method::post       // POST
+method::put        // PUT
+method::delete_    // DELETE (underscore due to C++ keyword)
+method::connect    // CONNECT
+method::options    // OPTIONS
+method::trace      // TRACE
+method::patch      // PATCH
+// ... plus WebDAV methods, etc.
+----
+
+Convert between strings and enum values:
+
+[source,cpp]
+----
+// String to method
+method m = string_to_method("POST");  // method::post
+
+// Method to string
+auto s = to_string(method::get);      // "GET"
+----
+
+For non-standard methods, use `method::unknown` and work with strings:
+
+[source,cpp]
+----
+request req;
+req.set_method("CUSTOM");             // method() returns method::unknown
+auto text = req.method_text();        // "CUSTOM"
+----
+
+=== Status Codes
+
+The `status` enumeration covers standard HTTP status codes:
+
+[source,cpp]
+----
+// Informational (1xx)
+status::continue_              // 100
+status::switching_protocols    // 101
+
+// Successful (2xx)
+status::ok                     // 200
+status::created                // 201
+status::accepted               // 202
+status::no_content             // 204
+
+// Redirection (3xx)
+status::moved_permanently      // 301
+status::found                  // 302
+status::not_modified           // 304
+
+// Client Error (4xx)
+status::bad_request            // 400
+status::unauthorized           // 401
+status::forbidden              // 403
+status::not_found              // 404
+
+// Server Error (5xx)
+status::internal_server_error  // 500
+status::not_implemented        // 501
+status::bad_gateway            // 502
+status::service_unavailable    // 503
+----
+
+Status codes have associated reason phrases:
+
+[source,cpp]
+----
+auto reason = to_string(status::not_found);  // "Not Found"
+----
+
+Classify status codes by category:
+
+[source,cpp]
+----
+auto sc = status_class::successful;      // 2xx
+auto sc = to_status_class(status::ok);   // status_class::successful
+auto sc = to_status_class(404);          // status_class::client_error
+----
+
+== The Field Enumeration
+
+The `field` enumeration defines constants for well-known HTTP headers.
+Using these constants instead of strings enables:
+
+* Faster comparisons (integer vs string)
+* Case-insensitive matching without overhead
+* Compile-time checking of field names
+
+[source,cpp]
+----
+// Standard fields (partial list)
+field::accept
+field::accept_encoding
+field::authorization
+field::cache_control
+field::connection
+field::content_length
+field::content_type
+field::cookie
+field::host
+field::location
+field::server
+field::set_cookie
+field::transfer_encoding
+field::user_agent
+// ... many more
+----
+
+Convert between strings and enum:
+
+[source,cpp]
+----
+// String to field (case-insensitive)
+auto f = string_to_field("Content-Type");  // field::content_type
+
+// Field to string (canonical casing)
+auto s = to_string(field::content_type);   // "Content-Type"
+----
+
+== Memory Management
+
+=== Capacity Control
+
+Containers allocate memory dynamically as needed. You can control this:
+
+[source,cpp]
+----
+// Pre-allocate capacity
+request req(1024);  // Reserve 1024 bytes
+
+// Reserve more capacity
+req.reserve_bytes(4096);
+
+// Get current capacity
+std::size_t cap = req.capacity_in_bytes();
+
+// Set maximum allowed capacity
+req.set_max_capacity_in_bytes(8192);  // Throws if exceeded
+----
+
+=== Static Containers
+
+For performance-critical paths, use static containers that never allocate:
+
+[source,cpp]
+----
+// Fixed buffer of 2048 bytes
+std::array<char, 2048> storage;
+static_request req(storage.data(), storage.size());
+
+// If capacity is exceeded, operations throw
+----
+
+Static containers are useful when:
+
+* You need guaranteed no-allocation paths
+* You have a fixed upper bound on message size
+* You're working in embedded or real-time contexts
+
+== Serialization
+
+Every container can produce its serialized form instantly:
+
+[source,cpp]
+----
+request req(method::get, "/");
+req.set(field::host, "example.com");
+
+// Get the complete serialized message (minus body)
+core::string_view sv = req.buffer();
+
+// Stream output
+std::cout << req;
+----
+
+The `buffer()` function returns a view to internal storage. It runs in
+constant time and never allocates. The view remains valid until the
+container is modified.
+
+== Next Steps
+
+Now that you can build and inspect HTTP messages, learn how to parse
+incoming messages from the network:
+
+* xref:parsing.adoc[Parsing] — parse request and response messages
