@@ -111,7 +111,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     read(MutableBufferSequence const& bs)
     {
         static_assert(
-            capy::mutable_buffer_sequence<MutableBufferSequence>,
+            capy::MutableBufferSequence<MutableBufferSequence>,
             "Type requirements not met");
 
         return read_impl(bs);

@@ -121,7 +121,7 @@ start(
     ConstBufferSequence&& cbs)
 {
     static_assert(
-        capy::const_buffer_sequence<ConstBufferSequence>,
+        capy::ConstBufferSequence<ConstBufferSequence>,
         "ConstBufferSequence type requirements not met");
 
     start_init(m);

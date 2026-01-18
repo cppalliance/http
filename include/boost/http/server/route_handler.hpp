@@ -84,7 +84,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
 
     /** Executor associated with the session.
     */
-    capy::any_dispatcher ex;
+    capy::any_executor_ref ex;
 
     /** Destructor
     */

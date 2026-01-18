@@ -554,7 +554,7 @@ class parser::impl
     capy::const_buffer_pair cbp_;
 
     detail::filter* filter_;
-    capy::any_dynamic_buffer* eb_;
+    capy::any_DynamicBuffer* eb_;
     sink* sink_;
 
     state state_;
@@ -1675,7 +1675,7 @@ public:
 
     void
     set_body(
-        capy::any_dynamic_buffer& eb) noexcept
+        capy::any_DynamicBuffer& eb) noexcept
     {
         eb_ = &eb;
         style_ = style::elastic;
@@ -2051,7 +2051,7 @@ is_body_set() const noexcept
 void
 parser::
 set_body_impl(
-    capy::any_dynamic_buffer& eb) noexcept
+    capy::any_DynamicBuffer& eb) noexcept
 {
     BOOST_ASSERT(impl_);
     impl_->set_body(eb);

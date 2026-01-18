@@ -102,7 +102,7 @@ set_body(
 
     // Check ElasticBuffer type requirements
     static_assert(
-        capy::is_dynamic_buffer<ElasticBuffer>::value,
+        capy::is_DynamicBuffer<ElasticBuffer>::value,
         "Type requirements not met.");
 
     // body must not already be set
@@ -114,7 +114,7 @@ set_body(
         detail::throw_logic_error();
 
     auto& dyn = ws().emplace<
-        capy::any_dynamic_buffer_impl<typename
+        capy::any_DynamicBuffer_impl<typename
             std::decay<ElasticBuffer>::type,
                 buffers_N>>(std::forward<ElasticBuffer>(eb));
 
@@ -129,7 +129,7 @@ set_body(
 {
     // Check ElasticBuffer type requirements
     static_assert(
-        capy::is_dynamic_buffer<ElasticBuffer>::value,
+        capy::is_DynamicBuffer<ElasticBuffer>::value,
         "Type requirements not met.");
 
     // body must not already be set
@@ -142,7 +142,7 @@ set_body(
 
     // Use dynamic_buffer_ref to provide reference semantics
     auto& dyn = ws().emplace<
-        capy::any_dynamic_buffer_impl<
+        capy::any_DynamicBuffer_impl<
             detail::dynamic_buffer_ref<ElasticBuffer>,
             buffers_N>>(eb.get());
 

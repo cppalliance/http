@@ -108,7 +108,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         bool more)
     {
         static_assert(
-            capy::const_buffer_sequence<ConstBufferSequence>,
+            capy::ConstBufferSequence<ConstBufferSequence>,
             "Type requirements not met");
 
         return write_impl(bs, more);

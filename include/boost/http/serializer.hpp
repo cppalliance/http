@@ -246,7 +246,7 @@ public:
 
         @par Constraints
         @code
-        capy::const_buffer_sequence<ConstBufferSequence>
+        capy::ConstBufferSequence<ConstBufferSequence>
         @endcode
 
         @par Exception Safety
@@ -275,7 +275,7 @@ public:
     template<
         class ConstBufferSequence,
         class = typename std::enable_if<
-            capy::const_buffer_sequence<ConstBufferSequence>>::type
+            capy::ConstBufferSequence<ConstBufferSequence>>::type
     >
     void
     start(

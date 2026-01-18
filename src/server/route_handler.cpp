@@ -9,7 +9,7 @@
 
 #include <boost/http/server/route_handler.hpp>
 #include <boost/http/string_body.hpp>
-#include <boost/capy/ex/run_async.hpp>
+#include <boost/capy/ex/run_sync.hpp>
 
 namespace boost {
 namespace http {
@@ -56,19 +56,7 @@ spawn(
     capy::task<route_result> t) ->
         route_result
 {
-    return this->suspend(
-        [ex = this->ex, t = std::move(t)](resumer resume) mutable
-        {
-            capy::run_async(ex,
-                [resume](route_result rv)
-                {
-                    resume(rv);
-                },
-                [resume](std::exception_ptr ep)
-                {
-                    resume(ep);
-                })(std::move(t));
-        });
+    return capy::run_sync()(std::move(t));
 }
 
 } // http

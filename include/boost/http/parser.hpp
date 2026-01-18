@@ -642,7 +642,7 @@ private:
 
     BOOST_HTTP_DECL
     void
-    set_body_impl(capy::any_dynamic_buffer&) noexcept;
+    set_body_impl(capy::any_DynamicBuffer&) noexcept;
 
     BOOST_HTTP_DECL
     void
