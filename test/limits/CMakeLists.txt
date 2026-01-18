@@ -35,5 +35,12 @@ target_link_libraries(boost_http_limits PRIVATE
 
 target_link_libraries(boost_http_limits INTERFACE Boost::http)
 
+# bcrypt requires platform-specific libraries
+if (WIN32)
+    target_link_libraries(boost_http_limits PRIVATE bcrypt)
+elseif (APPLE)
+    target_link_libraries(boost_http_limits PRIVATE "-framework Security")
+endif ()
+
 add_test(NAME boost_http_limits COMMAND boost_http_limits)
 add_dependencies(tests boost_http_limits)
