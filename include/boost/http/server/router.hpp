@@ -488,8 +488,10 @@ public:
     {
         static_assert(handler_crvals<H1, HN...>,
             "pass handlers by value or std::move()");
-        static_assert(handler_check<7, H1, HN...>,
+        static_assert(! handler_check<8, H1, HN...>,
             "cannot use exception handlers here");
+        static_assert(handler_check<7, H1, HN...>,
+            "invalid handler signature");
         add_impl(pattern, make_handlers(
             std::forward<H1>(h1), std::forward<HN>(hn)...));
     }
@@ -532,8 +534,10 @@ public:
     {
         static_assert(handler_crvals<H1, HN...>,
             "pass handlers by value or std::move()");
-        static_assert(handler_check<7, H1, HN...>,
+        static_assert(! handler_check<8, H1, HN...>,
             "cannot use exception handlers here");
+        static_assert(handler_check<7, H1, HN...>,
+            "invalid handler signature");
         use(std::string_view(),
             std::forward<H1>(h1), std::forward<HN>(hn)...);
     }
