@@ -10,6 +10,11 @@
 // Test that header file is self-contained.
 #include <boost/http/server/flat_router.hpp>
 
+// Full functional tests are in beast2/test/unit/server/router.cpp
+
+#include <boost/http/server/router.hpp>
+#include <boost/capy/ex/run_sync.hpp>
+
 #include "test_suite.hpp"
 
 namespace boost {
@@ -17,10 +22,67 @@ namespace http {
 
 struct flat_router_test
 {
+    using params = route_params_base;
+    using test_router = router<params>;
+
+    void testCopyConstruction()
+    {
+        auto counter = std::make_shared<int>(0);
+        test_router r;
+        r.all("/", [counter](params&) -> capy::task<route_result>
+        {
+            ++(*counter);
+            co_return route_result{};
+        });
+
+        flat_router fr1(std::move(r));
+        flat_router fr2(fr1);
+
+        params req;
+        capy::run_sync()(fr1.dispatch(
+            http::method::get, urls::url_view("/"), req));
+        BOOST_TEST_EQ(*counter, 1);
+
+        capy::run_sync()(fr2.dispatch(
+            http::method::get, urls::url_view("/"), req));
+        BOOST_TEST_EQ(*counter, 2);
+    }
+
+    void testCopyAssignment()
+    {
+        auto counter = std::make_shared<int>(0);
+        test_router r;
+        r.all("/", [counter](params&) -> capy::task<route_result>
+        {
+            ++(*counter);
+            co_return route_result{};
+        });
+
+        flat_router fr1(std::move(r));
+
+        test_router r2;
+        r2.all("/", [](params&) -> capy::task<route_result>
+        {
+            co_return route_result{};
+        });
+        flat_router fr2(std::move(r2));
+
+        fr2 = fr1;
+
+        params req;
+        capy::run_sync()(fr1.dispatch(
+            http::method::get, urls::url_view("/"), req));
+        BOOST_TEST_EQ(*counter, 1);
+
+        capy::run_sync()(fr2.dispatch(
+            http::method::get, urls::url_view("/"), req));
+        BOOST_TEST_EQ(*counter, 2);
+    }
+
     void run()
     {
-        // Header compilation test only.
-        // Functional tests are in router.cpp.
+        testCopyConstruction();
+        testCopyAssignment();
     }
 };
 

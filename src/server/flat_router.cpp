@@ -339,15 +339,9 @@ struct flat_router::impl
 //------------------------------------------------
 
 flat_router::
-~flat_router()
-{
-    delete impl_;
-}
-
-flat_router::
 flat_router(
     detail::router_base&& src)
-    : impl_(new impl)
+    : impl_(std::make_shared<impl>())
 {
     impl_->flatten(*src.impl_);
 }

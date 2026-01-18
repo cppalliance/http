@@ -18,6 +18,7 @@
 #include <boost/capy/task.hpp>
 #include <boost/assert.hpp>
 #include <exception>
+#include <memory>
 #include <string_view>
 #include <type_traits>
 
@@ -39,11 +40,9 @@ class BOOST_HTTP_DECL
     flat_router
 {
     struct impl;
-    impl* impl_;
+    std::shared_ptr<impl> impl_;
 
 public:
-    ~flat_router();
-
     flat_router(
         detail::router_base&&);
 
