@@ -18,7 +18,6 @@ project
       <include>.
       <include>../..
       <include>../../../url/extra/test_suite
-      <library>/boost//buffers
       <library>/boost//capy
       <library>/boost//url
     ;
