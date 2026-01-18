@@ -10,6 +10,7 @@
 #ifndef BOOST_HTTP_HPP
 #define BOOST_HTTP_HPP
 
+#include <boost/http/bcrypt.hpp>
 #include <boost/http/error.hpp>
 #include <boost/http/field.hpp>
 #include <boost/http/fields.hpp>

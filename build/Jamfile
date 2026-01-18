@@ -36,6 +36,9 @@ alias http_sources : [ glob-tree-ex ./src : *.cpp ] ;
 
 explicit http_sources ;
 
+# Windows CNG library for bcrypt random number generation.
+lib bcrypt_sys : : <name>bcrypt ;
+
 lib boost_http
    : http_sources
    : requirements
@@ -44,10 +47,14 @@ lib boost_http
      <library>/boost//url
      <include>../
      <define>BOOST_HTTP_SOURCE
+     <target-os>windows:<library>bcrypt_sys
+     <target-os>darwin:<linkflags>"-framework Security"
    : usage-requirements
      <library>/boost//capy
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
+     <target-os>windows:<library>bcrypt_sys
+     <target-os>darwin:<linkflags>"-framework Security"
    ;
 
 boost-install boost_http ;

@@ -9,6 +9,8 @@
 * xref:Message.adoc[]
 * Server
 ** xref:server/router.adoc[Router]
+* Cryptography
+** xref:bcrypt.adoc[BCrypt Password Hashing]
 // ** xref:server/middleware.adoc[Middleware]
 // ** xref:server/errors.adoc[Error Handling]
 // ** xref:server/params.adoc[Route Parameters]

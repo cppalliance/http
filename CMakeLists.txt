@@ -172,6 +172,13 @@ add_library(boost_http include/boost/http.hpp build/Jamfile ${BOOST_HTTP_HEADERS
 add_library(Boost::http ALIAS boost_http)
 boost_http_setup_properties(boost_http)
 
+# bcrypt requires platform-specific libraries
+if (WIN32)
+    target_link_libraries(boost_http PRIVATE bcrypt)
+elseif (APPLE)
+    target_link_libraries(boost_http PRIVATE "-framework Security")
+endif ()
+
 #-------------------------------------------------
 #
 # Tests
