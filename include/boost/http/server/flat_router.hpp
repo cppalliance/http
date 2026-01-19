@@ -25,6 +25,11 @@
 namespace boost {
 namespace http {
 
+#ifdef BOOST_MSVC
+#pragma warning(push)
+#pragma warning(disable: 4251) // shared_ptr needs dll-interface
+#endif
+
 /** A flattened router optimized for dispatch performance.
 
     `flat_router` is constructed from a @ref router by flattening
@@ -86,6 +91,10 @@ public:
         urls::url_view const& url,
         route_params_base& p) const;
 };
+
+#ifdef BOOST_MSVC
+#pragma warning(pop)
+#endif
 
 } // http
 } // boost

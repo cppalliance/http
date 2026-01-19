@@ -10,6 +10,9 @@
 
 import testing ;
 
+# Windows CNG library for bcrypt random number generation.
+lib bcrypt_sys : : <name>bcrypt ;
+
 project
     : requirements
       $(c11-requires)
@@ -28,4 +31,6 @@ run limits.cpp /boost/http//http_sources
         <define>BOOST_HTTP_NO_LIB
         <define>BOOST_HTTP_STATIC_LINK
         <link>static
+        <target-os>windows:<library>bcrypt_sys
+        <target-os>darwin:<linkflags>"-framework Security"
     ;
