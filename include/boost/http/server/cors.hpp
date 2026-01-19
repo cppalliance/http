@@ -18,31 +18,73 @@
 namespace boost {
 namespace http {
 
+/** Options for CORS middleware configuration.
+*/
 struct cors_options
 {
+    /// Allowed origin, or "*" for any. Empty defaults to "*".
     std::string origin;
+
+    /// Allowed HTTP methods. Empty defaults to common methods.
     std::string methods;
+
+    /// Allowed request headers.
     std::string allowedHeaders;
+
+    /// Response headers exposed to client.
     std::string exposedHeaders;
+
+    /// Max age for preflight cache.
     std::chrono::seconds max_age{ 0 };
+
+    /// Status code for preflight response.
     status result = status::no_content;
+
+    /// If true, pass preflight to next handler.
     bool preFlightContinue = false;
+
+    /// If true, allow credentials.
     bool credentials = false;
 };
 
-class cors
+/** CORS middleware for handling cross-origin requests.
+
+    This middleware handles Cross-Origin Resource Sharing
+    (CORS) by setting appropriate response headers and
+    handling preflight OPTIONS requests.
+
+    @par Example
+    @code
+    cors_options opts;
+    opts.origin = "*";
+    opts.methods = "GET,POST,PUT,DELETE";
+    opts.credentials = true;
+
+    router.use( cors( opts ) );
+    @endcode
+
+    @see cors_options
+*/
+class BOOST_HTTP_DECL cors
 {
-public:
-    BOOST_HTTP_DECL
-    explicit cors(
-        cors_options options = {}) noexcept;
-
-    BOOST_HTTP_DECL
-    route_result
-    operator()(route_params& p) const;
-
-private:
     cors_options options_;
+
+public:
+    /** Construct a CORS middleware.
+
+        @param options Configuration options.
+    */
+    explicit cors(cors_options options = {}) noexcept;
+
+    /** Handle a request.
+
+        Sets CORS headers and handles preflight requests.
+
+        @param rp The route parameters.
+
+        @return A task that completes with the routing result.
+    */
+    route_task operator()(route_params& rp) const;
 };
 
 } // http

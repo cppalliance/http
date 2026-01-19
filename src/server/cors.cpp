@@ -25,35 +25,34 @@ namespace {
 
 struct Vary
 {
-    Vary(route_params& p)
-        : p_(p)
+    Vary(route_params& rp)
+        : rp_(rp)
     {
     }
 
     void set(field f, core::string_view s)
     {
-        p_.res.set(f, s);
+        rp_.res.set(f, s);
     }
 
     void append(field f, core::string_view v)
     {
-        auto it = p_.res.find(f);
-        if (it != p_.res.end())
+        auto it = rp_.res.find(f);
+        if(it != rp_.res.end())
         {
             std::string s = it->value;
             s += ", ";
             s += v;
-            p_.res.set(it, s);
+            rp_.res.set(it, s);
         }
         else
         {
-            p_.res.set(f, v);
+            rp_.res.set(f, v);
         }
     }
 
 private:
-    route_params& p_;
-    std::string v_;
+    route_params& rp_;
 };
 
 } // (anon)
@@ -109,7 +108,7 @@ static void setCredentials(
 // Access-Control-Allowed-Headers
 static void setAllowedHeaders(
     Vary& v,
-    route_params const& p,
+    route_params const& rp,
     cors_options const& options)
 {
     if(! options.allowedHeaders.empty())
@@ -119,7 +118,7 @@ static void setAllowedHeaders(
             options.allowedHeaders);
         return;
     }
-    auto s = p.res.value_or(
+    auto s = rp.req.value_or(
         field::access_control_request_headers, "");
     if(! s.empty())
     {
@@ -153,37 +152,35 @@ static void setMaxAge(
             options.max_age.count()));
 }
 
-route_result
+route_task
 cors::
 operator()(
-    route_params& p) const
+    route_params& rp) const
 {
-    Vary v(p);
-    if(p.req.method() ==
-        method::options)
+    Vary v(rp);
+    if(rp.req.method() == method::options)
     {
         // preflight
-        setOrigin(v, p, options_);
+        setOrigin(v, rp, options_);
         setMethods(v, options_);
         setCredentials(v, options_);
-        setAllowedHeaders(v, p, options_);
+        setAllowedHeaders(v, rp, options_);
         setMaxAge(v, options_);
         setExposeHeaders(v, options_);
 
         if(options_.preFlightContinue)
-            return route::next;
+            co_return route::next;
+
         // Safari and others need this for 204 or may hang
-        p.res.set_status(options_.result);
-        p.res.set_content_length(0);
-        p.serializer.start(p.res);
-        // VFALCO FIXME
-        return {};//route::send;
+        rp.res.set_status(options_.result);
+        co_return co_await rp.send("");
     }
+
     // actual response
-    setOrigin(v, p, options_);
+    setOrigin(v, rp, options_);
     setCredentials(v, options_);
     setExposeHeaders(v, options_);
-    return route::next;
+    co_return route::next;
 }
 
 } // http

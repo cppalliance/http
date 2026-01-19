@@ -1,0 +1,7 @@
+---
+description: Documentation style conventions for code snippets, javadocs, and API documentation examples
+globs: 
+alwaysApply: false
+---
+
+- `route_params` are named `rp`

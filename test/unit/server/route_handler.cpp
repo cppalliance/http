@@ -15,6 +15,7 @@
 #include <boost/http/request.hpp>
 #include <boost/capy/ex/run_sync.hpp>
 
+#include "test_route_handler.hpp"
 #include "test_suite.hpp"
 
 namespace boost {
@@ -31,7 +32,7 @@ struct route_handler_test
         route_result rv0 = route_result{})
     {
         flat_router fr(std::move(r));
-        route_params p;
+        test_route_params p;
         auto rv = capy::run_sync()(fr.dispatch(
             verb, urls::url_view(url), p));
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
