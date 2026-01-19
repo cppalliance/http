@@ -176,7 +176,8 @@ operator()(
         p.res.set_status(options_.result);
         p.res.set_content_length(0);
         p.serializer.start(p.res);
-        return route::send;
+        // VFALCO FIXME
+        return {};//route::send;
     }
     // actual response
     setOrigin(v, p, options_);

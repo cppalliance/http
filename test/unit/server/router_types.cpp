@@ -43,12 +43,8 @@ struct router_types_test
     {
         {
             char const* const n = "boost.http.route";
-            check(n, route::close);
-            check(n, route::complete);
-            check(n, route::suspend);
             check(n, route::next);
             check(n, route::next_route);
-            check(n, route::send);
         }
     }
 };

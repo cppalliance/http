@@ -50,14 +50,5 @@ set_body(std::string s)
     return *this;
 }
 
-auto
-route_params::
-spawn(
-    capy::task<route_result> t) ->
-        route_result
-{
-    return capy::run_sync()(std::move(t));
-}
-
 } // http
 } // boost

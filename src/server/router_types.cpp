@@ -40,12 +40,8 @@ message(
 {
     switch(static_cast<route>(code))
     {
-    case route::close:      return "close";
-    case route::complete:   return "complete";
-    case route::suspend:    return "suspend";
     case route::next:       return "next";
     case route::next_route: return "next_route";
-    case route::send:       return "send";
     default:
         return "?";
     }
@@ -70,14 +66,6 @@ route_cat_type route_cat;
 #endif
 
 } // detail
-
-resumer
-suspender::
-owner::
-do_suspend()
-{
-    detail::throw_logic_error();
-}
 
 bool
 route_params_base::

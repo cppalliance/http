@@ -42,33 +42,6 @@ using route_result = system::error_code;
 */
 enum class route
 {
-    /** The handler requests that the connection be closed.
-
-        No further requests will be processed. The caller should
-        close the connection once the current response, if any,
-        has been sent.
-    */
-    close = 1,
-
-    /** The handler completed the request.
-
-        The response has been fully transmitted, and no further
-        handlers or routes will be invoked. The caller should continue
-        by either reading the next request on a persistent connection
-        or closing the session if it is not keep-alive.
-    */
-    complete,
-
-    /** The handler is suspending the route.
-
-        When the handler returns this value, the router is placed into
-        a suspended state which can later be reactivated by invoking
-        @ref router::resume. Depending on the implementation,
-        this might detach the handler from the session until it is
-        resumed.
-    */
-    suspend,
-
     /** The handler declined to process the request.
 
         The handler chose not to generate a response. The caller
@@ -88,15 +61,7 @@ enum class route
         caller stops invoking handlers in this route and resumes
         evaluation with the next candidate route.
     */
-    next_route,
-
-    /** The request was handled.
-
-        The route handler processed the request and prepared
-        the response serializer. The caller will send the response
-        before reading the next request or closing the connection.
-    */
-    send
+    next_route
 };
 
 //------------------------------------------------
@@ -148,160 +113,6 @@ inline bool is_route_result(
     route_result rv) noexcept
 {
     return &rv.category() == &detail::route_cat;
-}
-
-//------------------------------------------------
-
-class resumer;
-
-/** Function to suspend a route handler from its session
-
-    This holds an reference to an implementation
-    which suspends the router which dispatched the handler.
-*/
-class suspender
-{
-public:
-    /** Base class of the implementation
-    */
-    struct BOOST_HTTP_SYMBOL_VISIBLE
-        owner
-    {
-        BOOST_HTTP_DECL
-        virtual resumer do_suspend();
-        virtual void do_resume(route_result const&) = 0;
-        virtual void do_resume(std::exception_ptr) = 0;
-    };
-
-    suspender() = default;
-    suspender(suspender const&) = default;
-    suspender& operator=(suspender const&) = default;
-
-    explicit
-    suspender(
-        owner& who) noexcept
-        : p_(&who)
-    {
-    }
-
-    /** Suspend and invoke the given function
-
-        The function will be invoked with this equivalent signature:
-        @code
-        void( resumer );
-        @endcode
-
-        @return A @ref route_result equal to @ref route::suspend
-    */
-    template<class F>
-    route_result    
-    operator()(F&& f);
-
-private:
-    friend resumer;
-    // Clang doesn't consider uninstantiated templates
-    // when checking for unused private fields.
-    owner* p_
-    #if defined(__clang__)
-        __attribute__((unused))
-    #endif
-        = nullptr; 
-};
-
-//------------------------------------------------
-
-/** Function to resume a suspended route.
-
-    This holds a reference to an implementation which resumes the handler's
-    session. The resume function is typically obtained at the time the
-    route is suspended.
-*/
-class resumer
-{
-public:
-    /** Constructor
-
-        Default constructed resume functions will
-        be empty. An exception is thrown when
-        attempting to invoke an empty object.
-    */
-    resumer() = default;
-
-    /** Constructor
-
-        Copies of resume functions behave the same
-        as the original
-    */
-    resumer(resumer const&) = default;
-
-    /** Assignment
-
-        Copies of resume functions behave the same
-        as the original
-    */
-    resumer& operator=(resumer const&) = default;
-
-    /** Constructor
-    */
-    explicit
-    resumer(
-        suspender::owner& who) noexcept
-        : p_(&who)
-    {
-    }
-
-    /** Resume the session
-
-        When a session is resumed, routing continues as if the handler
-        had returned the @ref route_result contained in @p rv.
-
-        @param rv The route result to resume with.
-
-        @throw std::invalid_argument If the object is empty.
-    */
-    void operator()(
-        route_result const& rv) const
-    {
-        if(! p_)
-            detail::throw_invalid_argument();
-        p_->do_resume(rv);
-    }
-
-    /** Resume the session with an exception
-
-        When a session is resumed with an exception, the exception
-        is propagated through the router's error handling mechanism.
-
-        @param ep The exception to propagate.
-
-        @throw std::invalid_argument If the object is empty.
-    */
-    void operator()(
-        std::exception_ptr ep) const
-    {
-        if(! p_)
-            detail::throw_invalid_argument();
-        p_->do_resume(ep);
-    }
-
-private:
-    suspender::owner* p_
-    #if defined(__clang__)
-        __attribute__((unused))
-    #endif
-        = nullptr; 
-};
-
-template<class F>
-auto    
-suspender::
-operator()(F&& f) ->
-    route_result
-{
-    if(! p_)
-        detail::throw_logic_error();
-    std::forward<F>(f)(p_->do_suspend());
-    return route::suspend;
 }
 
 //------------------------------------------------
