@@ -11,8 +11,8 @@
 #define BOOST_HTTP_SERVER_ROUTE_HANDLER_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/detail/any_bufref.hpp>
 #include <boost/http/server/router_types.hpp>
+#include <boost/capy/any_bufref.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/datastore.hpp>
 #include <boost/capy/task.hpp>
@@ -242,7 +242,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     route_task
     write(Buffers const& buffers)
     {
-        return write_impl(detail::any_bufref(buffers));
+        return write_impl(capy::any_bufref(buffers));
     }
 
     /** Complete a streaming response.
@@ -284,7 +284,7 @@ protected:
 
         @return A task that completes when the write is done.
     */
-    virtual route_task write_impl(detail::any_bufref buffers) = 0;
+    virtual route_task write_impl(capy::any_bufref buffers) = 0;
 };
 
 } // http
