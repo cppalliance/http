@@ -1,8 +1,11 @@
 /.vscode/
+/.cache/
+/.clangd
 /build/*
 !/build/Jamfile
 /out/
-CMakeUserPresets.json
+/CMakeUserPresets.json
+/tmpclaude-*-cwd
 
 # CMake artifacts (if accidentally run from source dir)
 #CMakeCache.txt

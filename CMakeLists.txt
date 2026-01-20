@@ -76,7 +76,7 @@ endforeach ()
 # Conditional dependencies
 if (NOT BOOST_URL_MRDOCS_BUILD)
     if (BOOST_HTTP_BUILD_TESTS)
-        set(BOOST_HTTP_UNIT_TEST_LIBRARIES filesystem)
+        set(BOOST_HTTP_UNIT_TEST_LIBRARIES asio filesystem)
     endif ()
     if (BOOST_HTTP_BUILD_EXAMPLES)
         # set(BOOST_HTTP_EXAMPLE_LIBRARIES json)
