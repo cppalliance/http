@@ -43,6 +43,7 @@ lib boost_http
    : http_sources
    : requirements
      <library>/boost//capy
+     <library>/boost/corosio//boost_corosio
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
      <include>../
@@ -51,6 +52,7 @@ lib boost_http
      <target-os>darwin:<linkflags>"-framework Security"
    : usage-requirements
      <library>/boost//capy
+     <library>/boost/corosio//boost_corosio
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
      <target-os>windows:<library>bcrypt_sys

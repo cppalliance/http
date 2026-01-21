@@ -58,6 +58,7 @@ set(BOOST_HTTP_DEPENDENCIES
     Boost::capy
     Boost::config
     Boost::core
+    Boost::corosio
     Boost::json
     Boost::mp11
     Boost::static_assert
