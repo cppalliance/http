@@ -24,7 +24,7 @@ struct test_route_params : route_params
         co_return {};
     }
 
-    route_task write_impl(capy::any_bufref) override
+    route_task write_impl(capy::buffer_param) override
     {
         co_return {};
     }
