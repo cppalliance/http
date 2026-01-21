@@ -573,7 +573,7 @@ struct serializer::config
 {
     /** Enable Brotli Content-Encoding.
 
-        Requires `boost::capy::brotli::encode_service` to be
+        Requires `boost::http::brotli::encode_service` to be
         installed, otherwise an exception is thrown.
     */
     bool apply_brotli_encoder = false;

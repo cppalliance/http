@@ -20,10 +20,10 @@
 #include <boost/capy/buffers/flat_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/slice.hpp>
-#include <boost/capy/brotli/decode.hpp>
+#include <boost/http/brotli/decode.hpp>
 #include <boost/capy/core/polystore.hpp>
-#include <boost/capy/zlib/error.hpp>
-#include <boost/capy/zlib/inflate.hpp>
+#include <boost/http/zlib/error.hpp>
+#include <boost/http/zlib/inflate.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/error.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>
@@ -305,7 +305,7 @@ clamp(
 class zlib_filter
     : public detail::zlib_filter_base
 {
-    capy::zlib::inflate_service& svc_;
+    http::zlib::inflate_service& svc_;
 
 public:
     zlib_filter(
@@ -313,11 +313,11 @@ public:
         http::detail::workspace& ws,
         int window_bits)
         : zlib_filter_base(ws)
-        , svc_(ctx.get<capy::zlib::inflate_service>())
+        , svc_(ctx.get<http::zlib::inflate_service>())
     {
-        system::error_code ec = static_cast<capy::zlib::error>(
+        system::error_code ec = static_cast<http::zlib::error>(
             svc_.init2(strm_, window_bits));
-        if(ec != capy::zlib::error::ok)
+        if(ec != http::zlib::error::ok)
             detail::throw_system_error(ec);
     }
 
@@ -334,17 +334,17 @@ private:
         strm_.next_in   = static_cast<unsigned char*>(const_cast<void *>(in.data()));
         strm_.avail_in  = saturate_cast(in.size());
 
-        auto rs = static_cast<capy::zlib::error>(
+        auto rs = static_cast<http::zlib::error>(
             svc_.inflate(
                 strm_,
-                more ? capy::zlib::no_flush : capy::zlib::finish));
+                more ? http::zlib::no_flush : http::zlib::finish));
 
         results rv;
         rv.out_bytes = saturate_cast(out.size()) - strm_.avail_out;
         rv.in_bytes  = saturate_cast(in.size()) - strm_.avail_in;
-        rv.finished  = (rs == capy::zlib::error::stream_end);
+        rv.finished  = (rs == http::zlib::error::stream_end);
 
-        if(rs < capy::zlib::error::ok && rs != capy::zlib::error::buf_err)
+        if(rs < http::zlib::error::ok && rs != http::zlib::error::buf_err)
             rv.ec = rs;
 
         return rv;
@@ -354,14 +354,14 @@ private:
 class brotli_filter
     : public detail::brotli_filter_base
 {
-    capy::brotli::decode_service& svc_;
-    capy::brotli::decoder_state* state_;
+    http::brotli::decode_service& svc_;
+    http::brotli::decoder_state* state_;
 
 public:
     brotli_filter(
         const capy::polystore& ctx,
         http::detail::workspace&)
-        : svc_(ctx.get<capy::brotli::decode_service>())
+        : svc_(ctx.get<http::brotli::decode_service>())
     {
         // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
@@ -401,10 +401,10 @@ private:
         rv.out_bytes = out.size() - available_out;
         rv.finished  = svc_.is_finished(state_);
 
-        if(!more && rs == capy::brotli::decoder_result::needs_more_input)
+        if(!more && rs == http::brotli::decoder_result::needs_more_input)
             rv.ec = BOOST_HTTP_ERR(error::bad_payload);
 
-        if(rs == capy::brotli::decoder_result::error)
+        if(rs == http::brotli::decoder_result::error)
             rv.ec = BOOST_HTTP_ERR(
                 svc_.get_error_code(state_));
 

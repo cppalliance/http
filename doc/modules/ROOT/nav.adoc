@@ -15,6 +15,9 @@
 // ** xref:server/params.adoc[Route Parameters]
 // ** xref:server/advanced.adoc[Advanced Topics]
 // ** xref:server/cors.adoc[CORS]
+* Compression
+** xref:compression/zlib.adoc[ZLib]
+** xref:compression/brotli.adoc[Brotli]
 * Design Requirements
 ** xref:design_requirements/serializer.adoc[Serializer]
 ** xref:design_requirements/parser.adoc[Parser]

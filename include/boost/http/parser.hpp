@@ -670,7 +670,7 @@ struct parser::config_base
 
     /** Enable Brotli Content-Encoding decoding.
 
-        Requires `boost::capy::brotli::decode_service` to be
+        Requires `boost::http::brotli::decode_service` to be
         installed, otherwise an exception is thrown.
     */
     bool apply_brotli_decoder = false;
@@ -695,7 +695,7 @@ struct parser::config_base
         Larger windows improve decompression at the cost
         of memory. If a larger window is required than
         allowed, decoding fails with
-        `capy::zlib::error::data_err`.
+        `http::zlib::error::data_err`.
     */
     int zlib_window_bits = 15;
 

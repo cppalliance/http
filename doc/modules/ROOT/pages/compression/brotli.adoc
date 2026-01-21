@@ -1,0 +1,164 @@
+= Brotli Compression
+:navtitle: Brotli
+
+The Brotli module provides high-ratio compression services for HTTP content encoding.
+
+== Overview
+
+Brotli is a modern compression algorithm that typically achieves better compression ratios than gzip/deflate, especially for text content. It's widely supported for HTTP `Content-Encoding: br`.
+
+== Basic Usage
+
+[source,cpp]
+----
+#include <boost/http/brotli.hpp>
+
+namespace brotli = boost::http::brotli;
+
+// Create context and install services
+boost::capy::polystore ctx;
+auto& encoder = brotli::install_encode_service(ctx);
+auto& decoder = brotli::install_decode_service(ctx);
+----
+
+=== Compression
+
+[source,cpp]
+----
+// Compress data
+std::vector<char> input = /* ... */;
+std::vector<char> output(brotli::encodeBound(input.size()));
+
+brotli::encode_result result = encoder.encode(
+    input.data(), input.size(),
+    output.data(), output.size()
+);
+
+output.resize(result.bytes_written);
+----
+
+=== Quality Levels
+
+Brotli quality ranges from 0 (fastest) to 11 (best compression):
+
+[source,cpp]
+----
+// Set quality (0-11)
+encoder.set_quality(6);  // Balanced
+
+// Quality guidelines:
+// 0-4:  Fast compression, larger output
+// 5-6:  Balanced (good for real-time)
+// 7-9:  Slower, better compression
+// 10-11: Very slow, best compression (static content)
+----
+
+=== Decompression
+
+[source,cpp]
+----
+// Decompress data
+std::vector<char> compressed = /* ... */;
+std::vector<char> output(expected_size);
+
+brotli::decode_result result = decoder.decode(
+    compressed.data(), compressed.size(),
+    output.data(), output.size()
+);
+
+output.resize(result.bytes_written);
+----
+
+== Shared Dictionary
+
+Brotli supports shared dictionaries for improved compression of similar content:
+
+[source,cpp]
+----
+// Load custom dictionary
+brotli::shared_dictionary dict = load_dictionary();
+
+// Install services with dictionary
+auto& encoder = brotli::install_encode_service(ctx, dict);
+auto& decoder = brotli::install_decode_service(ctx, dict);
+----
+
+== Error Handling
+
+[source,cpp]
+----
+brotli::encode_result result = encoder.encode(input, output);
+
+if (result.ec == brotli::error::invalid_input)
+{
+    // Malformed input
+}
+----
+
+== Integration with HTTP
+
+The brotli services integrate with HTTP parser and serializer through content encoding:
+
+[source,cpp]
+----
+// Parser automatically decompresses Content-Encoding: br
+http::response_parser::config cfg;
+cfg.apply_brotli_decoder = true;
+
+// Serializer automatically compresses when Content-Encoding is set
+http::serializer::config ser_cfg;
+ser_cfg.apply_brotli_encoder = true;
+----
+
+== Performance Considerations
+
+|===
+| Quality | Speed | Ratio | Use Case
+
+| 0-4
+| Fast
+| Lower
+| Real-time compression
+
+| 5-6
+| Medium
+| Good
+| General purpose
+
+| 7-9
+| Slow
+| Better
+| Offline compression
+
+| 10-11
+| Very slow
+| Best
+| Static assets
+|===
+
+== Reference
+
+=== Functions
+
+|===
+| Function | Description
+
+| `brotli::install_encode_service`
+| Install compression service
+
+| `brotli::install_decode_service`
+| Install decompression service
+|===
+
+=== Types
+
+|===
+| Type | Description
+
+| `brotli::shared_dictionary`
+| Shared dictionary for improved compression
+|===
+
+== See Also
+
+* xref:zlib.adoc[ZLib] — DEFLATE/gzip compression

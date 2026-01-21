@@ -127,6 +127,8 @@ Content-Length: 42
 * xref:parsing.adoc[Parsing] — parse incoming HTTP messages
 * xref:serializing.adoc[Serializing] — produce outgoing HTTP messages
 * xref:router.adoc[Router] — dispatch requests to handlers
+* xref:compression/zlib.adoc[ZLib Compression] — DEFLATE and gzip support
+* xref:compression/brotli.adoc[Brotli Compression] — high-ratio compression
 
 == Acknowledgments
 

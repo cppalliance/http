@@ -58,7 +58,6 @@ set(BOOST_HTTP_DEPENDENCIES
     Boost::capy
     Boost::config
     Boost::core
-    Boost::corosio
     Boost::json
     Boost::mp11
     Boost::static_assert
@@ -68,13 +67,19 @@ set(BOOST_HTTP_DEPENDENCIES
     Boost::url
     Boost::winapi)
 
+# corosio is used header-only (only io_buffer_param.hpp)
+# We include it separately to avoid linking against the full library
+set(BOOST_HTTP_HEADER_ONLY_DEPENDENCIES corosio)
+
 foreach (BOOST_HTTP_DEPENDENCY ${BOOST_HTTP_DEPENDENCIES})
     if (BOOST_HTTP_DEPENDENCY MATCHES "^[ ]*Boost::([A-Za-z0-9_]+)[ ]*$")
         list(APPEND BOOST_HTTP_INCLUDE_LIBRARIES ${CMAKE_MATCH_1})
     endif ()
 endforeach ()
+# Add header-only dependencies to include list (but not link list)
+list(APPEND BOOST_HTTP_INCLUDE_LIBRARIES ${BOOST_HTTP_HEADER_ONLY_DEPENDENCIES})
 # Conditional dependencies
-if (NOT BOOST_URL_MRDOCS_BUILD)
+if (NOT BOOST_HTTP_MRDOCS_BUILD)
     if (BOOST_HTTP_BUILD_TESTS)
         set(BOOST_HTTP_UNIT_TEST_LIBRARIES asio filesystem)
     endif ()
@@ -82,9 +87,12 @@ if (NOT BOOST_URL_MRDOCS_BUILD)
         # set(BOOST_HTTP_EXAMPLE_LIBRARIES json)
     endif ()
 endif ()
-# Complete dependency list
-set(BOOST_INCLUDE_LIBRARIES ${BOOST_HTTP_INCLUDE_LIBRARIES} ${BOOST_HTTP_UNIT_TEST_LIBRARIES} ${BOOST_HTTP_EXAMPLE_LIBRARIES})
-set(BOOST_EXCLUDE_LIBRARIES http)
+# Complete dependency list (only set when http is the root project)
+# When built as part of the superproject, these are set by the superproject
+if (BOOST_HTTP_IS_ROOT)
+    set(BOOST_INCLUDE_LIBRARIES ${BOOST_HTTP_INCLUDE_LIBRARIES} ${BOOST_HTTP_UNIT_TEST_LIBRARIES} ${BOOST_HTTP_EXAMPLE_LIBRARIES})
+    set(BOOST_EXCLUDE_LIBRARIES http)
+endif()
 
 #-------------------------------------------------
 #
@@ -151,6 +159,10 @@ function(boost_http_setup_properties target)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/include")
     target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}")
     target_link_libraries(${target} PUBLIC ${BOOST_HTTP_DEPENDENCIES})
+    # Add corosio headers without linking (header-only usage)
+    # BUILD_INTERFACE: only during build (installed headers are in standard Boost include path)
+    target_include_directories(${target} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../corosio/include>)
+    target_compile_definitions(${target} PUBLIC BOOST_COROSIO_NO_LIB)  # Disable corosio auto-linking
     target_compile_definitions(${target} PUBLIC BOOST_HTTP_NO_LIB)
     target_compile_definitions(${target} PRIVATE BOOST_HTTP_SOURCE)
     if (BUILD_SHARED_LIBS)
@@ -178,6 +190,39 @@ if (WIN32)
     target_link_libraries(boost_http PRIVATE bcrypt)
 elseif (APPLE)
     target_link_libraries(boost_http PRIVATE "-framework Security")
+endif ()
+
+# Zlib
+find_package(ZLIB)
+if (ZLIB_FOUND)
+    file(GLOB_RECURSE BOOST_HTTP_ZLIB_HEADERS CONFIGURE_DEPENDS include/boost/http/zlib/*.hpp)
+    file(GLOB_RECURSE BOOST_HTTP_ZLIB_SOURCES CONFIGURE_DEPENDS src_zlib/*.cpp src_zlib/*.hpp)
+    source_group("" FILES "include/boost/http/zlib.hpp")
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost/http/zlib PREFIX "include" FILES ${BOOST_HTTP_ZLIB_HEADERS})
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src_zlib PREFIX "src" FILES ${BOOST_HTTP_ZLIB_SOURCES})
+    add_library(boost_http_zlib include/boost/http/zlib.hpp build/Jamfile ${BOOST_HTTP_ZLIB_HEADERS} ${BOOST_HTTP_ZLIB_SOURCES})
+    add_library(Boost::http_zlib ALIAS boost_http_zlib)
+    target_link_libraries(boost_http_zlib PUBLIC boost_http)
+    target_link_libraries(boost_http_zlib PRIVATE ZLIB::ZLIB)
+    target_compile_definitions(boost_http_zlib PUBLIC BOOST_HTTP_HAS_ZLIB)
+    target_compile_definitions(boost_http_zlib PRIVATE BOOST_HTTP_SOURCE)
+endif ()
+
+# Brotli
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(Brotli)
+if (Brotli_FOUND)
+    file(GLOB_RECURSE BOOST_HTTP_BROTLI_HEADERS CONFIGURE_DEPENDS include/boost/http/brotli/*.hpp)
+    file(GLOB_RECURSE BOOST_HTTP_BROTLI_SOURCES CONFIGURE_DEPENDS src_brotli/*.cpp src_brotli/*.hpp)
+    source_group("" FILES "include/boost/http/brotli.hpp")
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost/http/brotli PREFIX "include" FILES ${BOOST_HTTP_BROTLI_HEADERS})
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src_brotli PREFIX "src" FILES ${BOOST_HTTP_BROTLI_SOURCES})
+    add_library(boost_http_brotli include/boost/http/brotli.hpp build/Jamfile ${BOOST_HTTP_BROTLI_HEADERS} ${BOOST_HTTP_BROTLI_SOURCES})
+    add_library(Boost::http_brotli ALIAS boost_http_brotli)
+    target_link_libraries(boost_http_brotli PUBLIC boost_http)
+    target_link_libraries(boost_http_brotli PRIVATE Brotli::common Brotli::decoder Brotli::encoder)
+    target_compile_definitions(boost_http_brotli PUBLIC BOOST_HTTP_HAS_BROTLI)
+    target_compile_definitions(boost_http_brotli PRIVATE BOOST_HTTP_SOURCE)
 endif ()
 
 #-------------------------------------------------

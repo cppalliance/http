@@ -226,6 +226,7 @@ compresses the body automatically:
 // Enable in config
 serializer::config cfg;
 cfg.apply_gzip_encoder = true;
+cfg.apply_brotli_encoder = true;  // Requires brotli encode service
 
 // Check Accept-Encoding from request
 if (request_accepts_gzip(req))
@@ -236,6 +237,11 @@ if (request_accepts_gzip(req))
 
 sr.start(res, large_body);
 ----
+
+For detailed information on compression services, see:
+
+* xref:compression/zlib.adoc[ZLib] — DEFLATE and gzip compression
+* xref:compression/brotli.adoc[Brotli] — Brotli compression
 
 == Expect: 100-continue
 

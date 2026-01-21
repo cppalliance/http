@@ -17,8 +17,8 @@ project
       $(c11-requires)
       <library>/boost/http//boost_http
       <library>/boost/url//boost_url
-      [ ac.check-library /boost/capy//boost_capy_zlib : <library>/boost/capy//boost_capy_zlib : ]
-      [ ac.check-library /boost/capy//boost_capy_brotli : <library>/boost/capy//boost_capy_brotli : ]
+      [ ac.check-library /boost/http//boost_http_zlib : <library>/boost/http//boost_http_zlib : ]
+      [ ac.check-library /boost/http//boost_http_brotli : <library>/boost/http//boost_http_brotli : ]
       <source>../../../url/extra/test_suite/test_main.cpp
       <source>../../../url/extra/test_suite/test_suite.cpp
       <source>./test_helpers.cpp

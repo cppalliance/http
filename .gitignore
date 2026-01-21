@@ -3,6 +3,7 @@
 /.clangd
 /build/*
 !/build/Jamfile
+!/build/brotli.jam
 /out/
 /CMakeUserPresets.json
 /tmpclaude-*-cwd

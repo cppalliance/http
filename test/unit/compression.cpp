@@ -18,9 +18,9 @@
 #include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
-#include <boost/capy/brotli.hpp>
+#include <boost/http/brotli.hpp>
 #include <boost/capy/core/polystore.hpp>
-#include <boost/capy/zlib.hpp>
+#include <boost/http/zlib.hpp>
 
 #include "test_helpers.hpp"
 
@@ -67,7 +67,7 @@ struct zlib_test
 
         if(encoding == "deflate" || encoding == "gzip")
         {
-            namespace zlib = capy::zlib;
+            namespace zlib = http::zlib;
             auto& svc = ctx.get<zlib::deflate_service>();
             zlib::stream zs{};
 
@@ -103,7 +103,7 @@ struct zlib_test
         }
         else if(encoding == "br")
         {
-            namespace brotli = capy::brotli;
+            namespace brotli = http::brotli;
             auto& svc = ctx.get<brotli::encode_service>();
 
             brotli::encoder_state* state =
@@ -155,7 +155,7 @@ struct zlib_test
     {
         if(encoding == "deflate" || encoding == "gzip")
         {
-            namespace zlib = capy::zlib;
+            namespace zlib = http::zlib;
             auto& svc = ctx.get<zlib::inflate_service>();
             zlib::stream zs{};
 
@@ -194,7 +194,7 @@ struct zlib_test
         }
         else if(encoding == "br")
         {
-            namespace brotli = capy::brotli;
+            namespace brotli = http::brotli;
             auto& svc = ctx.get<brotli::decode_service>();
 
             brotli::decoder_state* state =
@@ -383,18 +383,18 @@ struct zlib_test
         std::vector<std::string> encodings;
         serializer::config cfg;
 
-        #ifdef BOOST_CAPY_HAS_ZLIB
+        #ifdef BOOST_HTTP_HAS_ZLIB
             cfg.apply_deflate_encoder = true;
             cfg.apply_gzip_encoder = true;
-            capy::zlib::install_deflate_service(ctx);
-            capy::zlib::install_inflate_service(ctx);
+            http::zlib::install_deflate_service(ctx);
+            http::zlib::install_inflate_service(ctx);
             encodings.push_back("gzip");
             encodings.push_back("deflate");
         #endif
-        #ifdef BOOST_CAPY_HAS_BROTLI
+        #ifdef BOOST_HTTP_HAS_BROTLI
             cfg.apply_brotli_encoder = true;
-            capy::brotli::install_encode_service(ctx);
-            capy::brotli::install_decode_service(ctx);
+            http::brotli::install_encode_service(ctx);
+            http::brotli::install_decode_service(ctx);
             encodings.push_back("br");
         #endif
 
@@ -619,18 +619,18 @@ struct zlib_test
         std::vector<std::string> encodings;
         response_parser::config cfg;
 
-        #ifdef BOOST_CAPY_HAS_ZLIB
+        #ifdef BOOST_HTTP_HAS_ZLIB
             cfg.apply_deflate_decoder = true;
             cfg.apply_gzip_decoder = true;
-            capy::zlib::install_deflate_service(ctx);
-            capy::zlib::install_inflate_service(ctx);
+            http::zlib::install_deflate_service(ctx);
+            http::zlib::install_inflate_service(ctx);
             encodings.push_back("gzip");
             encodings.push_back("deflate");
         #endif
-        #ifdef BOOST_CAPY_HAS_BROTLI
+        #ifdef BOOST_HTTP_HAS_BROTLI
             cfg.apply_brotli_decoder = true;
-            capy::brotli::install_encode_service(ctx);
-            capy::brotli::install_decode_service(ctx);
+            http::brotli::install_encode_service(ctx);
+            http::brotli::install_decode_service(ctx);
             encodings.push_back("br");
         #endif
 

@@ -23,13 +23,13 @@
 #include <boost/capy/buffers/copy.hpp>
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/capy/brotli/encode.hpp>
+#include <boost/http/brotli/encode.hpp>
 #include <boost/capy/core/polystore.hpp>
-#include <boost/capy/zlib/compression_method.hpp>
-#include <boost/capy/zlib/compression_strategy.hpp>
-#include <boost/capy/zlib/deflate.hpp>
-#include <boost/capy/zlib/error.hpp>
-#include <boost/capy/zlib/flush.hpp>
+#include <boost/http/zlib/compression_method.hpp>
+#include <boost/http/zlib/compression_strategy.hpp>
+#include <boost/http/zlib/deflate.hpp>
+#include <boost/http/zlib/error.hpp>
+#include <boost/http/zlib/flush.hpp>
 
 #include <stddef.h>
 
@@ -90,7 +90,7 @@ write_chunk_header(
 class zlib_filter
     : public detail::zlib_filter_base
 {
-    capy::zlib::deflate_service& svc_;
+    http::zlib::deflate_service& svc_;
 
 public:
     zlib_filter(
@@ -100,16 +100,16 @@ public:
         int window_bits,
         int mem_level)
         : zlib_filter_base(ws)
-        , svc_(ctx.get<capy::zlib::deflate_service>())
+        , svc_(ctx.get<http::zlib::deflate_service>())
     {
-        system::error_code ec = static_cast<capy::zlib::error>(svc_.init2(
+        system::error_code ec = static_cast<http::zlib::error>(svc_.init2(
             strm_,
             comp_level,
-            capy::zlib::deflated,
+            http::zlib::deflated,
             window_bits,
             mem_level,
-            capy::zlib::default_strategy));
-        if(ec != capy::zlib::error::ok)
+            http::zlib::default_strategy));
+        if(ec != http::zlib::error::ok)
             detail::throw_system_error(ec);
     }
 
@@ -135,17 +135,17 @@ private:
         strm_.next_in   = static_cast<unsigned char*>(const_cast<void *>(in.data()));
         strm_.avail_in  = saturate_cast(in.size());
 
-        auto rs = static_cast<capy::zlib::error>(
+        auto rs = static_cast<http::zlib::error>(
             svc_.deflate(
                 strm_,
-                more ? capy::zlib::no_flush : capy::zlib::finish));
+                more ? http::zlib::no_flush : http::zlib::finish));
 
         results rv;
         rv.out_bytes = saturate_cast(out.size()) - strm_.avail_out;
         rv.in_bytes  = saturate_cast(in.size()) - strm_.avail_in;
-        rv.finished  = (rs == capy::zlib::error::stream_end);
+        rv.finished  = (rs == http::zlib::error::stream_end);
 
-        if(rs < capy::zlib::error::ok && rs != capy::zlib::error::buf_err)
+        if(rs < http::zlib::error::ok && rs != http::zlib::error::buf_err)
             rv.ec = rs;
 
         return rv;
@@ -155,8 +155,8 @@ private:
 class brotli_filter
     : public detail::brotli_filter_base
 {
-    capy::brotli::encode_service& svc_;
-    capy::brotli::encoder_state* state_;
+    http::brotli::encode_service& svc_;
+    http::brotli::encoder_state* state_;
 
 public:
     brotli_filter(
@@ -164,13 +164,13 @@ public:
         http::detail::workspace&,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
-        : svc_(ctx.get<capy::brotli::encode_service>())
+        : svc_(ctx.get<http::brotli::encode_service>())
     {
         // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
         if(!state_)
             detail::throw_bad_alloc();
-        using encoder_parameter = capy::brotli::encoder_parameter;
+        using encoder_parameter = http::brotli::encoder_parameter;
         svc_.set_parameter(state_, encoder_parameter::quality, comp_quality);
         svc_.set_parameter(state_, encoder_parameter::lgwin, comp_window);
     }
@@ -194,7 +194,7 @@ private:
         auto available_out = out.size();
 
         using encoder_operation = 
-            capy::brotli::encoder_operation;
+            http::brotli::encoder_operation;
 
         bool rs = svc_.compress_stream(
             state_,

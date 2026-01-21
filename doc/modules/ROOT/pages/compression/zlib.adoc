@@ -1,0 +1,217 @@
+= ZLib Compression
+:navtitle: ZLib
+
+The ZLib module provides DEFLATE-based compression and decompression services for HTTP content encoding.
+
+== Overview
+
+ZLib supports three related formats:
+
+* Raw DEFLATE (no header)
+* zlib format (with header/checksum)
+* gzip format (with gzip header)
+
+All three share the same underlying algorithm but differ in their framing.
+
+== Basic Usage
+
+[source,cpp]
+----
+#include <boost/http/zlib.hpp>
+
+namespace zlib = boost::http::zlib;
+
+// Create context and install services
+boost::capy::polystore ctx;
+auto& deflate_svc = zlib::install_deflate_service(ctx);
+auto& inflate_svc = zlib::install_inflate_service(ctx);
+----
+
+=== Compression
+
+[source,cpp]
+----
+// Compress data
+std::vector<char> input = /* ... */;
+std::vector<char> output(zlib::deflateBound(input.size()));
+
+zlib::deflate_result result = deflate_svc.deflate(
+    input.data(), input.size(),
+    output.data(), output.size()
+);
+
+output.resize(result.bytes_written);
+----
+
+=== Compression Levels
+
+[source,cpp]
+----
+// Available compression levels
+zlib::compression_level::none          // 0 - store only
+zlib::compression_level::fast          // 1 - fastest
+zlib::compression_level::default_      // 6 - balanced
+zlib::compression_level::best          // 9 - smallest output
+----
+
+=== Compression Strategies
+
+[source,cpp]
+----
+// Optimization strategies
+zlib::compression_strategy::default_   // General data
+zlib::compression_strategy::filtered   // Data with values near a small set
+zlib::compression_strategy::huffman    // Huffman only, no string matching
+zlib::compression_strategy::rle        // Run-length encoding, sequential data
+zlib::compression_strategy::fixed      // Fixed Huffman codes
+----
+
+=== Decompression
+
+[source,cpp]
+----
+// Decompress data
+std::vector<char> compressed = /* ... */;
+std::vector<char> output(expected_size);
+
+zlib::inflate_result result = inflate_svc.inflate(
+    compressed.data(), compressed.size(),
+    output.data(), output.size()
+);
+
+output.resize(result.bytes_written);
+----
+
+== Format Selection
+
+=== Gzip Format
+
+For HTTP `Content-Encoding: gzip`:
+
+[source,cpp]
+----
+// Use window_bits + 16 for gzip format
+zlib::deflate_result result = deflate_svc.deflate(
+    input, output,
+    zlib::compression_level::default_,
+    15 + 16  // window_bits + 16 = gzip
+);
+----
+
+For decompression, auto-detect handles both gzip and zlib:
+
+[source,cpp]
+----
+// Use window_bits + 32 for auto-detect
+zlib::inflate_result result = inflate_svc.inflate(
+    compressed, output,
+    15 + 32  // window_bits + 32 = auto-detect
+);
+----
+
+== Streaming Interface
+
+For large data or when memory is constrained:
+
+[source,cpp]
+----
+zlib::stream stream;
+stream.next_in = input_ptr;
+stream.avail_in = input_size;
+stream.next_out = output_ptr;
+stream.avail_out = output_size;
+
+int result = deflate_svc.deflate(
+    stream,
+    zlib::flush::no_flush
+);
+
+// Process result, adjust pointers, repeat...
+----
+
+=== Flush Modes
+
+|===
+| Mode | Description
+
+| `zlib::flush::no_flush`
+| Normal operation, accumulate data
+
+| `zlib::flush::sync_flush`
+| Flush to byte boundary, can concatenate
+
+| `zlib::flush::full_flush`
+| Like sync but resets state (random access)
+
+| `zlib::flush::finish`
+| Complete the stream
+|===
+
+== Error Handling
+
+[source,cpp]
+----
+zlib::deflate_result result = deflate_svc.deflate(input, output);
+
+if (result.ec == zlib::error::data_error)
+{
+    // Invalid compressed data
+}
+else if (result.ec == zlib::error::buf_error)
+{
+    // Output buffer too small
+}
+----
+
+== Integration with HTTP
+
+The zlib services integrate with HTTP parser and serializer through content encoding:
+
+[source,cpp]
+----
+// Parser automatically decompresses Content-Encoding: deflate/gzip
+http::response_parser::config cfg;
+cfg.apply_deflate_decoder = true;
+cfg.apply_gzip_decoder = true;
+
+// Serializer automatically compresses when Content-Encoding is set
+http::serializer::config ser_cfg;
+ser_cfg.apply_deflate_encoder = true;
+ser_cfg.apply_gzip_encoder = true;
+----
+
+== Use Cases
+
+* HTTP content compression (`Content-Encoding: deflate`, `gzip`)
+* Compressing request/response bodies
+* Integrating with existing gzip/zlib data
+
+== Reference
+
+=== Functions
+
+|===
+| Function | Description
+
+| `zlib::install_deflate_service`
+| Install compression service
+
+| `zlib::install_inflate_service`
+| Install decompression service
+|===
+
+=== Types
+
+|===
+| Type | Description
+
+| `zlib::stream`
+| Streaming state structure
+
+| `zlib::error`
+| Error codes
+|===
+
+== See Also
+
+* xref:brotli.adoc[Brotli] — Higher compression ratio

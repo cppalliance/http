@@ -268,11 +268,16 @@ gzip, deflate, and brotli encoded bodies:
 request_parser::config cfg;
 cfg.apply_gzip_decoder = true;
 cfg.apply_deflate_decoder = true;
-// For brotli, also install the brotli decode service
+cfg.apply_brotli_decoder = true;  // Requires brotli decode service
 ----
 
 The `Content-Encoding` header is processed automatically. The body
 you receive is the decoded content.
+
+For detailed information on compression services, see:
+
+* xref:compression/zlib.adoc[ZLib] — DEFLATE and gzip decompression
+* xref:compression/brotli.adoc[Brotli] — Brotli decompression
 
 == Handling Multiple Messages
 
