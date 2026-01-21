@@ -409,7 +409,7 @@ struct route_params : route_params_base
     capy::datastore route_data;  // Per-request storage
     capy::datastore session_data;// Per-session storage
     suspender suspend;           // For async operations
-    capy::any_executor_ref ex;   // Session executor
+    capy::executor_ref ex;       // Session executor
 };
 ----
 
