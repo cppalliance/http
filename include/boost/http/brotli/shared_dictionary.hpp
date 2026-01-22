@@ -12,7 +12,7 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/brotli/types.hpp>
-#include <boost/capy/core/polystore_fwd.hpp>
+#include <boost/http/core/polystore_fwd.hpp>
 
 namespace boost {
 namespace http {
@@ -69,7 +69,7 @@ struct BOOST_SYMBOL_VISIBLE
 */
 BOOST_HTTP_DECL
 shared_dictionary_service&
-install_shared_dictionary_service(capy::polystore& ctx);
+install_shared_dictionary_service(http::polystore& ctx);
 
 } // brotli
 } // http

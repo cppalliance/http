@@ -21,7 +21,7 @@
 #include <boost/capy/buffers/dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/capy/core/polystore_fwd.hpp>
+#include <boost/http/core/polystore_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -623,7 +623,7 @@ private:
     BOOST_HTTP_DECL ~parser();
     BOOST_HTTP_DECL parser() noexcept;
     BOOST_HTTP_DECL parser(parser&& other) noexcept;
-    BOOST_HTTP_DECL parser(capy::polystore&, detail::kind);
+    BOOST_HTTP_DECL parser(http::polystore&, detail::kind);
     BOOST_HTTP_DECL void assign(parser&& other) noexcept;
 
     BOOST_HTTP_DECL
@@ -771,7 +771,7 @@ struct parser::config_base
 BOOST_HTTP_DECL
 void
 install_parser_service(
-    capy::polystore& ctx,
+    http::polystore& ctx,
     parser::config_base const& cfg);
 
 } // http

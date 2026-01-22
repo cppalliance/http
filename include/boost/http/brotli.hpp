@@ -20,10 +20,10 @@
 
     @code
     #include <boost/http/brotli.hpp>
-    #include <boost/capy/datastore.hpp>
+    #include <boost/http/datastore.hpp>
 
     // Create a datastore for services
-    boost::capy::datastore ctx;
+    boost::http::datastore ctx;
 
     // Install compression and decompression services
     auto& encoder = boost::http::brotli::install_encode_service(ctx);

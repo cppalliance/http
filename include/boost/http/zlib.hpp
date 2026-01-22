@@ -21,10 +21,10 @@
 
     @code
     #include <boost/http/zlib.hpp>
-    #include <boost/capy/datastore.hpp>
+    #include <boost/http/datastore.hpp>
 
     // Create a datastore for services
-    boost::capy::datastore ctx;
+    boost::http::datastore ctx;
 
     // Install compression and decompression services
     auto& deflate_svc = boost::http::zlib::install_deflate_service(ctx);

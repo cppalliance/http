@@ -24,7 +24,7 @@
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/brotli/encode.hpp>
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib/compression_method.hpp>
 #include <boost/http/zlib/compression_strategy.hpp>
 #include <boost/http/zlib/deflate.hpp>
@@ -94,7 +94,7 @@ class zlib_filter
 
 public:
     zlib_filter(
-        const capy::polystore& ctx,
+        const http::polystore& ctx,
         http::detail::workspace& ws,
         int comp_level,
         int window_bits,
@@ -160,7 +160,7 @@ class brotli_filter
 
 public:
     brotli_filter(
-        const capy::polystore& ctx,
+        const http::polystore& ctx,
         http::detail::workspace&,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
@@ -267,7 +267,7 @@ public:
 
 void
 install_serializer_service(
-    capy::polystore& ctx,
+    http::polystore& ctx,
     serializer::config const& cfg)
 {
     ctx.emplace<serializer_service>(cfg);
@@ -295,7 +295,7 @@ class serializer::impl
         stream
     };
 
-    const capy::polystore& ctx_;
+    const http::polystore& ctx_;
     serializer_service& svc_;
     detail::workspace ws_;
 
@@ -317,7 +317,7 @@ class serializer::impl
     bool filter_done_ = false;
 
 public:
-    impl(const capy::polystore& ctx)
+    impl(const http::polystore& ctx)
         : ctx_(ctx)
         , svc_(ctx_.get<serializer_service>())
         , ws_(svc_.space_needed)
@@ -955,7 +955,7 @@ operator=(serializer&& other) noexcept
 }
 
 serializer::
-serializer(capy::polystore& ctx)
+serializer(http::polystore& ctx)
     : impl_(new impl(ctx))
 {
     // TODO: use a single allocation for

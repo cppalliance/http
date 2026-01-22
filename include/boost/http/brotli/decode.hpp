@@ -71,7 +71,7 @@ using metadata_chunk_func = void (*)(void* opaque, const std::uint8_t* data, std
 
     @code
     // Example: Simple one-shot decompression
-    boost::capy::datastore ctx;
+    boost::http::datastore ctx;
     auto& decoder = boost::http::brotli::install_decode_service(ctx);
 
     std::vector<std::uint8_t> compressed_data = get_compressed_data();
@@ -249,7 +249,7 @@ struct BOOST_SYMBOL_VISIBLE
 */
 BOOST_HTTP_DECL
 decode_service&
-install_decode_service(capy::polystore& ctx);
+install_decode_service(http::polystore& ctx);
 
 } // brotli
 } // http

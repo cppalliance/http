@@ -140,7 +140,7 @@ public:
     */
     BOOST_HTTP_DECL
     explicit
-    request_parser(capy::polystore& ctx);
+    request_parser(http::polystore& ctx);
 
     /** Return a reference to the parsed request headers.
 

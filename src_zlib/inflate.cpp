@@ -8,7 +8,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib/inflate.hpp>
 
 #include "stream_cast.hpp"
@@ -34,7 +34,7 @@ public:
 
     explicit
     inflate_service_impl(
-        capy::polystore&) noexcept
+        http::polystore&) noexcept
     {
     }
 
@@ -191,7 +191,7 @@ public:
 };
 
 inflate_service&
-install_inflate_service(capy::polystore& ctx)
+install_inflate_service(http::polystore& ctx)
 {
     return ctx.emplace<inflate_service_impl>(ctx);
 }

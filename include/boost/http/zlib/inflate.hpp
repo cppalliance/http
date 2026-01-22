@@ -11,7 +11,7 @@
 #ifndef BOOST_HTTP_ZLIB_INFLATE_HPP
 #define BOOST_HTTP_ZLIB_INFLATE_HPP
 
-#include <boost/capy/core/polystore_fwd.hpp>
+#include <boost/http/core/polystore_fwd.hpp>
 #include <boost/http/detail/config.hpp>
 #include <boost/http/zlib/stream.hpp>
 
@@ -34,7 +34,7 @@ namespace zlib {
 
     @code
     // Example: Basic decompression
-    boost::capy::datastore ctx;
+    boost::http::datastore ctx;
     auto& inflate_svc = boost::http::zlib::install_inflate_service(ctx);
 
     boost::http::zlib::stream st = {};
@@ -199,7 +199,7 @@ struct BOOST_SYMBOL_VISIBLE
 */
 BOOST_HTTP_DECL
 inflate_service&
-install_inflate_service(capy::polystore& ctx);
+install_inflate_service(http::polystore& ctx);
 
 } // zlib
 } // http

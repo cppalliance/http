@@ -8,7 +8,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib/deflate.hpp>
 
 #include "stream_cast.hpp"
@@ -34,7 +34,7 @@ public:
 
     explicit
     deflate_service_impl(
-        capy::polystore&) noexcept
+        http::polystore&) noexcept
     {
     }
 
@@ -178,7 +178,7 @@ public:
 };
 
 deflate_service&
-install_deflate_service(capy::polystore& ctx)
+install_deflate_service(http::polystore& ctx)
 {
     return ctx.emplace<deflate_service_impl>(ctx);
 }

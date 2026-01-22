@@ -20,6 +20,9 @@ namespace detail {
 BOOST_HTTP_DECL void BOOST_NORETURN throw_bad_alloc(
     source_location const& loc = BOOST_CURRENT_LOCATION);
 
+BOOST_HTTP_DECL void BOOST_NORETURN throw_bad_typeid(
+    source_location const& loc = BOOST_CURRENT_LOCATION);
+
 BOOST_HTTP_DECL void BOOST_NORETURN throw_invalid_argument(
     source_location const& loc = BOOST_CURRENT_LOCATION);
 

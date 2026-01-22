@@ -1,0 +1,58 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie dot falco at gmail dot com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+#ifndef BOOST_HTTP_DATASTORE_HPP
+#define BOOST_HTTP_DATASTORE_HPP
+
+#include <boost/http/detail/config.hpp>
+#include <boost/http/core/polystore.hpp>
+
+namespace boost {
+namespace http {
+
+/** A polymorphic data container with clear functionality.
+
+    This class extends @ref polystore to provide a container
+    for type-erased objects with an explicit clear operation.
+    It is commonly used as a service container.
+
+    @code
+    // Example: Using datastore with services
+    boost::http::datastore ctx;
+
+    // Install services...
+
+    // Clean up all services when done
+    ctx.clear();
+    @endcode
+*/
+class datastore : public polystore
+{
+public:
+    /** Constructor
+
+        Constructs an empty datastore.
+    */
+    datastore() = default;
+
+    /** Remove and destroy all stored objects.
+
+        All stored objects are destroyed in the reverse order
+        of construction. The container is left empty.
+    */
+    void clear() noexcept
+    {
+        polystore::clear();
+    }
+};
+
+} // http
+} // boost
+
+#endif

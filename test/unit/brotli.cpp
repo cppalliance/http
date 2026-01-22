@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/brotli.hpp>
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 
 #include "test_helpers.hpp"
 
@@ -28,7 +28,7 @@ struct brotli_test
     test_decode()
     {
         // TODO
-        capy::polystore ctx;
+        http::polystore ctx;
         brotli::install_decode_service(ctx);
     }
 
@@ -36,7 +36,7 @@ struct brotli_test
     test_encode()
     {
         // TODO
-        capy::polystore ctx;
+        http::polystore ctx;
         brotli::install_encode_service(ctx);
     }
 

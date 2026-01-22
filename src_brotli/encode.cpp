@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/brotli/encode.hpp>
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 
 #include <brotli/encode.h>
 
@@ -24,7 +24,7 @@ public:
 
     explicit
     encode_service_impl(
-        capy::polystore&) noexcept
+        http::polystore&) noexcept
     {
     }
 
@@ -197,7 +197,7 @@ public:
 };
 
 encode_service&
-install_encode_service(capy::polystore& ctx)
+install_encode_service(http::polystore& ctx)
 {
     return ctx.emplace<encode_service_impl>(ctx);
 }

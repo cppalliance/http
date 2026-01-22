@@ -12,6 +12,7 @@
 #include <boost/version.hpp>
 #include <boost/throw_exception.hpp>
 #include <stdexcept>
+#include <typeinfo>
 
 namespace boost {
 namespace http {
@@ -23,6 +24,14 @@ throw_bad_alloc(
 {
     throw_exception(
         std::bad_alloc(), loc);
+}
+
+void
+throw_bad_typeid(
+    source_location const& loc)
+{
+    throw_exception(
+        std::bad_typeid(), loc);
 }
 
 void

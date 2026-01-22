@@ -21,7 +21,7 @@
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/http/brotli/decode.hpp>
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib/error.hpp>
 #include <boost/http/zlib/inflate.hpp>
 #include <boost/url/grammar/ci_string.hpp>
@@ -309,7 +309,7 @@ class zlib_filter
 
 public:
     zlib_filter(
-        const capy::polystore& ctx,
+        const http::polystore& ctx,
         http::detail::workspace& ws,
         int window_bits)
         : zlib_filter_base(ws)
@@ -359,7 +359,7 @@ class brotli_filter
 
 public:
     brotli_filter(
-        const capy::polystore& ctx,
+        const http::polystore& ctx,
         http::detail::workspace&)
         : svc_(ctx.get<http::brotli::decode_service>())
     {
@@ -505,7 +505,7 @@ public:
 
 void
 install_parser_service(
-    capy::polystore& ctx,
+    http::polystore& ctx,
     parser::config_base const& cfg)
 {
     ctx.emplace<parser_service>(cfg);
@@ -534,7 +534,7 @@ class parser::impl
         elastic,
     };
 
-    const capy::polystore& ctx_;
+    const http::polystore& ctx_;
     parser_service& svc_;
 
     detail::workspace ws_;
@@ -567,7 +567,7 @@ class parser::impl
     bool chunked_body_ended;
 
 public:
-    impl(const capy::polystore& ctx, detail::kind k)
+    impl(const http::polystore& ctx, detail::kind k)
         : ctx_(ctx)
         , svc_(ctx.get<parser_service>())
         , ws_(svc_.space_needed)
@@ -1866,7 +1866,7 @@ parser(parser&& other) noexcept
 
 parser::
 parser(
-    capy::polystore& ctx,
+    http::polystore& ctx,
     detail::kind k)
     : impl_(new impl(ctx, k))
 {

@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/brotli/shared_dictionary.hpp>
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 
 #if 0
 #include <brotli/shared_dictionary.h>
@@ -26,7 +26,7 @@ public:
 
     explicit
     shared_dictionary_service_impl(
-        capy::polystore&) noexcept
+        http::polystore&) noexcept
     {
     }
 
@@ -72,7 +72,7 @@ public:
 };
 
 shared_dictionary_service&
-install_shared_dictionary_service(capy::polystore& ctx)
+install_shared_dictionary_service(http::polystore& ctx)
 {
     return ctx.emplace<shared_dictionary_service_impl>(ctx);
 }

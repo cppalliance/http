@@ -14,7 +14,7 @@
 #include <boost/http/server/router_types.hpp>
 #include <boost/corosio/io_buffer_param.hpp>
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/datastore.hpp>
+#include <boost/http/datastore.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/http/request.hpp>  // VFALCO forward declare?
 #include <boost/http/request_parser.hpp>  // VFALCO forward declare?
@@ -120,13 +120,13 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     /** A container for storing arbitrary data associated with the request.
         This starts out empty for each new request.
     */
-    capy::datastore route_data;
+    http::datastore route_data;
 
     /** A container for storing arbitrary data associated with the session.
 
         This starts out empty for each new session.
     */
-    capy::datastore session_data;
+    http::datastore session_data;
 
     /** Destructor
     */

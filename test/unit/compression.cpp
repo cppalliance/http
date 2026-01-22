@@ -19,7 +19,7 @@
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
 #include <boost/http/brotli.hpp>
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib.hpp>
 
 #include "test_helpers.hpp"
@@ -58,7 +58,7 @@ struct zlib_test
     static
     std::string
     compress(
-        const capy::polystore& ctx,
+        const http::polystore& ctx,
         core::string_view encoding,
         core::string_view body)
     {
@@ -148,7 +148,7 @@ struct zlib_test
     static
     void
     verify_compressed(
-        const capy::polystore& ctx,
+        const http::polystore& ctx,
         core::string_view encoding,
         core::string_view compressed_body,
         core::string_view body)
@@ -379,7 +379,7 @@ struct zlib_test
     void
     test_serializer()
     {
-        capy::polystore ctx;
+        http::polystore ctx;
         std::vector<std::string> encodings;
         serializer::config cfg;
 
@@ -615,7 +615,7 @@ struct zlib_test
     void
     test_parser()
     {
-        capy::polystore ctx;
+        http::polystore ctx;
         std::vector<std::string> encodings;
         response_parser::config cfg;
 

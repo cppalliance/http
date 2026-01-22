@@ -153,7 +153,7 @@ enum constants
 
     @code
     // Example: Simple one-shot compression
-    boost::capy::datastore ctx;
+    boost::http::datastore ctx;
     auto& encoder = boost::http::brotli::install_encode_service(ctx);
 
     std::vector<std::uint8_t> input_data = get_input_data();
@@ -353,7 +353,7 @@ struct BOOST_SYMBOL_VISIBLE
 */
 BOOST_HTTP_DECL
 encode_service&
-install_encode_service(capy::polystore& ctx);
+install_encode_service(http::polystore& ctx);
 
 } // brotli
 } // http

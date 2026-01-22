@@ -7,7 +7,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/capy/core/polystore.hpp>
+#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib.hpp>
 
 #include "test_helpers.hpp"
@@ -28,7 +28,7 @@ struct zlib_test
     test_deflate()
     {
         // TODO
-        capy::polystore ctx;
+        http::polystore ctx;
         zlib::install_deflate_service(ctx);
     }
 
@@ -36,7 +36,7 @@ struct zlib_test
     test_inflate()
     {
         // TODO
-        capy::polystore ctx;
+        http::polystore ctx;
         zlib::install_inflate_service(ctx);
     }
 

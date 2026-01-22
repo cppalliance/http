@@ -17,7 +17,7 @@
 
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/capy/core/polystore_fwd.hpp>
+#include <boost/http/core/polystore_fwd.hpp>
 #include <boost/system/result.hpp>
 
 #include <type_traits>
@@ -171,7 +171,7 @@ public:
     BOOST_HTTP_DECL
     explicit
     serializer(
-        capy::polystore& ctx);
+        http::polystore& ctx);
 
     /** Reset the serializer for a new message.
 
@@ -667,7 +667,7 @@ struct serializer::config
 BOOST_HTTP_DECL
 void
 install_serializer_service(
-    capy::polystore& ctx,
+    http::polystore& ctx,
     serializer::config const& cfg);
 
 //------------------------------------------------

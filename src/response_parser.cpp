@@ -14,7 +14,7 @@ namespace http {
 
 response_parser::
 response_parser(
-    capy::polystore& ctx)
+    http::polystore& ctx)
     : parser(
         ctx,
         detail::kind::response)
