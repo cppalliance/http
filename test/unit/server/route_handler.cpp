@@ -13,13 +13,20 @@
 #include <boost/http/server/router.hpp>
 #include <boost/http/server/flat_router.hpp>
 #include <boost/http/request.hpp>
-#include <boost/capy/ex/run_sync.hpp>
 
+#include "run_sync.hpp"
 #include "test_route_handler.hpp"
 #include "test_suite.hpp"
 
+#include <array>
+
 namespace boost {
 namespace http {
+
+struct any_write_buffers
+{
+    std::array<capy::const_buffer, 16> v_;
+};
 
 struct route_handler_test
 {
@@ -33,7 +40,7 @@ struct route_handler_test
     {
         flat_router fr(std::move(r));
         test_route_params p;
-        auto rv = capy::run_sync()(fr.dispatch(
+        auto rv = run_sync()(fr.dispatch(
             verb, urls::url_view(url), p));
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);

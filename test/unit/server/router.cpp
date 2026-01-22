@@ -12,8 +12,7 @@
 #include <boost/http/server/flat_router.hpp>
 #include <boost/http/server/detail/router_base.hpp>
 
-#include <boost/capy/ex/run_sync.hpp>
-
+#include "run_sync.hpp"
 #include "test_suite.hpp"
 
 namespace boost {
@@ -108,7 +107,7 @@ struct router_test
     {
         flat_router fr(std::move(r));
         params req;
-        auto rv = capy::run_sync()(fr.dispatch(
+        auto rv = run_sync()(fr.dispatch(
             http::method::get, urls::url_view(url), req));
         BOOST_TEST_EQ(rv.message(), rv0.message());
     }
@@ -121,7 +120,7 @@ struct router_test
     {
         flat_router fr(std::move(r));
         params req;
-        auto rv = capy::run_sync()(fr.dispatch(
+        auto rv = run_sync()(fr.dispatch(
             verb, urls::url_view(url), req));
         BOOST_TEST_EQ(rv.message(), rv0.message());
     }
@@ -134,7 +133,7 @@ struct router_test
     {
         flat_router fr(std::move(r));
         params req;
-        auto rv = capy::run_sync()(fr.dispatch(
+        auto rv = run_sync()(fr.dispatch(
             verb, urls::url_view(url), req));
         BOOST_TEST_EQ(rv.message(), rv0.message());
     }
@@ -411,7 +410,7 @@ struct router_test
             flat_router fr(std::move(r));
             params req;
             BOOST_TEST_THROWS(
-                capy::run_sync()(fr.dispatch(
+                run_sync()(fr.dispatch(
                     http::method::unknown, urls::url_view("/"), req)),
                 std::invalid_argument);
         }
@@ -423,7 +422,7 @@ struct router_test
             flat_router fr(std::move(r));
             params req;
             BOOST_TEST_THROWS(
-                capy::run_sync()(fr.dispatch(
+                run_sync()(fr.dispatch(
                     "", urls::url_view("/"), req)),
                 std::invalid_argument);
         }

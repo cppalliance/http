@@ -13,8 +13,8 @@
 // Full functional tests are in beast2/test/unit/server/router.cpp
 
 #include <boost/http/server/router.hpp>
-#include <boost/capy/ex/run_sync.hpp>
 
+#include "run_sync.hpp"
 #include "test_suite.hpp"
 
 namespace boost {
@@ -39,11 +39,11 @@ struct flat_router_test
         flat_router fr2(fr1);
 
         params req;
-        capy::run_sync()(fr1.dispatch(
+        run_sync()(fr1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
 
-        capy::run_sync()(fr2.dispatch(
+        run_sync()(fr2.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 2);
     }
@@ -70,11 +70,11 @@ struct flat_router_test
         fr2 = fr1;
 
         params req;
-        capy::run_sync()(fr1.dispatch(
+        run_sync()(fr1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
 
-        capy::run_sync()(fr2.dispatch(
+        run_sync()(fr2.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 2);
     }

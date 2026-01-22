@@ -9,7 +9,6 @@
 
 #include <boost/http/server/route_handler.hpp>
 #include <boost/http/string_body.hpp>
-#include <boost/capy/ex/run_sync.hpp>
 
 namespace boost {
 namespace http {
