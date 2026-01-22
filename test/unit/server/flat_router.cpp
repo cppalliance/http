@@ -14,7 +14,7 @@
 
 #include <boost/http/server/router.hpp>
 
-#include "run_sync.hpp"
+#include <boost/capy/test/run_blocking.hpp>
 #include "test_suite.hpp"
 
 namespace boost {
@@ -39,11 +39,11 @@ struct flat_router_test
         flat_router fr2(fr1);
 
         params req;
-        run_sync()(fr1.dispatch(
+        capy::test::run_blocking()(fr1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
 
-        run_sync()(fr2.dispatch(
+        capy::test::run_blocking()(fr2.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 2);
     }
@@ -70,11 +70,11 @@ struct flat_router_test
         fr2 = fr1;
 
         params req;
-        run_sync()(fr1.dispatch(
+        capy::test::run_blocking()(fr1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
 
-        run_sync()(fr2.dispatch(
+        capy::test::run_blocking()(fr2.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 2);
     }

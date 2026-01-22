@@ -12,7 +12,7 @@
 #include <boost/http/server/flat_router.hpp>
 #include <boost/http/server/detail/router_base.hpp>
 
-#include "run_sync.hpp"
+#include <boost/capy/test/run_blocking.hpp>
 #include "test_suite.hpp"
 
 namespace boost {
@@ -107,8 +107,9 @@ struct router_test
     {
         flat_router fr(std::move(r));
         params req;
-        auto rv = run_sync()(fr.dispatch(
-            http::method::get, urls::url_view(url), req));
+        route_result rv;
+        capy::test::run_blocking([&](route_result res) { rv = res; })(
+            fr.dispatch(http::method::get, urls::url_view(url), req));
         BOOST_TEST_EQ(rv.message(), rv0.message());
     }
 
@@ -120,8 +121,9 @@ struct router_test
     {
         flat_router fr(std::move(r));
         params req;
-        auto rv = run_sync()(fr.dispatch(
-            verb, urls::url_view(url), req));
+        route_result rv;
+        capy::test::run_blocking([&](route_result res) { rv = res; })(
+            fr.dispatch(verb, urls::url_view(url), req));
         BOOST_TEST_EQ(rv.message(), rv0.message());
     }
 
@@ -133,8 +135,9 @@ struct router_test
     {
         flat_router fr(std::move(r));
         params req;
-        auto rv = run_sync()(fr.dispatch(
-            verb, urls::url_view(url), req));
+        route_result rv;
+        capy::test::run_blocking([&](route_result res) { rv = res; })(
+            fr.dispatch(verb, urls::url_view(url), req));
         BOOST_TEST_EQ(rv.message(), rv0.message());
     }
 
@@ -410,7 +413,7 @@ struct router_test
             flat_router fr(std::move(r));
             params req;
             BOOST_TEST_THROWS(
-                run_sync()(fr.dispatch(
+                capy::test::run_blocking()(fr.dispatch(
                     http::method::unknown, urls::url_view("/"), req)),
                 std::invalid_argument);
         }
@@ -422,7 +425,7 @@ struct router_test
             flat_router fr(std::move(r));
             params req;
             BOOST_TEST_THROWS(
-                run_sync()(fr.dispatch(
+                capy::test::run_blocking()(fr.dispatch(
                     "", urls::url_view("/"), req)),
                 std::invalid_argument);
         }

@@ -14,7 +14,7 @@
 #include <boost/http/server/flat_router.hpp>
 #include <boost/http/request.hpp>
 
-#include "run_sync.hpp"
+#include <boost/capy/test/run_blocking.hpp>
 #include "test_route_handler.hpp"
 #include "test_suite.hpp"
 
@@ -40,8 +40,9 @@ struct route_handler_test
     {
         flat_router fr(std::move(r));
         test_route_params p;
-        auto rv = run_sync()(fr.dispatch(
-            verb, urls::url_view(url), p));
+        route_result rv;
+        capy::test::run_blocking([&](route_result r) { rv = r; })(
+            fr.dispatch(verb, urls::url_view(url), p));
         if(BOOST_TEST_EQ(rv.message(), rv0.message()))
             BOOST_TEST(rv == rv0);
     }
