@@ -19,11 +19,6 @@ namespace http {
 
 struct test_route_params : route_params
 {
-    route_task send(std::string_view) override
-    {
-        co_return {};
-    }
-
     route_task write_impl(capy::const_buffer_param) override
     {
         co_return {};

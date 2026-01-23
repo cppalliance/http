@@ -202,7 +202,24 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         has been fully transmitted, yielding a @ref route_result
         indicating success or failure.
     */
-    virtual route_task send(std::string_view body) = 0;
+    route_task send(std::string_view body)
+    {
+        if(! res.exists(http::field::content_type))
+        {
+            if(! body.empty() && body[0] == '<')
+                res.set(http::field::content_type,
+                    "text/html; charset=utf-8");
+            else
+                res.set(http::field::content_type,
+                    "text/plain; charset=utf-8");
+        }
+
+        if(! res.exists(http::field::content_length))
+            res.set_payload_size(body.size());
+
+        co_await write(capy::const_buffer(body.data(), body.size()));
+        co_return co_await end();
+    }
 
     /** Write buffer data to the response body.
 
