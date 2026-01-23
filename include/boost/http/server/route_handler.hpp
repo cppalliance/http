@@ -12,14 +12,14 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/router_types.hpp>
-#include <boost/corosio/io_buffer_param.hpp>
 #include <boost/capy/buffers.hpp>
+#include <boost/capy/buffers/buffer_param.hpp>
 #include <boost/http/datastore.hpp>
 #include <boost/capy/task.hpp>
-#include <boost/http/request.hpp>  // VFALCO forward declare?
-#include <boost/http/request_parser.hpp>  // VFALCO forward declare?
-#include <boost/http/response.hpp>        // VFALCO forward declare?
-#include <boost/http/serializer.hpp>      // VFALCO forward declare?
+#include <boost/http/request.hpp>           // VFALCO forward declare?
+#include <boost/http/request_parser.hpp>    // VFALCO forward declare?
+#include <boost/http/response.hpp>          // VFALCO forward declare?
+#include <boost/http/serializer.hpp>        // VFALCO forward declare?
 #include <boost/url/url_view.hpp>
 #include <boost/system/error_code.hpp>
 #include <memory>
@@ -238,11 +238,10 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         @return A @ref route_task that completes when the write
         operation is finished.
     */
-    template<capy::ConstBufferSequence Buffers>
     route_task
-    write(Buffers const& buffers)
+    write(capy::ConstBufferSequence auto const& buffers)
     {
-        return write_impl(corosio::io_buffer_param(buffers));
+        return write_impl(capy::make_const_buffer_param(buffers));
     }
 
     /** Complete a streaming response.
@@ -284,7 +283,8 @@ protected:
 
         @return A task that completes when the write is done.
     */
-    virtual route_task write_impl(corosio::io_buffer_param buffers) = 0;
+    virtual route_task write_impl(
+        capy::const_buffer_param buffers) = 0;
 };
 
 } // http
