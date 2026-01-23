@@ -31,7 +31,6 @@ namespace http {
     @endcode
 
     @see
-        @ref file_source,
         @ref file,
         @ref parser,
         @ref sink.

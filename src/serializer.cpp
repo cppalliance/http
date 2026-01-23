@@ -291,7 +291,6 @@ class serializer::impl
     {
         empty,
         buffers,
-        source,
         stream
     };
 
@@ -301,7 +300,6 @@ class serializer::impl
 
     detail::filter* filter_ = nullptr;
     cbs_gen* cbs_gen_ = nullptr;
-    source* source_ = nullptr;
 
     capy::circular_buffer out_;
     capy::circular_buffer in_;
@@ -394,32 +392,6 @@ public:
                 return detail::make_span(prepped_);
             }
 
-            case style::source:
-            {
-                if(out_capacity() == 0 || !more_input_)
-                    break;
-
-                const auto rs = source_->read(
-                    out_prepare());
-
-                out_commit(rs.bytes);
-
-                if(rs.ec.failed())
-                {
-                    ws_.clear();
-                    state_ = state::reset;
-                    return rs.ec;
-                }
-
-                if(rs.finished)
-                {
-                    more_input_ = false;
-                    out_finish();
-                }
-
-                break;
-            }
-
             case style::stream:
                 if(out_.size() == 0 && is_header_done() && more_input_)
                     BOOST_HTTP_RETURN_EC(
@@ -483,52 +455,6 @@ public:
                     }
 
                     capy::remove_prefix(tmp_, rs.in_bytes);
-                    out_commit(rs.out_bytes);
-
-                    if(rs.out_short)
-                        break;
-
-                    if(rs.finished)
-                    {
-                        filter_done_ = true;
-                        out_finish();
-                    }
-                }
-                break;
-            }
-
-            case style::source:
-            {
-                while(out_capacity() != 0 && !filter_done_)
-                {
-                    if(more_input_ && in_.capacity() != 0)
-                    {
-                        const auto rs = source_->read(
-                            in_.prepare(in_.capacity()));
-                        if(rs.ec.failed())
-                        {
-                            ws_.clear();
-                            state_ = state::reset;
-                            return rs.ec;
-                        }
-                        if(rs.finished)
-                            more_input_ = false;
-                        in_.commit(rs.bytes);
-                    }
-
-                    const auto rs = filter_->process(
-                        detail::make_span(out_prepare()),
-                        in_.data(),
-                        more_input_);
-
-                    if(rs.ec.failed())
-                    {
-                        ws_.clear();
-                        state_ = state::reset;
-                        return rs.ec;
-                    }
-
-                    in_.consume(rs.in_bytes);
                     out_commit(rs.out_bytes);
 
                     if(rs.out_short)
@@ -767,32 +693,6 @@ public:
 
         prepped_.append({ m.h_.cbuf, m.h_.size });
         tmp_ = {};
-        more_input_ = true;
-    }
-
-    void
-    start_source(
-        message_base const& m,
-        source& source)
-    {
-        // start_init() already called 
-        style_ = style::source;
-        source_ = &source;
-
-        prepped_ = make_array(
-            1 + // header
-            2); // out buffer pairs
-
-        if(filter_)
-        {
-            // TODO: smarter buffer distribution
-            auto const n = (ws_.size() - 1) / 2;
-            in_ = { ws_.reserve_front(n), n };
-        }
-
-        out_init();
-
-        prepped_.append({ m.h_.cbuf, m.h_.size });
         more_input_ = true;
     }
 
@@ -1038,16 +938,6 @@ start_buffers(
 {
     BOOST_ASSERT(impl_);
     impl_->start_buffers(m, cbs_gen);
-}
-
-void
-serializer::
-start_source(
-    message_base const& m,
-    source& source)
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_source(m, source);
 }
 
 //------------------------------------------------

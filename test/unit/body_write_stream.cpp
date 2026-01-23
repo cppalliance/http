@@ -627,7 +627,7 @@ struct body_write_stream_test
 
             // Write to trigger potential deferred error
             std::string_view body = "Hello";
-            co_await bws.write_some(
+            (void)co_await bws.write_some(
                 capy::const_buffer(body.data(), body.size()));
 
             // Close should report any saved error

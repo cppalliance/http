@@ -31,65 +31,6 @@ namespace http {
 
 struct serializer_test
 {
-    struct test_source : source
-    {
-        test_source(core::string_view s)
-            : s_(s)
-        {
-        }
-
-        results
-        on_read(
-            capy::mutable_buffer b) override
-        {
-            BOOST_TEST(! is_done_);
-            results rv;
-            rv.bytes =
-                capy::copy(
-                    b,
-                    capy::make_buffer(
-                        s_.data(),
-                        s_.size()));
-            s_ = s_.substr(rv.bytes);
-            rv.finished = s_.empty();
-            is_done_ = rv.finished;
-            return rv;
-        }
-
-    private:
-        core::string_view s_;
-        bool is_done_ = false;
-    };
-
-    struct faulty_source : source
-    {
-        faulty_source(
-            system::error_code ec)
-            : ec_{ ec }
-        {
-        }
-
-        bool
-        is_done() const
-        {
-            return is_done_;
-        }
-
-        results
-        on_read(capy::mutable_buffer) override
-        {
-            BOOST_TEST(!is_done_);
-            is_done_ = true;
-            results rv;
-            rv.ec = ec_;
-            return rv;
-        }
-
-    private:
-        system::error_code ec_;
-        bool is_done_ = false;
-    };
-
     template<
         class ConstBuffers>
     static
@@ -194,16 +135,10 @@ struct serializer_test
         sr.start(res, capy::mutable_buffer{});
         sr.reset();
 
-        sr.start<test_source>(res, "12345");
-        sr.reset();
-
         sr.start(res, capy::const_buffer{});
         sr.reset();
 
         sr.start(res, capy::mutable_buffer{});
-        sr.reset();
-
-        sr.start<test_source>(res, "12345");
         sr.reset();
 
         sr.start_stream(res);
@@ -353,25 +288,6 @@ struct serializer_test
             sv.substr(expected_header.size())
                 == expected_body);
     };
-
-    template<class Source, class F>
-    void
-    check_src(
-        core::string_view headers,
-        Source&& src,
-        F const& f)
-    {
-        response res(headers);
-        // we limit the buffer size of the serializer, requiring
-        // it to make multiple calls to source::read
-        http::polystore ctx;
-        install_serializer_service(ctx, {});
-        serializer sr(ctx);
-        sr.start<Source>(res, std::forward<
-            Source>(src));
-        std::string s = read(sr);
-        f(s);
-    }
 
     template <class F>
     void
@@ -525,111 +441,6 @@ struct serializer_test
             "\r\n",
             "0\r\n\r\n");
 
-        // source
-        check_src(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Content-Length: 2048\r\n"
-            "\r\n",
-            test_source{std::string(2048, '*')},
-            [](core::string_view s){
-                core::string_view header =
-                    "HTTP/1.1 200 OK\r\n"
-                    "Server: test\r\n"
-                    "Content-Length: 2048\r\n"
-                    "\r\n";
-
-                BOOST_TEST(
-                    s.substr(0, header.size()) == header);
-                BOOST_TEST(s ==
-                    "HTTP/1.1 200 OK\r\n"
-                    "Server: test\r\n"
-                    "Content-Length: 2048\r\n"
-                    "\r\n" +
-                    std::string(2048, '*'));
-            });
-
-        // empty source
-        check_src(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n",
-            test_source{""},
-            [](core::string_view s){
-                BOOST_TEST(s ==
-                    "HTTP/1.1 200 OK\r\n"
-                    "Server: test\r\n"
-                    "Content-Length: 0\r\n"
-                    "\r\n");
-            });
-
-        // faulty source
-        {
-            response res(
-                "HTTP/1.1 200 OK\r\n"
-                "\r\n");
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
-
-            auto& source = sr.start<faulty_source>(
-                res, system::error_code(4224, system::system_category()));
-
-            auto rs = sr.prepare();
-            BOOST_TEST(rs.has_error());
-            BOOST_TEST_EQ(rs.error().value(), 4224);
-            BOOST_TEST(source.is_done());
-            BOOST_TEST(sr.is_done() == false);
-            BOOST_TEST_THROWS(
-                sr.prepare(),
-                std::logic_error);
-            BOOST_TEST_THROWS(
-                sr.start(res),
-                std::logic_error);
-            // reset faulty state and serialize a new message
-            sr.reset();
-            BOOST_TEST(sr.is_done() == true);
-            sr.start(res);
-            BOOST_TEST(sr.is_done() == false);
-        }
-
-        // source chunked
-        check_src(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n",
-            test_source{std::string(2048, '*')},
-            [](core::string_view s){
-                core::string_view expected_header =
-                    "HTTP/1.1 200 OK\r\n"
-                    "Server: test\r\n"
-                    "Transfer-Encoding: chunked\r\n"
-                    "\r\n";
-                BOOST_TEST(s.starts_with(expected_header));
-                s.remove_prefix(expected_header.size());
-                check_chunked_body(s, std::string(2048, '*'));
-            });
-
-        // empty source chunked
-        check_src(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n",
-            test_source{""},
-            [](core::string_view s){
-                core::string_view expected_header =
-                    "HTTP/1.1 200 OK\r\n"
-                    "Server: test\r\n"
-                    "Transfer-Encoding: chunked\r\n"
-                    "\r\n";
-                BOOST_TEST(s.starts_with(expected_header));
-                s.remove_prefix(expected_header.size());
-                check_chunked_body(s, "");
-            });
-
         // empty stream
         {
             check_stream(
@@ -731,7 +542,7 @@ struct serializer_test
                 "Expect: 100-continue\r\n"
                 "Content-Length: 5\r\n"
                 "\r\n");
-            sr.start<test_source>(req, "12345");
+            sr.start(req, capy::const_buffer("12345", 5));
             std::string s;
             system::result<
                 serializer::const_buffers_type> rv;
@@ -818,7 +629,7 @@ struct serializer_test
             install_serializer_service(ctx, {});
             serializer sr(ctx);
             response res(sv);
-            sr.start<test_source>(res, "12345");
+            sr.start(res, capy::const_buffer("12345", 5));
             auto s = read(sr);
             BOOST_TEST(s ==
                 "HTTP/1.1 200 OK\r\n"

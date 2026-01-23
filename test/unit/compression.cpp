@@ -240,52 +240,6 @@ struct zlib_test
 
     static
     void
-    serializer_source(
-        response const& res,
-        serializer& sr,
-        capy::const_buffer body,
-        capy::string_buffer out)
-    {
-        class source_t : public source
-        {
-            capy::const_buffer body_;
-            bool done_ = false;
-
-        public:
-            source_t(capy::const_buffer body)
-                : body_(body)
-            {
-            }
-
-            results
-            on_read(capy::mutable_buffer b)
-            {
-                BOOST_TEST_NOT(done_);
-
-                results rs;
-                auto n = capy::copy(b, body_);
-                capy::remove_prefix(body_, n);
-                rs.bytes = n;
-                rs.finished = (body_.size() == 0);
-                done_ = rs.finished;
-                return rs;
-            }
-        };
-
-        sr.start<source_t>(res, body);
-        do
-        {
-            auto cbs = sr.prepare();
-            auto n = capy::buffer_size(cbs.value());
-            BOOST_TEST_GT(n, 0);
-            capy::copy(out.prepare(n), cbs.value());
-            sr.consume(n);
-            out.commit(n);
-        } while(!sr.is_done());
-    }
-
-    static
-    void
     serializer_stream(
         response const& res,
         serializer& sr,
@@ -406,7 +360,7 @@ struct zlib_test
         for(core::string_view encoding : encodings) 
         for(auto chunked : { true, false })
         for(auto body_size : { 0, 7, 64 * 1024, 1024 * 1024 })
-        for(auto driver : { serializer_empty, serializer_buffers, serializer_stream, serializer_source })
+        for(auto driver : { serializer_empty, serializer_buffers, serializer_stream })
         {
             if(driver == serializer_empty && body_size != 0)
                 continue;

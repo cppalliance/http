@@ -16,7 +16,6 @@
 #include <boost/http/fields.hpp>
 #include <boost/http/fields_base.hpp>
 #include <boost/http/file_sink.hpp>
-#include <boost/http/file_source.hpp>
 #include <boost/http/header_limits.hpp>
 #include <boost/http/message_base.hpp>
 #include <boost/http/metadata.hpp>
@@ -29,7 +28,6 @@
 #include <boost/http/response_base.hpp>
 #include <boost/http/serializer.hpp>
 #include <boost/http/sink.hpp>
-#include <boost/http/source.hpp>
 #include <boost/http/static_request.hpp>
 #include <boost/http/static_response.hpp>
 #include <boost/http/status.hpp>

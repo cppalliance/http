@@ -13,7 +13,6 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/detail/workspace.hpp>
-#include <boost/http/source.hpp>
 
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
@@ -282,76 +281,6 @@ public:
         message_base const& m,
         ConstBufferSequence&& buffers);
 
-    /** Start serializing a message with a @em Source body
-
-        Initializes the serializer with the HTTP start-line and headers from
-        `m`, and constructs a `Source` object to provide the message body.
-
-        Changing the contents of the message
-        after calling this function and before
-        @ref is_done returns `true` results in
-        undefined behavior.
-
-        The serializer destroys Source object when:
-        @li `this->is_done() == true`
-        @li An unrecoverable serialization error occurs
-        @li The serializer is destroyed
-
-        @par Example
-        @code
-        file f("example.zip", file_mode::scan);
-        response.set_payload_size(f.size());
-        serializer.start<file_source>(response, std::move(f));
-        @endcode
-
-        @par Preconditions
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
-
-        @par Constraints
-        @code
-        is_source<Source>::value == true
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-        Exceptions thrown if there is insufficient
-        internal buffer space to start the
-        operation.
-
-        @throw std::length_error if there is
-        insufficient internal buffer space to
-        start the operation.
-
-        @param m The message to read the HTTP
-        start-line and headers from.
-
-        @param args Arguments to be passed to the
-        `Source` constructor.
-
-        @return A reference to the constructed Source object.
-
-        @see
-            @ref source,
-            @ref file_source,
-            @ref message_base.
-    */
-    template<
-        class Source,
-        class... Args,
-        class = typename std::enable_if<
-            is_source<Source>::value>::type>
-    Source&
-    start(
-        message_base const& m,
-        Args&&... args);
-
     /** Prepare the serializer for a new message using a stream interface.
 
         Initializes the serializer with the HTTP
@@ -553,12 +482,6 @@ private:
     start_buffers(
         message_base const&,
         cbs_gen&);
-
-    BOOST_HTTP_DECL
-    void
-    start_source(
-        message_base const&,
-        source&);
 
     impl* impl_ = nullptr;
 };

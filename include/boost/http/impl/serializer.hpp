@@ -132,30 +132,6 @@ start(
                 std::forward<ConstBufferSequence>(cbs)));
 }
 
-template<
-    class Source,
-    class... Args,
-    class>
-Source&
-serializer::
-start(
-    message_base const& m,
-    Args&&... args)
-{
-    static_assert(
-        !std::is_abstract<Source>::value, "");
-    static_assert(
-        std::is_constructible<Source, Args...>::value ||
-        std::is_constructible<Source, detail::workspace&, Args...>::value,
-        "The Source cannot be constructed with the given arguments");
-
-    start_init(m);
-    auto& source = ws().emplace<Source>(
-        std::forward<Args>(args)...);
-    start_source(m, source);
-    return source;
-}
-
 } // http
 } // boost
 

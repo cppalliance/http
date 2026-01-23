@@ -33,7 +33,6 @@ namespace http {
 
     @see
         @ref file_sink,
-        @ref source,
         @ref parser.
 */
 struct BOOST_HTTP_SYMBOL_VISIBLE
