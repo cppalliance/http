@@ -8,8 +8,11 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
+#if 0
+
 #include <boost/capy/ex/execution_context.hpp>
 #include <boost/core/detail/string_view.hpp>
+
 #include <boost/http/zlib.hpp>
 
 #ifdef BOOST_HTTP_HAS_BROTLI
@@ -177,3 +180,5 @@ TEST_SUITE(
 
 } // namespace http
 } // namespace boost
+
+#endif

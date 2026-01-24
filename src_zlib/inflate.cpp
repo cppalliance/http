@@ -191,7 +191,6 @@ public:
     }
 };
 
-BOOST_HTTP_DECL
 inflate_service&
 install_inflate_service(capy::execution_context& ctx)
 {

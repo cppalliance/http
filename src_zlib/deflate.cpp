@@ -190,7 +190,6 @@ struct inflate_service;
 inflate_service&
 install_inflate_service(capy::execution_context&);
 
-BOOST_HTTP_DECL
 void
 install_zlib_service()
 {
