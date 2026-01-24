@@ -301,12 +301,13 @@ struct flat_router::impl
             {
                 // next_route only valid for end routes, not middleware
                 if(!m.end_)
+                    // VFALCO this is a logic error
                     co_return make_error_code(std::errc::invalid_argument);
                 i = m.skip_;
                 continue;
             }
 
-            if(!rv.failed())
+            if(! rv.failed() || rv == route::close)
             {
                 // Success - handler completed the request
                 co_return rv;

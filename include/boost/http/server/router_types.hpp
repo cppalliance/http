@@ -61,7 +61,15 @@ enum class route
         caller stops invoking handlers in this route and resumes
         evaluation with the next candidate route.
     */
-    next_route
+    next_route,
+
+    /** The handler wants the connection closed.
+
+        The handler has determined that the connection should be
+        terminated. The caller stops invoking any remaining handlers
+        and closes the connection without sending a response.
+    */
+    close
 };
 
 //------------------------------------------------

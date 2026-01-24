@@ -42,6 +42,7 @@ message(
     {
     case route::next:       return "next";
     case route::next_route: return "next_route";
+    case route::close:      return "close";
     default:
         return "?";
     }

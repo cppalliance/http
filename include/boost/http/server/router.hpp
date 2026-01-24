@@ -155,10 +155,6 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     route_params&
     status(http::status code);
 
-    BOOST_HTTP_DECL
-    route_params&
-    set_body(std::string s);
-
     /** Send the HTTP response with the given body.
 
         This convenience coroutine handles the entire response

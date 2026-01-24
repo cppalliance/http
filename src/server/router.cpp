@@ -8,7 +8,6 @@
 //
 
 #include <boost/http/server/router.hpp>
-#include <boost/http/string_body.hpp>
 
 namespace boost {
 namespace http {
@@ -24,28 +23,6 @@ status(
     http::status code)
 {
     res.set_start_line(code, res.version());
-    return *this;
-}
-
-route_params&
-route_params::
-set_body(std::string s)
-{
-    if(! res.exists(http::field::content_type))
-    {
-        // VFALCO TODO detect Content-Type
-        res.set(http::field::content_type,
-            "text/plain; charset=UTF-8");
-    }
-
-    if(! res.exists(field::content_length))
-    {
-        res.set_payload_size(s.size());
-    }
-
-    serializer.start(res,
-        http::string_body(std::string(s)));
-
     return *this;
 }
 
