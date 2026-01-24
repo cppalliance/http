@@ -7,7 +7,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http/server/route_handler.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/http/string_body.hpp>
 
 namespace boost {

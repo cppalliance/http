@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SERVER_SEND_FILE_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/server/route_handler.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <cstdint>
 #include <string>

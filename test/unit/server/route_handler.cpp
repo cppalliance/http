@@ -8,7 +8,7 @@
 //
 
 // Test that header file is self-contained.
-#include <boost/http/server/route_handler.hpp>
+#include <boost/http/server/router.hpp>
 
 #include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/flat_router.hpp>

@@ -10,7 +10,7 @@
 #include "src/server/detail/router_base.hpp"
 #include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/server/flat_router.hpp>
-#include <boost/http/server/route_handler.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>

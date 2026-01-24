@@ -7,10 +7,11 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_SERVER_ROUTE_HANDLER_HPP
-#define BOOST_HTTP_SERVER_ROUTE_HANDLER_HPP
+#ifndef BOOST_HTTP_SERVER_ROUTER_HPP
+#define BOOST_HTTP_SERVER_ROUTER_HPP
 
 #include <boost/http/detail/config.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/router_types.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/buffer_param.hpp>
@@ -301,6 +302,10 @@ protected:
     virtual route_task write_impl(
         capy::const_buffer_param buffers) = 0;
 };
+
+/** The default router type using @ref route_params.
+*/
+using router = basic_router<route_params>;
 
 } // http
 } // boost

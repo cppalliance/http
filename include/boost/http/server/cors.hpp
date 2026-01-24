@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SERVER_CORS_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/server/route_handler.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/http/status.hpp>
 #include <chrono>
 
