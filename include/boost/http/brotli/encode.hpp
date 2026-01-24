@@ -11,6 +11,7 @@
 #define BOOST_HTTP_BROTLI_ENCODE_HPP
 
 #include <boost/http/detail/config.hpp>
+#include <boost/http/brotli/service.hpp>
 #include <boost/http/brotli/shared_dictionary.hpp>
 
 #include <boost/capy/ex/execution_context.hpp>
@@ -351,18 +352,6 @@ struct BOOST_SYMBOL_VISIBLE
 protected:
     void shutdown() override {}
 };
-
-/** Install the encode service.
-
-    Installs the encode service into the specified execution context.
-
-    @param ctx The execution context to install into.
-
-    @return A reference to the installed encode service.
-*/
-BOOST_HTTP_DECL
-encode_service&
-install_encode_service(capy::execution_context& ctx);
 
 } // brotli
 } // http

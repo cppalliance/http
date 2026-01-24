@@ -12,6 +12,7 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/brotli/error.hpp>
+#include <boost/http/brotli/service.hpp>
 #include <boost/http/brotli/shared_dictionary.hpp>
 
 #include <boost/capy/ex/execution_context.hpp>
@@ -247,18 +248,6 @@ struct BOOST_SYMBOL_VISIBLE
 protected:
     void shutdown() override {}
 };
-
-/** Install the decode service.
-
-    Installs the decode service into the specified execution context.
-
-    @param ctx The execution context to install into.
-
-    @return A reference to the installed decode service.
-*/
-BOOST_HTTP_DECL
-decode_service&
-install_decode_service(capy::execution_context& ctx);
 
 } // brotli
 } // http

@@ -202,6 +202,18 @@ install_encode_service(capy::execution_context& ctx)
     return ctx.make_service<encode_service_impl>();
 }
 
+struct decode_service;
+
+decode_service&
+install_decode_service(capy::execution_context&);
+
+void
+install_brotli_service()
+{
+    install_encode_service(capy::get_system_context());
+    install_decode_service(capy::get_system_context());
+}
+
 } // brotli
 } // http
 } // boost
