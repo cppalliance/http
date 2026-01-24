@@ -71,7 +71,7 @@ namespace http {
         // Write body data - chunking handled automatically
         std::string_view body = "Hello, World!";
         auto [ec, n] = co_await bws.write_some(
-            capy::const_buffer(body.data(), body.size()));
+            capy::make_buffer(body));
         if (ec)
             co_return;
 

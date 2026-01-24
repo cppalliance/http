@@ -14,6 +14,7 @@
 
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/detail/string_view.hpp>
@@ -377,7 +378,7 @@ struct zlib_test
             driver(
                 resp,
                 sr,
-                capy::const_buffer(body.data(), body.size()),
+                capy::make_buffer(body),
                 capy::string_buffer(&buf));
 
             BOOST_TEST(
@@ -656,7 +657,7 @@ struct zlib_test
 
             auto rs = driver(
                 pr,
-                capy::const_buffer(msg.data(), msg.size()));
+                capy::make_buffer(msg));
 
             BOOST_TEST(rs == body);
 

@@ -217,7 +217,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         if(! res.exists(http::field::content_length))
             res.set_payload_size(body.size());
 
-        co_await write(capy::const_buffer(body.data(), body.size()));
+        co_await write(capy::make_buffer(body));
         co_return co_await end();
     }
 
@@ -239,12 +239,10 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
 
             // Write in chunks
             std::string chunk1 = "Hello, ";
-            co_await rp.write( capy::const_buffer(
-                chunk1.data(), chunk1.size() ) );
+            co_await rp.write( capy::make_buffer(chunk1) );
 
             std::string chunk2 = "World!";
-            co_await rp.write( capy::const_buffer(
-                chunk2.data(), chunk2.size() ) );
+            co_await rp.write( capy::make_buffer(chunk2) );
 
             co_return co_await rp.end();
         }
@@ -277,8 +275,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
             while( ! file.eof() )
             {
                 auto data = file.read();
-                co_await rp.write( capy::const_buffer(
-                    data.data(), data.size() ) );
+                co_await rp.write( capy::make_buffer(data) );
             }
 
             co_return co_await rp.end();

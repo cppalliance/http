@@ -15,6 +15,7 @@
 
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/error.hpp>
 #include <boost/capy/io_result.hpp>
 #include <boost/capy/task.hpp>
@@ -208,7 +209,7 @@ struct body_write_stream_test
 
             std::string_view body = "Hello, World!";
             auto [ec, n] = co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
 
             BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, 13u);
@@ -441,7 +442,7 @@ struct body_write_stream_test
 
             std::string_view body = "test";
             auto [ec1, n] = co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
             BOOST_TEST(!ec1);
 
             auto [ec2] = co_await bws.close();
@@ -525,7 +526,7 @@ struct body_write_stream_test
 
             std::string_view body = "data";
             auto [ec, n] = co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
 
             // Due to deferred error reporting: data is committed to
             // serializer before the underlying stream error occurs,
@@ -535,7 +536,7 @@ struct body_write_stream_test
                 BOOST_TEST_EQ(n, 4u);
                 // Error should be reported on next call
                 auto [ec2, n2] = co_await bws.write_some(
-                    capy::const_buffer(body.data(), body.size()));
+                    capy::make_buffer(body));
                 BOOST_TEST(ec2 == capy::error::test_failure);
                 BOOST_TEST_EQ(n2, 0u);
             }
@@ -579,7 +580,7 @@ struct body_write_stream_test
 
             std::string_view body = "Hello";
             auto [ec, n] = co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
 
             // First call may succeed with data, error saved
             // or fail immediately depending on timing
@@ -589,7 +590,7 @@ struct body_write_stream_test
 
                 // Next call should report saved error
                 auto [ec2, n2] = co_await bws.write_some(
-                    capy::const_buffer(body.data(), body.size()));
+                    capy::make_buffer(body));
                 (void)ec2;
                 (void)n2;
                 // Either error now or later
@@ -628,7 +629,7 @@ struct body_write_stream_test
             // Write to trigger potential deferred error
             std::string_view body = "Hello";
             (void)co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
 
             // Close should report any saved error
             auto [ec] = co_await bws.close();
@@ -670,7 +671,7 @@ struct body_write_stream_test
 
             std::string_view body = "hello";
             auto [ec, n] = co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
             BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, 5u);
 
@@ -715,7 +716,7 @@ struct body_write_stream_test
 
             std::string_view body = "chunked data";
             auto [ec, n] = co_await bws.write_some(
-                capy::const_buffer(body.data(), body.size()));
+                capy::make_buffer(body));
             BOOST_TEST(!ec);
 
             auto [ec2] = co_await bws.close();

@@ -16,6 +16,7 @@
 
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/concept/read_stream.hpp>
 #include <boost/capy/error.hpp>
@@ -189,7 +190,7 @@ struct body_read_stream_test
 
             char buf[64];
             auto [ec, n] = co_await brs.read_some(
-                capy::mutable_buffer(buf, sizeof(buf)));
+                capy::make_buffer(buf));
 
             BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, 13u);
@@ -274,7 +275,7 @@ struct body_read_stream_test
             while(true)
             {
                 auto [ec, n] = co_await brs.read_some(
-                    capy::mutable_buffer(buf, sizeof(buf)));
+                    capy::make_buffer(buf));
 
                 if(ec == capy::cond::eof)
                     break;
@@ -329,7 +330,7 @@ struct body_read_stream_test
             while(true)
             {
                 auto [ec, n] = co_await brs.read_some(
-                    capy::mutable_buffer(buf, sizeof(buf)));
+                    capy::make_buffer(buf));
 
                 if(ec == capy::cond::eof)
                     break;
@@ -388,7 +389,7 @@ struct body_read_stream_test
             while(true)
             {
                 auto [ec, n] = co_await brs.read_some(
-                    capy::mutable_buffer(buf, sizeof(buf)));
+                    capy::make_buffer(buf));
 
                 if(ec == capy::cond::eof)
                     break;
@@ -440,13 +441,13 @@ struct body_read_stream_test
 
             // First read gets the body
             auto [ec1, n1] = co_await brs.read_some(
-                capy::mutable_buffer(buf, sizeof(buf)));
+                capy::make_buffer(buf));
             BOOST_TEST(!ec1);
             BOOST_TEST_EQ(n1, 4u);
 
             // Second read should return EOF
             auto [ec2, n2] = co_await brs.read_some(
-                capy::mutable_buffer(buf, sizeof(buf)));
+                capy::make_buffer(buf));
             BOOST_TEST(ec2 == capy::cond::eof);
             BOOST_TEST_EQ(n2, 0u);
         };
@@ -483,7 +484,7 @@ struct body_read_stream_test
 
             char buf[64];
             auto [ec, n] = co_await brs.read_some(
-                capy::mutable_buffer(buf, sizeof(buf)));
+                capy::make_buffer(buf));
 
             BOOST_TEST(ec == capy::cond::eof);
             BOOST_TEST_EQ(n, 0u);
@@ -523,7 +524,7 @@ struct body_read_stream_test
 
             char buf[64];
             auto [ec, n] = co_await brs.read_some(
-                capy::mutable_buffer(buf, sizeof(buf)));
+                capy::make_buffer(buf));
 
             BOOST_TEST(ec == capy::error::test_failure);
             BOOST_TEST_EQ(n, 0u);
@@ -572,7 +573,7 @@ struct body_read_stream_test
             while(true)
             {
                 auto [ec, n] = co_await brs.read_some(
-                    capy::mutable_buffer(buf, sizeof(buf)));
+                    capy::make_buffer(buf));
 
                 last_ec = ec;
                 if(ec && ec != capy::cond::eof)
@@ -627,7 +628,7 @@ struct body_read_stream_test
 
             char buf[64];
             auto [ec, n] = co_await brs.read_some(
-                capy::mutable_buffer(buf, sizeof(buf)));
+                capy::make_buffer(buf));
 
             BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, 11u);
