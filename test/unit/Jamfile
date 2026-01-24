@@ -12,6 +12,23 @@ import ac ;
 
 using zlib ;
 
+lib test_helpers_lib
+    : test_helpers.cpp
+      ../../../url/extra/test_suite/test_main.cpp
+      ../../../url/extra/test_suite/test_suite.cpp
+    : requirements
+      <library>/boost/http//boost_http
+      <library>/boost/url//boost_url
+      <include>.
+      <include>../..
+      <include>../../../url/extra/test_suite
+      <link>static
+    : usage-requirements
+      <include>.
+      <include>../..
+      <include>../../../url/extra/test_suite
+    ;
+
 project
     : requirements
       $(c11-requires)
@@ -19,9 +36,7 @@ project
       <library>/boost/url//boost_url
       [ ac.check-library /boost/http//boost_http_zlib : <library>/boost/http//boost_http_zlib : ]
       [ ac.check-library /boost/http//boost_http_brotli : <library>/boost/http//boost_http_brotli : ]
-      <source>../../../url/extra/test_suite/test_main.cpp
-      <source>../../../url/extra/test_suite/test_suite.cpp
-      <source>./test_helpers.cpp
+      <library>test_helpers_lib
       <include>.
       <include>../..
       <include>../../../url/extra/test_suite
@@ -30,7 +45,7 @@ project
       <target-os>darwin,<undefined-sanitizer>norecover:<link>static
     ;
 
-for local f in [ glob-tree-ex . : *.cpp : file*.cpp ]
+for local f in [ glob-tree-ex . : *.cpp : file*.cpp test_helpers.cpp ]
 {
     run $(f) ;
 }
