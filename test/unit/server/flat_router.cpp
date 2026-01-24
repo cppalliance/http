@@ -12,7 +12,7 @@
 
 // Full functional tests are in beast2/test/unit/server/router.cpp
 
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
 #include "test_suite.hpp"
@@ -23,7 +23,7 @@ namespace http {
 struct flat_router_test
 {
     using params = route_params_base;
-    using test_router = router<params>;
+    using test_router = basic_router<params>;
 
     void testCopyConstruction()
     {

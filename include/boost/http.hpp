@@ -47,7 +47,7 @@
 
 #include <boost/http/server/cors.hpp>
 #include <boost/http/server/route_handler.hpp>
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/router_types.hpp>
 
 #endif

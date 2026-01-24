@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/server/flat_router.hpp>
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include <boost/http/detail/except.hpp>
 
 #include "src/server/detail/router_base.hpp"

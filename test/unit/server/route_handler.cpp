@@ -10,7 +10,7 @@
 // Test that header file is self-contained.
 #include <boost/http/server/route_handler.hpp>
 
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/flat_router.hpp>
 #include <boost/http/request.hpp>
 
@@ -30,7 +30,7 @@ struct any_write_buffers
 
 struct route_handler_test
 {
-    using test_router = router<route_params>;
+    using test_router = basic_router<route_params>;
 
     void check(
         test_router& r,

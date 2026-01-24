@@ -7,8 +7,8 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_SERVER_ROUTER_HPP
-#define BOOST_HTTP_SERVER_ROUTER_HPP
+#ifndef BOOST_HTTP_SERVER_BASIC_ROUTER_HPP
+#define BOOST_HTTP_SERVER_BASIC_ROUTER_HPP
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/router_types.hpp>
@@ -25,7 +25,7 @@
 namespace boost {
 namespace http {
 
-template<class> class router;
+template<class> class basic_router;
 
 /** Configuration options for HTTP routers.
 */
@@ -49,7 +49,7 @@ struct router_options
 
         @par Example
         @code
-        router r( router_options()
+        basic_router r( router_options()
             .merge_params( true )
             .case_sensitive( true )
             .strict( false ) );
@@ -74,7 +74,7 @@ struct router_options
 
         @par Example
         @code
-        router r( router_options()
+        basic_router r( router_options()
             .case_sensitive( true )
             .strict( true ) );
         @endcode
@@ -105,7 +105,7 @@ struct router_options
 
         @par Example
         @code
-        router r( router_options()
+        basic_router r( router_options()
             .strict( true )
             .case_sensitive( false ) );
         @endcode
@@ -126,7 +126,7 @@ struct router_options
     }
 
 private:
-    template<class> friend class router;
+    template<class> friend class basic_router;
     unsigned int v_ = 0;
 };
 
@@ -134,7 +134,7 @@ private:
 
 /** A container for HTTP route handlers.
 
-    `router` objects store and dispatch route handlers based on the
+    `basic_router` objects store and dispatch route handlers based on the
     HTTP method and path of an incoming request. Routes are added with a
     path pattern, method, and an associated handler, and the router is then
     used to dispatch the appropriate handler.
@@ -146,7 +146,7 @@ private:
 
     @par Example
     @code
-    using router_type = router<route_params>;
+    using router_type = basic_router<route_params>;
     router_type router;
     router.get( "/hello",
         []( route_params& p )
@@ -236,7 +236,7 @@ private:
     @tparam Params The type of the parameters object passed to handlers.
 */
 template<class P>
-class router : public detail::router_base
+class basic_router : public detail::router_base
 {
     static_assert(std::derived_from<P, route_params_base>);
 
@@ -257,7 +257,7 @@ class router : public detail::router_base
                 std::is_base_of_v<router_base, T> &&
                 std::is_convertible_v<T const volatile*,
                     router_base const volatile*> &&
-                std::is_constructible_v<T, router<P>>)
+                std::is_constructible_v<T, basic_router<P>>)
             {
                 return is_router;        
             }
@@ -392,8 +392,8 @@ public:
     */
     class fluent_route;
 
-    router(router const&) = delete;
-    router& operator=(router const&) = delete;
+    basic_router(basic_router const&) = delete;
+    basic_router& operator=(basic_router const&) = delete;
 
     /** Constructor.
 
@@ -408,7 +408,7 @@ public:
         @param options The configuration options to use.
     */
     explicit
-    router(
+    basic_router(
         router_options options = {})
         : router_base(options.v_)
     {
@@ -434,8 +434,8 @@ public:
     */
     template<class OtherP>
         requires std::derived_from<OtherP, P>
-    router(
-        router<OtherP>&& other) noexcept
+    basic_router(
+        basic_router<OtherP>&& other) noexcept
         : router_base(std::move(other))
     {
     }
@@ -444,7 +444,7 @@ public:
 
         Each handler registered with this function participates in the
         routing and error-dispatch process for requests whose path begins
-        with the specified prefix, as described in the @ref router
+        with the specified prefix, as described in the @ref basic_router
         class documentation. Handlers execute in the order they are added
         and may return @ref route::next to transfer control to the
         subsequent handler in the chain.
@@ -500,7 +500,7 @@ public:
 
         Each handler registered with this function participates in the
         routing and error-dispatch process as described in the
-        @ref router class documentation. Handlers execute in the
+        @ref basic_router class documentation. Handlers execute in the
         order they are added and may return @ref route::next to transfer
         control to the next handler in the chain.
 
@@ -618,7 +618,7 @@ public:
     /** Add handlers for all HTTP methods matching a path pattern.
 
         This registers regular handlers for the specified path pattern,
-        participating in dispatch as described in the @ref router
+        participating in dispatch as described in the @ref basic_router
         class documentation. Handlers run when the route matches,
         regardless of HTTP method, and execute in registration order.
         Error handlers and routers cannot be passed here. A new route
@@ -660,7 +660,7 @@ public:
 
         This registers regular handlers for the specified HTTP verb and
         path pattern, participating in dispatch as described in the
-        @ref router class documentation. Error handlers and
+        @ref basic_router class documentation. Error handlers and
         routers cannot be passed here.
 
         @param verb The known HTTP method to match.
@@ -690,7 +690,7 @@ public:
 
         This registers regular handlers for the specified HTTP verb and
         path pattern, participating in dispatch as described in the
-        @ref router class documentation. Error handlers and
+        @ref basic_router class documentation. Error handlers and
         routers cannot be passed here.
 
         @param verb The HTTP method string to match.
@@ -741,7 +741,7 @@ public:
 };
 
 template<class P>
-class router<P>::
+class basic_router<P>::
     fluent_route
 {
 public:
@@ -787,7 +787,7 @@ public:
 
         This registers regular handlers for the given method on the
         current route, participating in dispatch as described in the
-        @ref router class documentation. Handlers are appended
+        @ref basic_router class documentation. Handlers are appended
         to the route's handler sequence and invoked in registration
         order whenever a preceding handler returns @ref route::next.
         Error handlers and routers cannot be passed here.
@@ -817,7 +817,7 @@ public:
 
         This registers regular handlers for the given HTTP method string
         on the current route, participating in dispatch as described in
-        the @ref router class documentation. This overload is
+        the @ref basic_router class documentation. This overload is
         intended for methods not represented by @ref http::method.
         Handlers are appended to the route's handler sequence and invoked
         in registration order whenever a preceding handler returns
@@ -845,9 +845,9 @@ public:
     }
 
 private:
-    friend class router;
+    friend class basic_router;
     fluent_route(
-        router& owner,
+        basic_router& owner,
         std::string_view pattern)
         : layer_idx_(owner.new_layer_idx(pattern))
         , owner_(owner)
@@ -855,7 +855,7 @@ private:
     }
 
     std::size_t layer_idx_;
-    router& owner_;
+    basic_router& owner_;
 };
 
 } // http

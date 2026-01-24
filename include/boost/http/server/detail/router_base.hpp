@@ -25,7 +25,7 @@ namespace boost {
 namespace http {
 
 template<class>
-class router;
+class basic_router;
 class flat_router;
 
 namespace detail {

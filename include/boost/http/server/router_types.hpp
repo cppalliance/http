@@ -120,7 +120,7 @@ inline bool is_route_result(
 namespace detail {
 class router_base;
 } // detail
-template<class> class router;
+template<class> class basic_router;
 
 struct route_params_base_privates
 {
@@ -179,7 +179,7 @@ public:
 
 private:
     template<class>
-    friend class router;
+    friend class basic_router;
     friend struct route_params_access;
 
     route_params_base& operator=(

@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SERVER_DETAIL_ROUTE_MATCH_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include "src/server/detail/route_rule.hpp"
 #include "src/server/detail/stable_string.hpp"
 

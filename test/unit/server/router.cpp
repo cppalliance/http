@@ -8,7 +8,7 @@
 //
 
 // Test that header file is self-contained.
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/flat_router.hpp>
 #include <boost/http/server/detail/router_base.hpp>
 
@@ -21,7 +21,7 @@ namespace http {
 struct router_test
 {
     using params = route_params_base;
-    using test_router = router<params>;
+    using test_router = basic_router<params>;
 
     //--------------------------------------------
     // Simple handlers - no destructor verification

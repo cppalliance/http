@@ -11,7 +11,7 @@
 #define TEST_ROUTE_HANDLER_HPP
 
 #include <boost/http/server/route_handler.hpp>
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include <string_view>
 
 namespace boost {
