@@ -12,6 +12,7 @@
 #define BOOST_HTTP_ZLIB_INFLATE_HPP
 
 #include <boost/http/detail/config.hpp>
+#include <boost/http/zlib/service.hpp>
 #include <boost/http/zlib/stream.hpp>
 
 #include <boost/capy/ex/execution_context.hpp>
@@ -197,18 +198,6 @@ struct BOOST_SYMBOL_VISIBLE
 protected:
     void shutdown() override {}
 };
-
-/** Install the inflate service.
-
-    Installs the inflate service into the specified execution context.
-
-    @param ctx The execution context to install into.
-
-    @return A reference to the installed inflate service.
-*/
-BOOST_HTTP_DECL
-inflate_service&
-install_inflate_service(capy::execution_context& ctx);
 
 } // zlib
 } // http

@@ -38,7 +38,7 @@ struct compression_test
     test_zlib_deflate_inflate()
     {
         test_context ctx;
-        
+
         auto& deflate_svc = zlib::install_deflate_service(ctx);
         auto& inflate_svc = zlib::install_inflate_service(ctx);
 

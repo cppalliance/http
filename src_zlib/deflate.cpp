@@ -183,6 +183,18 @@ install_deflate_service(capy::execution_context& ctx)
     return ctx.make_service<deflate_service_impl>();
 }
 
+struct inflate_service;
+
+inflate_service&
+install_inflate_service(capy::execution_context&);
+
+void
+install_zlib_service()
+{
+    install_deflate_service(capy::get_system_context());
+    install_inflate_service(capy::get_system_context());
+}
+
 } // zlib
 } // http
 } // boost
