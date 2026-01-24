@@ -9,6 +9,7 @@
 //
 
 #include <boost/capy/ex/system_context.hpp>
+#include <boost/http/detail/config.hpp>
 #include <boost/http/zlib/deflate.hpp>
 
 #include "stream_cast.hpp"
@@ -177,6 +178,7 @@ public:
     }
 };
 
+BOOST_HTTP_DECL
 deflate_service&
 install_deflate_service(capy::execution_context& ctx)
 {
@@ -188,6 +190,7 @@ struct inflate_service;
 inflate_service&
 install_inflate_service(capy::execution_context&);
 
+BOOST_HTTP_DECL
 void
 install_zlib_service()
 {

@@ -9,6 +9,7 @@
 //
 
 #include <boost/capy/ex/system_context.hpp>
+#include <boost/http/detail/config.hpp>
 #include <boost/http/zlib/inflate.hpp>
 
 #include "stream_cast.hpp"
@@ -190,6 +191,7 @@ public:
     }
 };
 
+BOOST_HTTP_DECL
 inflate_service&
 install_inflate_service(capy::execution_context& ctx)
 {
