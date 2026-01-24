@@ -554,9 +554,9 @@ capy::task<capy::io_result<>>
 parser::
 read_header(Stream& stream)
 {
+    system::error_code ec;
     for(;;)
     {
-        system::error_code ec;
         parse(ec);
 
         if(got_header())

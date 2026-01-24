@@ -25,6 +25,7 @@
 #include <boost/url/url_view.hpp>
 #include <boost/system/error_code.hpp>
 #include <memory>
+#include <span>
 
 namespace boost {
 namespace http {
@@ -215,7 +216,9 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         if(! res.exists(http::field::content_length))
             res.set_payload_size(body.size());
 
-        co_await write(capy::make_buffer(body));
+        auto [ec] = co_await write(capy::make_buffer(body));
+        if(ec.failed())
+            co_return ec;
         co_return co_await end();
     }
 
@@ -251,10 +254,21 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         @return A @ref route_task that completes when the write
         operation is finished.
     */
-    route_task
-    write(capy::ConstBufferSequence auto const& buffers)
+    capy::task<capy::io_result<>>
+    write(capy::ConstBufferSequence auto buffers)
     {
-        return write_impl(capy::make_const_buffer_param(buffers));
+        capy::buffer_param bp(buffers);
+        for(;;)
+        {
+            auto bufs = bp.data();
+            if(bufs.empty())
+                break;
+            auto [ec, n] = co_await write_impl(bufs);
+            if(ec.failed())
+                co_return {ec};
+            bp.consume(n);
+        }
+        co_return {};
     }
 
     /** Complete a streaming response.
@@ -286,17 +300,17 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     virtual route_task end() = 0;
 
 protected:
-    /** Implementation of write with type-erased buffers.
+    /** Implementation of write for a batch of buffers.
 
-        Derived classes must implement this to perform the
-        actual write operation.
+        @param buffers Span of buffer descriptors to write.
 
-        @param buffers Type-erased buffer sequence.
-
-        @return A task that completes when the write is done.
+        @return An awaitable yielding `(error_code, std::size_t)`
+            where the size is the number of bytes written.
     */
-    virtual route_task write_impl(
-        capy::const_buffer_param buffers) = 0;
+    virtual
+        capy::task<capy::io_result<std::size_t>>
+        write_impl(
+            std::span<capy::const_buffer> buffers) = 0;
 };
 
 /** The default router type using @ref route_params.

@@ -264,12 +264,14 @@ operator()(route_params& rp) const
         auto const to_read = static_cast<std::size_t>(
             (std::min)(remaining, static_cast<std::int64_t>(buf_size)));
 
-        auto const n = f.read(buffer, to_read, ec);
-        if(ec || n == 0)
+        auto const n1 = f.read(buffer, to_read, ec);
+        if(ec || n1 == 0)
             break;
 
-        co_await rp.write(capy::const_buffer(buffer, n));
-        remaining -= static_cast<std::int64_t>(n);
+        auto [ec] =co_await rp.write(capy::const_buffer(buffer, n1));
+        if(ec.failed())
+            co_return {ec};
+        remaining -= static_cast<std::int64_t>(n1);
     }
 
     co_return co_await rp.end();

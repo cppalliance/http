@@ -12,6 +12,7 @@
 
 #include <boost/http/server/router.hpp>
 #include <boost/http/server/basic_router.hpp>
+#include <span>
 #include <string_view>
 
 namespace boost {
@@ -19,9 +20,11 @@ namespace http {
 
 struct test_route_params : route_params
 {
-    route_task write_impl(capy::const_buffer_param) override
+    capy::task<capy::io_result<std::size_t>>
+    write_impl(
+        std::span<capy::const_buffer> buffers) override
     {
-        co_return {};
+        co_return {{}, capy::buffer_size(buffers)};
     }
 
     route_task end() override
