@@ -25,6 +25,8 @@ namespace detail {
 class filter
 {
 public:
+    virtual ~filter() = default;
+
     /** The results of processing the filter.
     */
     struct results

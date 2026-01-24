@@ -11,8 +11,6 @@
 #ifndef BOOST_HTTP_DETAIL_ZLIB_FILTER_BASE_HPP
 #define BOOST_HTTP_DETAIL_ZLIB_FILTER_BASE_HPP
 
-#include <boost/http/detail/workspace.hpp>
-
 #include "src/detail/filter.hpp"
 
 #include <boost/http/zlib/stream.hpp>
@@ -27,11 +25,11 @@ namespace detail {
 class zlib_filter_base : public filter
 {
 public:
-    zlib_filter_base(workspace& w)
+    zlib_filter_base()
     {
-        strm_.zalloc = &zalloc;
-        strm_.zfree  = &zfree;
-        strm_.opaque = &w;
+        strm_.zalloc = nullptr;
+        strm_.zfree  = nullptr;
+        strm_.opaque = nullptr;
     }
 
 protected:
@@ -44,27 +42,6 @@ protected:
         if(n >= std::numeric_limits<unsigned int>::max())
             return std::numeric_limits<unsigned int>::max();
         return static_cast<unsigned int>(n);
-    }
-
-private:
-    static
-    void*
-    zalloc(
-        void* opaque,
-        unsigned items,
-        unsigned size) noexcept
-    {
-        return reinterpret_cast<workspace*>(opaque)
-            ->try_reserve_front(items * size);
-    }
-
-    static
-    void
-    zfree(
-        void* /* opaque */,
-        void* /* addr */) noexcept
-    {
-        // no-op
     }
 };
 

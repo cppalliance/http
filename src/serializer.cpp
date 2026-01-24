@@ -31,6 +31,7 @@
 #include <boost/http/zlib/error.hpp>
 #include <boost/http/zlib/flush.hpp>
 
+#include <memory>
 #include <stddef.h>
 
 namespace boost {
@@ -95,12 +96,10 @@ class zlib_filter
 public:
     zlib_filter(
         const http::polystore& ctx,
-        http::detail::workspace& ws,
         int comp_level,
         int window_bits,
         int mem_level)
-        : zlib_filter_base(ws)
-        , svc_(ctx.get<http::zlib::deflate_service>())
+        : svc_(ctx.get<http::zlib::deflate_service>())
     {
         system::error_code ec = static_cast<http::zlib::error>(svc_.init2(
             strm_,
@@ -161,7 +160,6 @@ class brotli_filter
 public:
     brotli_filter(
         const http::polystore& ctx,
-        http::detail::workspace&,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
         : svc_(ctx.get<http::brotli::encode_service>())
@@ -242,22 +240,6 @@ public:
     {
         space_needed += cfg.payload_buffer;
         space_needed += cfg.max_type_erase;
-
-        if(cfg.apply_deflate_encoder || cfg.apply_gzip_encoder)
-        {
-            // TODO: Account for the number of allocations and
-            // their overhead in the workspace.
-
-            // https://www.zlib.net/zlib_tech.html
-            space_needed +=
-                (1 << (cfg.zlib_window_bits + 2)) +
-                (1 << (cfg.zlib_mem_level + 9)) +
-                (6 * 1024) +
-                #ifdef __s390x__
-                5768 +
-                #endif
-                detail::workspace::space_needed<zlib_filter>();
-        }
     }
 };
 
@@ -298,7 +280,7 @@ class serializer::impl
     serializer_service& svc_;
     detail::workspace ws_;
 
-    detail::filter* filter_ = nullptr;
+    std::unique_ptr<detail::filter> filter_;
     cbs_gen* cbs_gen_ = nullptr;
 
     capy::circular_dynamic_buffer out_;
@@ -325,6 +307,7 @@ public:
     void
     reset() noexcept
     {
+        filter_.reset();
         ws_.clear();
         state_ = state::start;
     }
@@ -584,41 +567,38 @@ public:
         case content_coding::deflate:
             if(!svc_.cfg.apply_deflate_encoder)
                 goto no_filter;
-            filter_ = &ws_.emplace<zlib_filter>(
+            filter_.reset(new zlib_filter(
                 ctx_,
-                ws_,
                 svc_.cfg.zlib_comp_level,
                 svc_.cfg.zlib_window_bits,
-                svc_.cfg.zlib_mem_level);
+                svc_.cfg.zlib_mem_level));
             filter_done_ = false;
             break;
 
         case content_coding::gzip:
             if(!svc_.cfg.apply_gzip_encoder)
                 goto no_filter;
-            filter_ = &ws_.emplace<zlib_filter>(
+            filter_.reset(new zlib_filter(
                 ctx_,
-                ws_,
                 svc_.cfg.zlib_comp_level,
                 svc_.cfg.zlib_window_bits + 16,
-                svc_.cfg.zlib_mem_level);
+                svc_.cfg.zlib_mem_level));
             filter_done_ = false;
             break;
 
         case content_coding::br:
             if(!svc_.cfg.apply_brotli_encoder)
                 goto no_filter;
-            filter_ = &ws_.emplace<brotli_filter>(
+            filter_.reset(new brotli_filter(
                 ctx_,
-                ws_,
                 svc_.cfg.brotli_comp_quality,
-                svc_.cfg.brotli_comp_window);
+                svc_.cfg.brotli_comp_window));
             filter_done_ = false;
             break;
 
         no_filter:
         default:
-            filter_ = nullptr;
+            filter_.reset();
             break;
         }
     }

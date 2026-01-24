@@ -32,6 +32,8 @@
 #include "src/detail/buffer_utils.hpp"
 #include "src/detail/zlib_filter_base.hpp"
 
+#include <memory>
+
 namespace boost {
 namespace http {
 
@@ -310,10 +312,8 @@ class zlib_filter
 public:
     zlib_filter(
         const http::polystore& ctx,
-        http::detail::workspace& ws,
         int window_bits)
-        : zlib_filter_base(ws)
-        , svc_(ctx.get<http::zlib::inflate_service>())
+        : svc_(ctx.get<http::zlib::inflate_service>())
     {
         system::error_code ec = static_cast<http::zlib::error>(
             svc_.init2(strm_, window_bits));
@@ -359,8 +359,7 @@ class brotli_filter
 
 public:
     brotli_filter(
-        const http::polystore& ctx,
-        http::detail::workspace&)
+        const http::polystore& ctx)
         : svc_(ctx.get<http::brotli::decode_service>())
     {
         // TODO: use custom allocator
@@ -417,19 +416,17 @@ class parser_service
 public:
     parser::config_base cfg;
     std::size_t space_needed = 0;
-    std::size_t max_codec = 0;
 
     parser_service(
         parser::config_base const& cfg_)
         : cfg(cfg_)
     {
     /*
-        | fb |     cb0     |     cb1     | C | T | f |
+        | fb |     cb0     |     cb1     | T | f |
 
         fb  flat_dynamic_buffer         headers.max_size
         cb0 circular_buffer     min_buffer
         cb1 circular_buffer     min_buffer
-        C   codec               max_codec
         T   body                max_type_erase
         f   table               max_table_space
 
@@ -440,14 +437,6 @@ public:
 
         if(cfg.max_prepare < 1)
             detail::throw_invalid_argument();
-
-        // VFALCO TODO OVERFLOW CHECING
-        {
-            //fb_.size() - h_.size +
-            //svc_.cfg.min_buffer +
-            //svc_.cfg.min_buffer +
-            //svc_.max_codec;
-        }
 
         // VFALCO OVERFLOW CHECKING ON THIS
         space_needed +=
@@ -462,26 +451,6 @@ public:
         // T
         space_needed += cfg.max_type_erase;
 
-        // max_codec
-        if(cfg.apply_deflate_decoder || cfg.apply_gzip_decoder)
-        {
-            // TODO: Account for the number of allocations and
-            // their overhead in the workspace.
-
-            // https://www.zlib.net/zlib_tech.html
-            std::size_t n =
-                (1 << cfg.zlib_window_bits) +
-                (7 * 1024) +
-                #ifdef __s390x__
-                5768 +
-                #endif
-                detail::workspace::space_needed<
-                    zlib_filter>();
-
-            if(max_codec < n)
-                max_codec = n;
-        }
-        space_needed += max_codec;
 
         // round up to alignof(detail::header::entry)
         auto const al = alignof(
@@ -552,7 +521,7 @@ class parser::impl
     capy::mutable_buffer_pair mbp_;
     capy::const_buffer_pair cbp_;
 
-    detail::filter* filter_;
+    std::unique_ptr<detail::filter> filter_;
     sink* sink_;
 
     state state_;
@@ -739,7 +708,7 @@ public:
         body_avail_ = 0;
         nprepare_ = 0;
 
-        filter_ = nullptr;
+        filter_.reset();
         sink_ = nullptr;
 
         got_header_ = false;
@@ -1087,28 +1056,25 @@ public:
             case content_coding::deflate:
                 if(!svc_.cfg.apply_deflate_decoder)
                     goto no_filter;
-                filter_ = &ws_.emplace<zlib_filter>(
-                    ctx_, ws_, svc_.cfg.zlib_window_bits);
+                filter_.reset(new zlib_filter(
+                    ctx_, svc_.cfg.zlib_window_bits));
                 break;
 
             case content_coding::gzip:
                 if(!svc_.cfg.apply_gzip_decoder)
                     goto no_filter;
-                filter_ = &ws_.emplace<zlib_filter>(
-                    ctx_, ws_, svc_.cfg.zlib_window_bits + 16);
+                filter_.reset(new zlib_filter(
+                    ctx_, svc_.cfg.zlib_window_bits + 16));
                 break;
 
             case content_coding::br:
                 if(!svc_.cfg.apply_brotli_decoder)
                     goto no_filter;
-                filter_ = &ws_.emplace<brotli_filter>(
-                    ctx_, ws_);
+                filter_.reset(new brotli_filter(ctx_));
                 break;
 
             no_filter:
             default:
-                cap += svc_.max_codec;
-                ws_.reserve_front(svc_.max_codec);
                 break;
             }
 

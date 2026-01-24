@@ -11,8 +11,6 @@
 #ifndef BOOST_HTTP_DETAIL_BROTLI_FILTER_BASE_HPP
 #define BOOST_HTTP_DETAIL_BROTLI_FILTER_BASE_HPP
 
-#include <boost/http/detail/workspace.hpp>
-
 #include "src/detail/filter.hpp"
 
 namespace boost {
@@ -23,23 +21,6 @@ namespace detail {
 */
 class brotli_filter_base : public filter
 {
-protected:
-    static
-    void*
-    alloc(void* opaque, std::size_t size) noexcept
-    {
-        return reinterpret_cast<detail::workspace*>(opaque)
-            ->try_reserve_front(size);
-    }
-
-    static
-    void
-    free(
-        void* /* opaque */,
-        void* /* addr */) noexcept
-    {
-        // no-op
-    }
 };
 
 } // detail
