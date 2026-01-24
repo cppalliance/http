@@ -23,6 +23,7 @@
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/concept/read_stream.hpp>
+#include <boost/capy/concept/write_sink.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/error.hpp>
 #include <boost/capy/io_result.hpp>
@@ -451,6 +452,23 @@ public:
     read_source_adapter<Stream>
     as_read_source(Stream& stream);
 
+    /** Read body from stream and push to a WriteSink.
+
+        Reads body data from the stream and pushes each chunk to
+        the sink. The sink must consume all bytes from each write.
+
+        @param stream The stream to read body data from.
+
+        @param sink The sink to receive body data.
+
+        @return An awaitable yielding `(error_code)`.
+
+        @see WriteSink.
+    */
+    template<capy::WriteSink Sink>
+    capy::task<capy::io_result<>>
+    read(capy::ReadStream auto& stream, Sink&& sink);
+
 private:
     friend class request_parser;
     friend class response_parser;
@@ -715,6 +733,54 @@ parser::
 as_read_source(Stream& stream)
 {
     return read_source_adapter<Stream>(stream, *this);
+}
+
+template<capy::WriteSink Sink>
+capy::task<capy::io_result<>>
+parser::
+read(capy::ReadStream auto& stream, Sink&& sink)
+{
+    for(;;)
+    {
+        system::error_code ec;
+        parse(ec);
+
+        if(got_header())
+        {
+            auto body_data = pull_body();
+            if(capy::buffer_size(body_data) > 0)
+            {
+                auto [write_ec, n] = co_await sink.write(body_data);
+                if(write_ec.failed())
+                    co_return {write_ec};
+                consume_body(n);
+            }
+
+            if(is_complete())
+            {
+                auto [eof_ec] = co_await sink.write_eof();
+                co_return {eof_ec};
+            }
+        }
+
+        if(ec == condition::need_more_input)
+        {
+            auto mbs = prepare();
+            auto [read_ec, n] = co_await stream.read_some(mbs);
+
+            if(read_ec == capy::cond::eof)
+                commit_eof();
+            else if(!read_ec.failed())
+                commit(n);
+            else
+                co_return {read_ec};
+
+            continue;
+        }
+
+        if(ec.failed())
+            co_return {ec};
+    }
 }
 
 } // http

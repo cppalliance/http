@@ -19,6 +19,7 @@
 #include <boost/capy/cond.hpp>
 #include <boost/capy/test/fuse.hpp>
 #include <boost/capy/test/read_stream.hpp>
+#include <boost/capy/test/write_sink.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/core/polystore.hpp>
 
@@ -2077,6 +2078,78 @@ struct parser_coro_test
     }
 
     void
+    testReadWriteSink()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 13\r\n"
+                "\r\n"
+                "Hello, World!");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto [hdr_ec] = co_await pr.read_header(rs);
+            if(hdr_ec.failed())
+                co_return;
+
+            capy::test::write_sink ws(f);
+            auto [ec] = co_await pr.read(rs, ws);
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST(pr.is_complete());
+            BOOST_TEST(ws.eof_called());
+            BOOST_TEST(ws.data() == "Hello, World!");
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadWriteSinkChunked()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n"
+                "5\r\nHello\r\n"
+                "7\r\n, World\r\n"
+                "0\r\n\r\n");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto [hdr_ec] = co_await pr.read_header(rs);
+            if(hdr_ec.failed())
+                co_return;
+
+            capy::test::write_sink ws(f);
+            auto [ec] = co_await pr.read(rs, ws);
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST(pr.is_complete());
+            BOOST_TEST(ws.eof_called());
+            BOOST_TEST(ws.data() == "Hello, World");
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
     run()
     {
         testReadHeader();
@@ -2084,6 +2157,8 @@ struct parser_coro_test
         testReadSourceCompleteFill();
         testReadSourceEof();
         testReadSourceChunked();
+        testReadWriteSink();
+        testReadWriteSinkChunked();
     }
 };
 
