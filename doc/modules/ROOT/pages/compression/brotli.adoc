@@ -15,10 +15,9 @@ Brotli is a modern compression algorithm that typically achieves better compress
 
 namespace brotli = boost::http::brotli;
 
-// Create context and install services
-boost::capy::polystore ctx;
-auto& encoder = brotli::install_encode_service(ctx);
-auto& decoder = brotli::install_decode_service(ctx);
+// Install services globally
+brotli::install_encode_service();
+brotli::install_decode_service();
 ----
 
 === Compression

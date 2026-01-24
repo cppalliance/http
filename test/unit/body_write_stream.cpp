@@ -11,7 +11,6 @@
 #include <boost/http/body_write_stream.hpp>
 
 #include <boost/http/response.hpp>
-#include <boost/http/core/polystore.hpp>
 
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
@@ -183,6 +182,9 @@ struct body_write_stream_test
     static_assert(capy::WriteStream<
         body_write_stream<mock_write_stream>>);
 
+    std::shared_ptr<serializer_config_impl const> sr_cfg_ =
+        make_serializer_config(serializer_config{});
+
     //------------------------------------------------------
     // Basic functionality tests
     //------------------------------------------------------
@@ -194,12 +196,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_payload_size(13);
@@ -237,12 +237,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_payload_size(0);
@@ -275,12 +273,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -327,12 +323,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -379,12 +373,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_payload_size(11);
@@ -427,12 +419,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -468,12 +458,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -509,14 +497,12 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
             underlying.forced_error = capy::error::test_failure;
 
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -562,15 +548,13 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
             // Error after writing some data
             underlying.error_after = 50;
 
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -611,14 +595,12 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
             underlying.error_after = 50;
 
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -655,12 +637,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_payload_size(5);
@@ -700,12 +680,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_chunked(true);
@@ -745,12 +723,10 @@ struct body_write_stream_test
         test_executor ex(dispatch_count);
         bool completed = false;
 
-        auto do_test = []() -> capy::task<void>
+        auto do_test = [this]() -> capy::task<void>
         {
             mock_write_stream underlying;
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(sr_cfg_);
 
             response res;
             res.set_payload_size(0);

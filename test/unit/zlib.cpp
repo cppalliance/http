@@ -7,13 +7,23 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http/core/polystore.hpp>
+#include <boost/capy/ex/execution_context.hpp>
 #include <boost/http/zlib.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
 namespace http {
+
+class test_context : public capy::execution_context
+{
+public:
+    ~test_context()
+    {
+        shutdown();
+        destroy();
+    }
+};
 
 struct zlib_test
 {
@@ -27,16 +37,14 @@ struct zlib_test
     void
     test_deflate()
     {
-        // TODO
-        http::polystore ctx;
+        test_context ctx;
         zlib::install_deflate_service(ctx);
     }
 
     void
     test_inflate()
     {
-        // TODO
-        http::polystore ctx;
+        test_context ctx;
         zlib::install_inflate_service(ctx);
     }
 

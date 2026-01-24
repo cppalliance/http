@@ -16,9 +16,10 @@
 
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
-#include <boost/http/core/polystore_fwd.hpp>
 #include <boost/system/result.hpp>
 
+#include <cstdint>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -27,6 +28,98 @@ namespace http {
 
 // Forward declaration
 class message_base;
+struct serializer_config_impl;
+
+//------------------------------------------------
+
+/** Serializer configuration settings.
+
+    @see @ref make_serializer_config,
+         @ref serializer.
+*/
+struct serializer_config
+{
+    /** Enable Brotli Content-Encoding.
+    */
+    bool apply_brotli_encoder = false;
+
+    /** Enable Deflate Content-Encoding.
+    */
+    bool apply_deflate_encoder = false;
+
+    /** Enable Gzip Content-Encoding.
+    */
+    bool apply_gzip_encoder = false;
+
+    /** Brotli compression quality (0-11).
+
+        Higher values yield better but slower compression.
+    */
+    std::uint32_t brotli_comp_quality = 5;
+
+    /** Brotli compression window size (10-24).
+
+        Larger windows improve compression but increase
+        memory usage.
+    */
+    std::uint32_t brotli_comp_window = 18;
+
+    /** Zlib compression level (0-9).
+
+        0 = no compression, 1 = fastest, 9 = best.
+    */
+    int zlib_comp_level = 6;
+
+    /** Zlib window bits (9-15).
+
+        Controls the history buffer size.
+    */
+    int zlib_window_bits = 15;
+
+    /** Zlib memory level (1-9).
+
+        Higher values use more memory, but offer faster
+        and more efficient compression.
+    */
+    int zlib_mem_level = 8;
+
+    /** Minimum buffer size for payloads (must be > 0).
+    */
+    std::size_t payload_buffer = 8192;
+
+    /** Reserved space for type-erasure storage.
+    */
+    std::size_t max_type_erase = 1024;
+};
+
+/** Serializer configuration with computed fields.
+
+    Derived from @ref serializer_config with additional
+    precomputed values for workspace allocation.
+
+    @see @ref make_serializer_config.
+*/
+struct serializer_config_impl : serializer_config
+{
+    /// Total workspace allocation size.
+    std::size_t space_needed;
+};
+
+/** Create serializer configuration with computed values.
+
+    @param cfg User-provided configuration settings.
+
+    @return Shared pointer to configuration with
+            precomputed fields.
+
+    @see @ref serializer_config,
+         @ref serializer.
+*/
+BOOST_HTTP_DECL
+std::shared_ptr<serializer_config_impl const>
+make_serializer_config(serializer_config cfg);
+
+//------------------------------------------------
 
 /** A serializer for HTTP/1 messages
 
@@ -56,7 +149,6 @@ class serializer
 {
 public:
     class stream;
-    struct config;
 
     /** The type used to represent a sequence of
         constant buffers that refers to the output
@@ -70,11 +162,34 @@ public:
     BOOST_HTTP_DECL
     ~serializer();
 
-    /** Constructor
-        Default-constructed serializers do not reference any implementation;
-        the only valid operations are destruction and assignment.
+    /** Default constructor.
+
+        Constructs a serializer with no allocated state.
+        The serializer must be assigned from a valid
+        serializer before use.
+
+        @par Postconditions
+        The serializer has no allocated state.
     */
     serializer() = default;
+
+    /** Constructor.
+
+        Constructs a serializer with the provided configuration.
+
+        @par Postconditions
+        @code
+        this->is_done() == true
+        @endcode
+
+        @param cfg Shared pointer to serializer configuration.
+
+        @see @ref make_serializer_config, @ref serializer_config.
+    */
+    BOOST_HTTP_DECL
+    explicit
+    serializer(
+        std::shared_ptr<serializer_config_impl const> cfg);
 
     /** Constructor.
 
@@ -121,56 +236,6 @@ public:
     BOOST_HTTP_DECL
     serializer&
     operator=(serializer&& other) noexcept;
-
-    /** Constructor.
-
-        Constructs a serializer that uses the @ref
-        config parameters installed on the
-        provided `ctx`.
-
-        The serializer will attempt to allocate
-        the required space on startup, with the
-        amount depending on the @ref config
-        parameters, and will not perform any
-        further allocations, except for Brotli
-        encoder instances, if enabled.
-
-        Depending on which compression algorithms
-        are enabled in the @ref config, the
-        serializer will attempt to access the
-        corresponding encoder services on the same
-        `ctx`.
-
-        @par Example
-        @code
-        serializer sr(ctx);
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Complexity
-        Constant.
-
-        @par Exception Safety
-        Calls to allocate may throw.
-
-        @param ctx Context from which the
-        serializer will access registered
-        services. The caller is responsible for
-        ensuring that the provided ctx remains
-        valid for the lifetime of the serializer.
-
-        @see
-            @ref install_serializer_service,
-            @ref config.
-    */
-    BOOST_HTTP_DECL
-    explicit
-    serializer(
-        http::polystore& ctx);
 
     /** Reset the serializer for a new message.
 
@@ -485,113 +550,6 @@ private:
 
     impl* impl_ = nullptr;
 };
-
-/** Serializer configuration settings.
-
-    @see
-        @ref install_serializer_service,
-        @ref serializer.
-*/
-struct serializer::config
-{
-    /** Enable Brotli Content-Encoding.
-
-        Requires `boost::http::brotli::encode_service` to be
-        installed, otherwise an exception is thrown.
-    */
-    bool apply_brotli_encoder = false;
-
-    /** Enable Deflate Content-Encoding.
-
-        Requires `boost::zlib::deflate_service` to be
-        installed, otherwise an exception is thrown.
-    */
-    bool apply_deflate_encoder = false;
-
-    /** Enable Gzip Content-Encoding.
-
-        Requires `boost::zlib::deflate_service` to be
-        installed, otherwise an exception is thrown.
-    */
-    bool apply_gzip_encoder = false;
-
-    /** Brotli compression quality (0–11).
-
-        Higher values yield better but slower compression.
-    */
-    std::uint32_t brotli_comp_quality = 5;
-
-    /** Brotli compression window size (10–24).
-
-        Larger windows improve compression but increase
-        memory usage.
-    */
-    std::uint32_t brotli_comp_window = 18;
-
-    /** Zlib compression level (0–9).
-
-        0 = no compression, 1 = fastest, 9 = best
-        compression.
-    */
-    int zlib_comp_level = 6;
-
-    /** Zlib window bits (9–15).
-
-        Controls the history buffer size. Larger values
-        improve compression but use more memory.
-    */
-    int zlib_window_bits = 15;
-
-    /** Zlib memory level (1–9).
-
-        Higher values use more memory, but offer faster
-        and more efficient compression.
-    */
-    int zlib_mem_level = 8;
-
-    /** Minimum buffer size for payloads (must be > 0). */
-    std::size_t payload_buffer = 8192;
-
-    /** Reserved space for type-erasure storage.
-
-        Used for:
-        @li User-defined @ref source objects.
-        @li User-defined ConstBufferSequence instances.
-    */
-    std::size_t max_type_erase = 1024;
-};
-
-/** Install the serializer service.
-
-    @par Example
-    @code
-    // default configuration settings
-    install_serializer_service(ctx, {});
-
-    serializer sr(ctx);
-    @endcode
-
-    @par Exception Safety
-    Strong guarantee.
-
-    @throw std::invalid_argument If the service is
-    already installed on the context.
-
-    @param ctx Reference to the context on which
-    the service should be installed.
-
-    @param cfg Configuration settings for the
-    serializer.
-
-    @see
-        @ref serializer::config,
-        @ref serializer.
-*/
-BOOST_HTTP_DECL
-void
-install_serializer_service(
-    http::polystore& ctx,
-    serializer::config const& cfg);
 
 //------------------------------------------------
 

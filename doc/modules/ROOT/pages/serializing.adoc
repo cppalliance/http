@@ -21,12 +21,11 @@ buffers until complete:
 [source,cpp]
 ----
 // 1. Install serializer service with configuration
-capy::polystore ctx;
 serializer::config cfg;
-install_serializer_service(ctx, cfg);
+install_serializer_service(cfg);
 
 // 2. Create serializer
-serializer sr(ctx);
+serializer sr;
 
 // 3. Start with a message
 response res(status::ok);
@@ -47,12 +46,10 @@ while (!sr.is_done())
 
 == Configuration
 
-Serializer behavior is controlled through configuration:
+Serializer behavior is controlled through configuration installed globally:
 
 [source,cpp]
 ----
-capy::polystore ctx;
-
 serializer::config cfg;
 
 // Content encoding (compression)
@@ -73,7 +70,7 @@ cfg.brotli_comp_window = 18;         // 10-24
 cfg.payload_buffer = 8192;           // Internal buffer size
 cfg.max_type_erase = 1024;           // Space for source storage
 
-install_serializer_service(ctx, cfg);
+install_serializer_service(cfg);
 ----
 
 == Body Sources
@@ -262,7 +259,7 @@ while (!sr.is_done())
         // Client wants confirmation before sending body
         // Send 100 Continue response
         response cont(status::continue_);
-        serializer sr100(ctx);
+        serializer sr100;
         sr100.start(cont);
         // ... write sr100 output ...
         
@@ -367,7 +364,7 @@ Reuse the serializer for multiple messages on the same connection:
 
 [source,cpp]
 ----
-serializer sr(ctx);
+serializer sr;
 
 for (auto& request : requests)
 {

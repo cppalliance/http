@@ -14,6 +14,8 @@
 #include <boost/http/brotli/error.hpp>
 #include <boost/http/brotli/shared_dictionary.hpp>
 
+#include <boost/capy/ex/execution_context.hpp>
+
 #include <cstdint>
 
 namespace boost {
@@ -71,8 +73,7 @@ using metadata_chunk_func = void (*)(void* opaque, const std::uint8_t* data, std
 
     @code
     // Example: Simple one-shot decompression
-    boost::http::datastore ctx;
-    auto& decoder = boost::http::brotli::install_decode_service(ctx);
+    auto& decoder = boost::http::brotli::install_decode_service();
 
     std::vector<std::uint8_t> compressed_data = get_compressed_data();
     std::vector<std::uint8_t> output(1024 * 1024); // 1MB buffer
@@ -114,6 +115,7 @@ using metadata_chunk_func = void (*)(void* opaque, const std::uint8_t* data, std
 */
 struct BOOST_SYMBOL_VISIBLE
     decode_service
+    : capy::execution_context::service
 {
     /** Set a decoder parameter.
         @param state The decoder state.
@@ -241,15 +243,22 @@ struct BOOST_SYMBOL_VISIBLE
         metadata_chunk_func chunk_func,
         void* opaque) const noexcept = 0;
 #endif
+
+protected:
+    void shutdown() override {}
 };
 
-/** Install the decode service into a polystore.
-    @param ctx The polystore to install the service into.
+/** Install the decode service.
+
+    Installs the decode service into the specified execution context.
+
+    @param ctx The execution context to install into.
+
     @return A reference to the installed decode service.
 */
 BOOST_HTTP_DECL
 decode_service&
-install_decode_service(http::polystore& ctx);
+install_decode_service(capy::execution_context& ctx);
 
 } // brotli
 } // http

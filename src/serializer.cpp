@@ -21,10 +21,10 @@
 
 #include <boost/capy/buffers/circular_dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
+#include <boost/capy/ex/system_context.hpp>
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/brotli/encode.hpp>
-#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib/compression_method.hpp>
 #include <boost/http/zlib/compression_strategy.hpp>
 #include <boost/http/zlib/deflate.hpp>
@@ -86,8 +86,6 @@ write_chunk_header(
     BOOST_ASSERT(copied == n);
 }
 
-//------------------------------------------------
-
 class zlib_filter
     : public detail::zlib_filter_base
 {
@@ -95,11 +93,11 @@ class zlib_filter
 
 public:
     zlib_filter(
-        const http::polystore& ctx,
+        http::zlib::deflate_service& svc,
         int comp_level,
         int window_bits,
         int mem_level)
-        : svc_(ctx.get<http::zlib::deflate_service>())
+        : svc_(svc)
     {
         system::error_code ec = static_cast<http::zlib::error>(svc_.init2(
             strm_,
@@ -117,8 +115,6 @@ private:
     std::size_t
     min_out_buffer() const noexcept override
     {
-        // Prevents deflate from producing
-        // zero output due to small buffer
         return 8;
     }
 
@@ -159,12 +155,11 @@ class brotli_filter
 
 public:
     brotli_filter(
-        const http::polystore& ctx,
+        http::brotli::encode_service& svc,
         std::uint32_t comp_quality,
         std::uint32_t comp_window)
-        : svc_(ctx.get<http::brotli::encode_service>())
+        : svc_(svc)
     {
-        // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
         if(!state_)
             detail::throw_bad_alloc();
@@ -208,7 +203,6 @@ private:
         rv.out_bytes = out.size() - available_out;
         rv.finished  = svc_.is_finished(state_);
 
-        // TODO: use proper error code
         if(rs == false)
             rv.ec = error::bad_payload;
 
@@ -228,31 +222,23 @@ clamp(
     return static_cast<std::size_t>(x);
 }
 
-class serializer_service
-{
-public:
-    serializer::config cfg;
-    std::size_t space_needed = 0;
-
-    serializer_service(
-        serializer::config const& cfg_)
-        : cfg(cfg_)
-    {
-        space_needed += cfg.payload_buffer;
-        space_needed += cfg.max_type_erase;
-    }
-};
-
 } // namespace
 
 //------------------------------------------------
 
-void
-install_serializer_service(
-    http::polystore& ctx,
-    serializer::config const& cfg)
+std::shared_ptr<serializer_config_impl const>
+make_serializer_config(serializer_config cfg)
 {
-    ctx.emplace<serializer_service>(cfg);
+    auto impl = std::make_shared<serializer_config_impl>();
+    static_cast<serializer_config&>(*impl) = std::move(cfg);
+
+    std::size_t space_needed = 0;
+    space_needed += impl->payload_buffer;
+    space_needed += impl->max_type_erase;
+
+    impl->space_needed = space_needed;
+
+    return impl;
 }
 
 //------------------------------------------------
@@ -276,8 +262,7 @@ class serializer::impl
         stream
     };
 
-    const http::polystore& ctx_;
-    serializer_service& svc_;
+    std::shared_ptr<serializer_config_impl const> cfg_;
     detail::workspace ws_;
 
     std::unique_ptr<detail::filter> filter_;
@@ -297,10 +282,10 @@ class serializer::impl
     bool filter_done_ = false;
 
 public:
-    impl(const http::polystore& ctx)
-        : ctx_(ctx)
-        , svc_(ctx_.get<serializer_service>())
-        , ws_(svc_.space_needed)
+    explicit
+    impl(std::shared_ptr<serializer_config_impl const> cfg)
+        : cfg_(std::move(cfg))
+        , ws_(cfg_->space_needed)
     {
     }
 
@@ -565,35 +550,44 @@ public:
         switch (md.content_encoding.coding)
         {
         case content_coding::deflate:
-            if(!svc_.cfg.apply_deflate_encoder)
+            if(!cfg_->apply_deflate_encoder)
                 goto no_filter;
-            filter_.reset(new zlib_filter(
-                ctx_,
-                svc_.cfg.zlib_comp_level,
-                svc_.cfg.zlib_window_bits,
-                svc_.cfg.zlib_mem_level));
-            filter_done_ = false;
+            if(auto* svc = capy::get_system_context().find_service<http::zlib::deflate_service>())
+            {
+                filter_.reset(new zlib_filter(
+                    *svc,
+                    cfg_->zlib_comp_level,
+                    cfg_->zlib_window_bits,
+                    cfg_->zlib_mem_level));
+                filter_done_ = false;
+            }
             break;
 
         case content_coding::gzip:
-            if(!svc_.cfg.apply_gzip_encoder)
+            if(!cfg_->apply_gzip_encoder)
                 goto no_filter;
-            filter_.reset(new zlib_filter(
-                ctx_,
-                svc_.cfg.zlib_comp_level,
-                svc_.cfg.zlib_window_bits + 16,
-                svc_.cfg.zlib_mem_level));
-            filter_done_ = false;
+            if(auto* svc = capy::get_system_context().find_service<http::zlib::deflate_service>())
+            {
+                filter_.reset(new zlib_filter(
+                    *svc,
+                    cfg_->zlib_comp_level,
+                    cfg_->zlib_window_bits + 16,
+                    cfg_->zlib_mem_level));
+                filter_done_ = false;
+            }
             break;
 
         case content_coding::br:
-            if(!svc_.cfg.apply_brotli_encoder)
+            if(!cfg_->apply_brotli_encoder)
                 goto no_filter;
-            filter_.reset(new brotli_filter(
-                ctx_,
-                svc_.cfg.brotli_comp_quality,
-                svc_.cfg.brotli_comp_window));
-            filter_done_ = false;
+            if(auto* svc = capy::get_system_context().find_service<http::brotli::encode_service>())
+            {
+                filter_.reset(new brotli_filter(
+                    *svc,
+                    cfg_->brotli_comp_quality,
+                    cfg_->brotli_comp_window));
+                filter_done_ = false;
+            }
             break;
 
         no_filter:
@@ -835,11 +829,10 @@ operator=(serializer&& other) noexcept
 }
 
 serializer::
-serializer(http::polystore& ctx)
-    : impl_(new impl(ctx))
+serializer(
+    std::shared_ptr<serializer_config_impl const> cfg)
+    : impl_(new impl(std::move(cfg)))
 {
-    // TODO: use a single allocation for
-    // impl and workspace buffer.
 }
 
 void

@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/brotli/shared_dictionary.hpp>
-#include <boost/http/core/polystore.hpp>
+#include <boost/capy/ex/system_context.hpp>
 
 #if 0
 #include <brotli/shared_dictionary.h>
@@ -20,19 +20,22 @@ namespace brotli {
 
 class shared_dictionary_service_impl
     : public shared_dictionary_service
+    , public capy::execution_context::service
 {
 public:
     using key_type = shared_dictionary_service;
 
     explicit
     shared_dictionary_service_impl(
-        http::polystore&) noexcept
+        capy::execution_context&) noexcept
     {
     }
 
     ~shared_dictionary_service_impl()
     {
     }
+
+    void shutdown() override {}
 #if 0
     shared_dictionary*
     create_instance(
@@ -72,9 +75,9 @@ public:
 };
 
 shared_dictionary_service&
-install_shared_dictionary_service(http::polystore& ctx)
+install_shared_dictionary_service()
 {
-    return ctx.emplace<shared_dictionary_service_impl>(ctx);
+    return capy::get_system_context().make_service<shared_dictionary_service_impl>();
 }
 
 } // brotli

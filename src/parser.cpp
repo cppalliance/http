@@ -20,8 +20,8 @@
 #include <boost/capy/buffers/flat_dynamic_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/ex/system_context.hpp>
 #include <boost/http/brotli/decode.hpp>
-#include <boost/http/core/polystore.hpp>
 #include <boost/http/zlib/error.hpp>
 #include <boost/http/zlib/inflate.hpp>
 #include <boost/url/grammar/ci_string.hpp>
@@ -311,9 +311,9 @@ class zlib_filter
 
 public:
     zlib_filter(
-        const http::polystore& ctx,
+        http::zlib::inflate_service& svc,
         int window_bits)
-        : svc_(ctx.get<http::zlib::inflate_service>())
+        : svc_(svc)
     {
         system::error_code ec = static_cast<http::zlib::error>(
             svc_.init2(strm_, window_bits));
@@ -358,13 +358,10 @@ class brotli_filter
     http::brotli::decoder_state* state_;
 
 public:
-    brotli_filter(
-        const http::polystore& ctx)
-        : svc_(ctx.get<http::brotli::decode_service>())
+    brotli_filter(http::brotli::decode_service& svc)
+        : svc_(svc)
     {
-        // TODO: use custom allocator
         state_ = svc_.create_instance(nullptr, nullptr, nullptr);
-
         if(!state_)
             detail::throw_bad_alloc();
     }
@@ -411,16 +408,26 @@ private:
     }
 };
 
-class parser_service
-{
-public:
-    parser::config_base cfg;
-    std::size_t space_needed = 0;
+} // namespace
 
-    parser_service(
-        parser::config_base const& cfg_)
-        : cfg(cfg_)
-    {
+//------------------------------------------------
+
+std::size_t
+parser_config_impl::
+max_overread() const noexcept
+{
+    return headers.max_size + min_buffer;
+}
+
+std::shared_ptr<parser_config_impl const>
+make_parser_config(parser_config cfg)
+{
+    if(cfg.max_prepare < 1)
+        detail::throw_invalid_argument();
+
+    auto impl = std::make_shared<parser_config_impl>();
+    static_cast<parser_config&>(*impl) = std::move(cfg);
+
     /*
         | fb |     cb0     |     cb1     | T | f |
 
@@ -429,55 +436,26 @@ public:
         cb1 circular_buffer     min_buffer
         T   body                max_type_erase
         f   table               max_table_space
-
     */
-        // validate
-        //if(cfg.min_prepare > cfg.max_prepare)
-            //detail::throw_invalid_argument();
 
-        if(cfg.max_prepare < 1)
-            detail::throw_invalid_argument();
+    std::size_t space_needed = 0;
 
-        // VFALCO OVERFLOW CHECKING ON THIS
-        space_needed +=
-            cfg.headers.valid_space_needed();
+    space_needed += impl->headers.valid_space_needed();
 
-        // cb0_, cb1_
-        // VFALCO OVERFLOW CHECKING ON THIS
-        space_needed +=
-            cfg.min_buffer +
-            cfg.min_buffer;
+    // cb0_, cb1_
+    space_needed += impl->min_buffer + impl->min_buffer;
 
-        // T
-        space_needed += cfg.max_type_erase;
+    // T
+    space_needed += impl->max_type_erase;
 
+    // round up to alignof(detail::header::entry)
+    auto const al = alignof(detail::header::entry);
+    space_needed = al * ((space_needed + al - 1) / al);
 
-        // round up to alignof(detail::header::entry)
-        auto const al = alignof(
-            detail::header::entry);
-        space_needed = al * ((
-            space_needed + al - 1) / al);
-    }
+    impl->space_needed = space_needed;
+    impl->max_codec = 0;  // not currently used for parser
 
-    std::size_t
-    max_overread() const noexcept
-    {
-        return
-            cfg.headers.max_size +
-            cfg.min_buffer;
-    }
-};
-
-} // namespace
-
-//------------------------------------------------
-
-void
-install_parser_service(
-    http::polystore& ctx,
-    parser::config_base const& cfg)
-{
-    ctx.emplace<parser_service>(cfg);
+    return impl;
 }
 
 //------------------------------------------------
@@ -502,8 +480,7 @@ class parser::impl
         sink,
     };
 
-    const http::polystore& ctx_;
-    parser_service& svc_;
+    std::shared_ptr<parser_config_impl const> cfg_;
 
     detail::workspace ws_;
     static_request m_;
@@ -534,10 +511,9 @@ class parser::impl
     bool chunked_body_ended;
 
 public:
-    impl(const http::polystore& ctx, detail::kind k)
-        : ctx_(ctx)
-        , svc_(ctx.get<parser_service>())
-        , ws_(svc_.space_needed)
+    impl(std::shared_ptr<parser_config_impl const> cfg, detail::kind k)
+        : cfg_(std::move(cfg))
+        , ws_(cfg_->space_needed)
         , m_(ws_.data(), ws_.size())
         , state_(state::reset)
         , got_header_(false)
@@ -681,11 +657,11 @@ public:
 
         fb_ = {
             ws_.data(),
-            svc_.cfg.headers.max_size + svc_.cfg.min_buffer,
+            cfg_->headers.max_size + cfg_->min_buffer,
             leftover };
 
         BOOST_ASSERT(
-            fb_.capacity() == svc_.max_overread() - leftover);
+            fb_.capacity() == cfg_->max_overread() - leftover);
 
         BOOST_ASSERT(
             head_response == false ||
@@ -700,7 +676,7 @@ public:
         style_ = style::in_place;
 
         // reset to the configured default
-        body_limit_ = svc_.cfg.body_limit;
+        body_limit_ = cfg_->body_limit;
 
         body_total_ = 0;
         payload_remain_ = 0;
@@ -738,10 +714,10 @@ public:
         case state::header:
         {
             BOOST_ASSERT(
-                m_.h_.size < svc_.cfg.headers.max_size);
+                m_.h_.size < cfg_->headers.max_size);
             std::size_t n = fb_.capacity();
-            BOOST_ASSERT(n <= svc_.max_overread());
-            n = clamp(n, svc_.cfg.max_prepare);
+            BOOST_ASSERT(n <= cfg_->max_overread());
+            n = clamp(n, cfg_->max_prepare);
             mbp_[0] = fb_.prepare(n);
             nprepare_ = n;
             return mutable_buffers_type(&mbp_[0], 1);
@@ -763,7 +739,7 @@ public:
             {
                 // buffered payload
                 std::size_t n = cb0_.capacity();
-                n = clamp(n, svc_.cfg.max_prepare);
+                n = clamp(n, cfg_->max_prepare);
                 nprepare_ = n;
                 mbp_ = cb0_.prepare(n);
                 return detail::make_span(mbp_);
@@ -777,7 +753,7 @@ public:
                 case style::sink:
                 {
                     std::size_t n = cb0_.capacity();
-                    n = clamp(n, svc_.cfg.max_prepare);
+                    n = clamp(n, cfg_->max_prepare);
 
                     if(m_.payload() == payload::size)
                     {
@@ -785,9 +761,9 @@ public:
                         {
                             std::size_t overread =
                                 n - static_cast<std::size_t>(payload_remain_);
-                            if(overread > svc_.max_overread())
+                            if(overread > cfg_->max_overread())
                                 n = static_cast<std::size_t>(payload_remain_) +
-                                    svc_.max_overread();
+                                    cfg_->max_overread();
                         }
                     }
                     else
@@ -965,7 +941,7 @@ public:
             BOOST_ASSERT(m_.h_.cbuf == static_cast<
                 void const*>(ws_.data()));
 
-            m_.h_.parse(fb_.size(), svc_.cfg.headers, ec);
+            m_.h_.parse(fb_.size(), cfg_->headers, ec);
 
             if(ec == condition::need_more_input)
             {
@@ -1042,35 +1018,47 @@ public:
             // current message or octets of the next message in the
             // stream, e.g. pipelining is being used
             auto const overread = fb_.size() - m_.h_.size;
-            BOOST_ASSERT(overread <= svc_.max_overread());
+            BOOST_ASSERT(overread <= cfg_->max_overread());
 
             auto cap = fb_.capacity() + overread +
-                svc_.cfg.min_buffer;
+                cfg_->min_buffer;
 
             // reserve body buffers first, as the decoder
             // must be installed after them.
             auto const p = ws_.reserve_front(cap);
 
+            // Content-Encoding
             switch(m_.metadata().content_encoding.coding)
             {
             case content_coding::deflate:
-                if(!svc_.cfg.apply_deflate_decoder)
+                if(!cfg_->apply_deflate_decoder)
                     goto no_filter;
-                filter_.reset(new zlib_filter(
-                    ctx_, svc_.cfg.zlib_window_bits));
+                if(auto* svc = capy::get_system_context().find_service<http::zlib::inflate_service>())
+                {
+                    filter_.reset(new zlib_filter(
+                        *svc,
+                        cfg_->zlib_window_bits));
+                }
                 break;
 
             case content_coding::gzip:
-                if(!svc_.cfg.apply_gzip_decoder)
+                if(!cfg_->apply_gzip_decoder)
                     goto no_filter;
-                filter_.reset(new zlib_filter(
-                    ctx_, svc_.cfg.zlib_window_bits + 16));
+                if(auto* svc = capy::get_system_context().find_service<http::zlib::inflate_service>())
+                {
+                    filter_.reset(new zlib_filter(
+                        *svc,
+                        cfg_->zlib_window_bits + 16));
+                }
                 break;
 
             case content_coding::br:
-                if(!svc_.cfg.apply_brotli_decoder)
+                if(!cfg_->apply_brotli_decoder)
                     goto no_filter;
-                filter_.reset(new brotli_filter(ctx_));
+                if(auto* svc = capy::get_system_context().find_service<http::brotli::decode_service>())
+                {
+                    filter_.reset(new brotli_filter(*svc));
+                }
                 break;
 
             no_filter:
@@ -1086,10 +1074,10 @@ public:
             else
             {
                 // buffered payload
-                std::size_t n0 = (overread > svc_.cfg.min_buffer)
+                std::size_t n0 = (overread > cfg_->min_buffer)
                     ? overread
-                    : svc_.cfg.min_buffer;
-                std::size_t n1 = svc_.cfg.min_buffer;
+                    : cfg_->min_buffer;
+                std::size_t n1 = cfg_->min_buffer;
 
                 cb0_ = { p      , n0, overread };
                 cb1_ = { p + n0 , n1 };
@@ -1651,9 +1639,9 @@ parser(parser&& other) noexcept
 
 parser::
 parser(
-    http::polystore& ctx,
+    std::shared_ptr<parser_config_impl const> cfg,
     detail::kind k)
-    : impl_(new impl(ctx, k))
+    : impl_(new impl(std::move(cfg), k))
 {
     // TODO: use a single allocation for
     // impl and workspace buffer.

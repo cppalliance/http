@@ -13,6 +13,8 @@
 #include <boost/http/detail/config.hpp>
 #include <boost/http/brotli/shared_dictionary.hpp>
 
+#include <boost/capy/ex/execution_context.hpp>
+
 #include <cstdint>
 
 namespace boost {
@@ -153,8 +155,7 @@ enum constants
 
     @code
     // Example: Simple one-shot compression
-    boost::http::datastore ctx;
-    auto& encoder = boost::http::brotli::install_encode_service(ctx);
+    auto& encoder = boost::http::brotli::install_encode_service();
 
     std::vector<std::uint8_t> input_data = get_input_data();
     std::size_t max_size = encoder.max_compressed_size(input_data.size());
@@ -207,6 +208,7 @@ enum constants
 */
 struct BOOST_SYMBOL_VISIBLE
     encode_service
+    : capy::execution_context::service
 {
     /** Set an encoder parameter.
         @param state The encoder state.
@@ -345,15 +347,22 @@ struct BOOST_SYMBOL_VISIBLE
     get_prepared_dictionary_size(
         const encoder_prepared_dictionary* dictionary) const noexcept = 0;
 #endif
+
+protected:
+    void shutdown() override {}
 };
 
-/** Install the encode service into a polystore.
-    @param ctx The polystore to install the service into.
+/** Install the encode service.
+
+    Installs the encode service into the specified execution context.
+
+    @param ctx The execution context to install into.
+
     @return A reference to the installed encode service.
 */
 BOOST_HTTP_DECL
 encode_service&
-install_encode_service(http::polystore& ctx);
+install_encode_service(capy::execution_context& ctx);
 
 } // brotli
 } // http

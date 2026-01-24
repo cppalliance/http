@@ -12,7 +12,6 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/brotli/types.hpp>
-#include <boost/http/core/polystore_fwd.hpp>
 
 namespace boost {
 namespace http {
@@ -63,13 +62,15 @@ struct BOOST_SYMBOL_VISIBLE
 #endif
 };
 
-/** Install the shared dictionary service into a polystore.
-    @param ctx The polystore to install the service into.
+/** Install the shared dictionary service.
+
+    Installs the shared dictionary service into the system context.
+
     @return A reference to the installed shared dictionary service.
 */
 BOOST_HTTP_DECL
 shared_dictionary_service&
-install_shared_dictionary_service(http::polystore& ctx);
+install_shared_dictionary_service();
 
 } // brotli
 } // http

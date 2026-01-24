@@ -10,8 +10,6 @@
 // Test that header file is self-contained.
 #include <boost/http/response_parser.hpp>
 
-#include <boost/http/core/polystore.hpp>
-
 #include "test_suite.hpp"
 
 namespace boost {
@@ -23,7 +21,7 @@ public:
     void
     testSpecial()
     {
-        // response_parser()
+        // response_parser() - default constructor (no state)
         {
             BOOST_TEST_NO_THROW(response_parser());
         }
@@ -31,31 +29,24 @@ public:
         // operator=(response_parser&&)
         {
             response_parser pr;
-
-            http::polystore ctx;
-            response_parser::config cfg;
-            install_parser_service(ctx, cfg);
-
-            BOOST_TEST_NO_THROW(pr = response_parser(ctx));
+            auto cfg = make_parser_config(parser_config{false});
+            BOOST_TEST_NO_THROW(pr = response_parser(cfg));
         }
         {
             response_parser pr;
             BOOST_TEST_NO_THROW(pr = response_parser());
         }
 
-        // response_parser(http::polystore&)
+        // response_parser(cfg)
         {
-            http::polystore ctx;
-            response_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            response_parser pr(ctx);
+            auto cfg = make_parser_config(parser_config{false});
+            response_parser pr(cfg);
         }
 
         // response_parser(response_parser&&)
         {
-            http::polystore ctx;
-            install_parser_service(ctx, {});
-            response_parser pr1(ctx);
+            auto cfg = make_parser_config(parser_config{false});
+            response_parser pr1(cfg);
             response_parser pr2(std::move(pr1));
         }
         {

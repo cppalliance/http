@@ -9,15 +9,15 @@
 
 #include <boost/http/request_parser.hpp>
 
+#include <memory>
+
 namespace boost {
 namespace http {
 
 request_parser::
 request_parser(
-    http::polystore& ctx)
-    : parser(
-        ctx,
-        detail::kind::request)
+    std::shared_ptr<parser_config_impl const> cfg)
+    : parser(std::move(cfg), detail::kind::request)
 {
 }
 

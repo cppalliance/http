@@ -21,10 +21,9 @@ All three share the same underlying algorithm but differ in their framing.
 
 namespace zlib = boost::http::zlib;
 
-// Create context and install services
-boost::capy::polystore ctx;
-auto& deflate_svc = zlib::install_deflate_service(ctx);
-auto& inflate_svc = zlib::install_inflate_service(ctx);
+// Install services globally
+zlib::install_deflate_service();
+zlib::install_inflate_service();
 ----
 
 === Compression

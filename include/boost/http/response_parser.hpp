@@ -17,6 +17,8 @@
 #include <boost/http/static_response.hpp>
 #include <boost/http/status.hpp>
 
+#include <memory>
+
 namespace boost {
 namespace http {
 
@@ -27,22 +29,6 @@ class response_parser
     : public parser
 {
 public:
-    /** Configuration settings for response_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref response_parser.
-    */
-    struct config : config_base
-    {
-        /** Constructor.
-        */
-        config() noexcept
-        {
-            body_limit = 1024 * 1024;
-        }
-    };
-
     /** Destructor.
 
         Any views or buffers obtained from this
@@ -50,12 +36,45 @@ public:
     */
     ~response_parser() = default;
 
-    /** Constructor.
+    /** Default constructor.
 
-        Default-constructed parsers do not reference any
-        implementation and therefore must be assigned to before using.
+        Constructs a parser with no allocated state.
+        The parser must be assigned from a valid
+        parser before use.
+
+        @par Postconditions
+        The parser has no allocated state.
     */
     response_parser() = default;
+
+    /** Constructor.
+
+        Constructs a parser with the provided configuration.
+
+        The parser will allocate the required space on
+        startup based on the config parameters, and will
+        not perform any further allocations.
+
+        @par Example
+        @code
+        auto cfg = make_parser_config(parser_config{false});
+        response_parser pr(cfg);
+        @endcode
+
+        @par Complexity
+        Constant.
+
+        @par Exception Safety
+        Calls to allocate may throw.
+
+        @param cfg Shared pointer to parser configuration.
+
+        @see @ref make_parser_config, @ref parser_config.
+    */
+    BOOST_HTTP_DECL
+    explicit
+    response_parser(
+        std::shared_ptr<parser_config_impl const> cfg);
 
     /** Constructor.
 
@@ -64,7 +83,7 @@ public:
         including the allocated buffer.
         After construction, the only valid
         operations on the moved-from object
-        are destruction and assignemt.
+        are destruction and assignment.
 
         Buffer sequences previously obtained
         using @ref prepare or @ref pull_body
@@ -98,49 +117,6 @@ public:
         assign(std::move(other));
         return *this;
     }
-
-    /** Constructor.
-
-        Constructs a parser that uses the @ref
-        config parameters installed on the
-        provided `ctx`.
-
-        The parser will attempt to allocate
-        the required space on startup, with the
-        amount depending on the @ref config
-        parameters, and will not perform any
-        further allocations, except for Brotli
-        decoder instances, if enabled.
-
-        Depending on which compression algorithms
-        are enabled in the @ref config, the parser
-        will attempt to access the corresponding
-        decoder services on the same `ctx`.
-
-        @par Example
-        @code
-        response_parser sr(ctx);
-        @endcode
-
-        @par Complexity
-        Constant.
-
-        @par Exception Safety
-        Calls to allocate may throw.
-
-        @param ctx Context from which the
-        response_parser will access registered
-        services. The caller is responsible for
-        ensuring that the provided ctx remains
-        valid for the lifetime of the response_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref config.
-    */
-    BOOST_HTTP_DECL
-    explicit
-    response_parser(http::polystore& ctx);
 
     /** Prepare for the next message on the stream.
 

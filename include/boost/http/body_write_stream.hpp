@@ -54,9 +54,8 @@ namespace http {
     capy::task<void>
     send_response(capy::WriteStream auto& socket)
     {
-        http::polystore ctx;
-        http::install_serializer_service(ctx, {});
-        http::serializer sr(ctx);
+        auto cfg = http::make_serializer_config(http::serializer_config{});
+        http::serializer sr(cfg);
 
         http::response res;
         res.set_chunked(true);  // Enable chunked encoding

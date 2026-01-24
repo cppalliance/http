@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/brotli/encode.hpp>
-#include <boost/http/core/polystore.hpp>
+#include <boost/capy/ex/system_context.hpp>
 
 #include <brotli/encode.h>
 
@@ -24,7 +24,7 @@ public:
 
     explicit
     encode_service_impl(
-        http::polystore&) noexcept
+        capy::execution_context&) noexcept
     {
     }
 
@@ -197,9 +197,9 @@ public:
 };
 
 encode_service&
-install_encode_service(http::polystore& ctx)
+install_encode_service(capy::execution_context& ctx)
 {
-    return ctx.emplace<encode_service_impl>(ctx);
+    return ctx.make_service<encode_service_impl>();
 }
 
 } // brotli

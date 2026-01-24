@@ -8,7 +8,7 @@
 //
 
 #include <boost/http/brotli/decode.hpp>
-#include <boost/http/core/polystore.hpp>
+#include <boost/capy/ex/system_context.hpp>
 
 #include <brotli/decode.h>
 
@@ -24,7 +24,7 @@ public:
 
     explicit
     decode_service_impl(
-        http::polystore&) noexcept
+        capy::execution_context&) noexcept
     {
     }
 
@@ -178,9 +178,9 @@ public:
 };
 
 decode_service&
-install_decode_service(http::polystore& ctx)
+install_decode_service(capy::execution_context& ctx)
 {
-    return ctx.emplace<decode_service_impl>(ctx);
+    return ctx.make_service<decode_service_impl>();
 }
 
 } // brotli

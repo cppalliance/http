@@ -17,7 +17,6 @@
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
-#include <boost/http/core/polystore.hpp>
 
 #include "test_helpers.hpp"
 
@@ -31,6 +30,9 @@ namespace http {
 
 struct serializer_test
 {
+    std::shared_ptr<serializer_config_impl const> cfg_ =
+        make_serializer_config(serializer_config{});
+
     template<
         class ConstBuffers>
     static
@@ -121,9 +123,7 @@ struct serializer_test
     void
     testSyntax()
     {
-        http::polystore ctx;
-        install_serializer_service(ctx, {});
-        serializer sr(ctx);
+        serializer sr(cfg_);
         response res;
 
         sr.start(res);
@@ -148,8 +148,6 @@ struct serializer_test
     void
     testSpecial()
     {
-        http::polystore ctx;
-        install_serializer_service(ctx, {});
         response res;
         res.set_chunked(true);
 
@@ -157,7 +155,7 @@ struct serializer_test
         // empty body final chunk
         expected.append("0\r\n\r\n");
 
-        // serializer()
+        // serializer() - default constructor (no state)
         {
             BOOST_TEST_NO_THROW(serializer());
         }
@@ -169,14 +167,14 @@ struct serializer_test
         }
         {
             serializer sr;
-            BOOST_TEST_NO_THROW(sr = serializer(ctx));
+            BOOST_TEST_NO_THROW(sr = serializer(cfg_));
         }
 
         // serializer(serializer&&)
         {
             std::string message;
             capy::string_dynamic_buffer buf(&message);
-            serializer sr1(ctx);
+            serializer sr1(cfg_);
             sr1.start(res);
 
             // consume 5 bytes
@@ -211,14 +209,12 @@ struct serializer_test
     testEmptyBody()
     {
         auto const check =
-        [](
+        [this](
             core::string_view headers,
             core::string_view expected)
         {
             response res(headers);
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(cfg_);
             sr.start(res);
             std::string s = read(sr);
             BOOST_TEST(s == expected);
@@ -273,9 +269,7 @@ struct serializer_test
             body.remove_prefix(buf_size);
         }
 
-        http::polystore ctx;
-        install_serializer_service(ctx, {});
-        serializer sr(ctx);
+        serializer sr(cfg_);
         sr.start(res, buf);
         std::string s = read(sr);
         core::string_view sv(s);
@@ -287,7 +281,7 @@ struct serializer_test
         BOOST_TEST(
             sv.substr(expected_header.size())
                 == expected_body);
-    };
+    }
 
     template <class F>
     void
@@ -297,13 +291,11 @@ struct serializer_test
         F f)
     {
         response res(headers);
-        http::polystore ctx;
-        install_serializer_service(ctx, {});
-        serializer sr(ctx);
+        serializer sr(cfg_);
         auto stream = sr.start_stream(res);
         BOOST_TEST_GT(
             stream.capacity(),
-            serializer::config{}.payload_buffer);
+            serializer_config{}.payload_buffer);
 
         std::vector<char> s; // stores complete output
 
@@ -534,9 +526,7 @@ struct serializer_test
     {
         // request
         {
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(cfg_);
             request req(
                 "GET / HTTP/1.1\r\n"
                 "Expect: 100-continue\r\n"
@@ -580,9 +570,7 @@ struct serializer_test
 
         // empty body
         {
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(cfg_);
             request req(
                 "GET / HTTP/1.1\r\n"
                 "Expect: 100-continue\r\n"
@@ -625,9 +613,7 @@ struct serializer_test
                 "Expect: 100-continue\r\n"
                 "\r\n";
 
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(cfg_);
             response res(sv);
             sr.start(res, capy::const_buffer("12345", 5));
             auto s = read(sr);
@@ -655,9 +641,7 @@ struct serializer_test
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n";
             response res(sv);
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(cfg_);
             auto stream = sr.start_stream(res);
 
             // consume whole header
@@ -707,9 +691,7 @@ struct serializer_test
                 "Transfer-Encoding: chunked\r\n"
                 "\r\n";
             response res(sv);
-            http::polystore ctx;
-            install_serializer_service(ctx, {});
-            serializer sr(ctx);
+            serializer sr(cfg_);
             auto stream = sr.start_stream(res);
             BOOST_TEST(stream.is_open());
 
@@ -768,9 +750,7 @@ struct serializer_test
     void
     testOverConsume()
     {
-        http::polystore ctx;
-        install_serializer_service(ctx, {});
-        serializer sr(ctx);
+        serializer sr(cfg_);
         request req;
         sr.start(req);
         auto cbs = sr.prepare().value();

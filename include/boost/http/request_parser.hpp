@@ -17,6 +17,8 @@
 #include <boost/http/parser.hpp>
 #include <boost/http/static_request.hpp>
 
+#include <memory>
+
 namespace boost {
 namespace http {
 
@@ -27,22 +29,6 @@ class request_parser
     : public parser
 {
 public:
-    /** Configuration settings for request_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref request_parser.
-    */
-    struct config : config_base
-    {
-        /** Constructor
-        */
-        config() noexcept
-        {
-            body_limit = 64 * 1024;
-        }
-    };
-
     /** Destructor.
 
         Any views or buffers obtained from this
@@ -50,12 +36,45 @@ public:
     */
     ~request_parser() = default;
 
+    /** Default constructor.
+
+        Constructs a parser with no allocated state.
+        The parser must be assigned from a valid
+        parser before use.
+
+        @par Postconditions
+        The parser has no allocated state.
+    */
+    request_parser() = default;
+
     /** Constructor.
 
-        Default-constructed parsers do not reference any
-        implementation and therefore must be assigned to before using.
+        Constructs a parser with the provided configuration.
+
+        The parser will allocate the required space on
+        startup based on the config parameters, and will
+        not perform any further allocations.
+
+        @par Example
+        @code
+        auto cfg = make_parser_config(parser_config{true});
+        request_parser pr(cfg);
+        @endcode
+
+        @par Complexity
+        Constant.
+
+        @par Exception Safety
+        Calls to allocate may throw.
+
+        @param cfg Shared pointer to parser configuration.
+
+        @see @ref make_parser_config, @ref parser_config.
     */
-    request_parser() noexcept = default;
+    BOOST_HTTP_DECL
+    explicit
+    request_parser(
+        std::shared_ptr<parser_config_impl const> cfg);
 
     /** Constructor.
 
@@ -98,49 +117,6 @@ public:
         assign(std::move(other));
         return *this;
     }
-
-    /** Constructor.
-
-        Constructs a parser that uses the @ref
-        config parameters installed on the
-        provided `ctx`.
-
-        The parser will attempt to allocate
-        the required space on startup, with the
-        amount depending on the @ref config
-        parameters, and will not perform any
-        further allocations, except for Brotli
-        decoder instances, if enabled.
-
-        Depending on which compression algorithms
-        are enabled in the @ref config, the parser
-        will attempt to access the corresponding
-        decoder services on the same `ctx`.
-
-        @par Example
-        @code
-        request_parser sr(ctx);
-        @endcode
-
-        @par Complexity
-        Constant.
-
-        @par Exception Safety
-        Calls to allocate may throw.
-
-        @param ctx Context from which the
-        request_parser will access registered
-        services. The caller is responsible for
-        ensuring that the provided ctx remains
-        valid for the lifetime of the request_parser.
-
-        @see
-            @ref install_parser_service,
-            @ref config.
-    */
-    BOOST_HTTP_DECL
-    explicit
-    request_parser(http::polystore& ctx);
 
     /** Return a reference to the parsed request headers.
 

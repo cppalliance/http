@@ -41,12 +41,11 @@ and check the result. Here's the typical flow:
 [source,cpp]
 ----
 // 1. Install parser service with configuration
-capy::polystore ctx;
 request_parser::config cfg;
-install_parser_service(ctx, cfg);
+install_parser_service(cfg);
 
 // 2. Create parser
-request_parser pr(ctx);
+request_parser pr;
 
 // 3. Prepare for a new stream
 pr.reset();
@@ -78,12 +77,10 @@ if (pr.is_complete())
 
 == Configuration
 
-Parser behavior is controlled through configuration installed on a context:
+Parser behavior is controlled through configuration installed globally:
 
 [source,cpp]
 ----
-capy::polystore ctx;
-
 request_parser::config cfg;
 
 // Header limits
@@ -103,7 +100,7 @@ cfg.apply_brotli_decoder = false;    // Requires separate service
 cfg.min_buffer = 4096;               // Minimum internal buffer
 cfg.max_prepare = SIZE_MAX;          // Maximum prepare() result size
 
-install_parser_service(ctx, cfg);
+install_parser_service(cfg);
 ----
 
 == Parsing Headers
@@ -112,7 +109,7 @@ The parser signals when headers are complete:
 
 [source,cpp]
 ----
-request_parser pr(ctx);
+request_parser pr;
 pr.reset();
 pr.start();
 
@@ -285,7 +282,7 @@ For persistent connections, parse multiple messages in sequence:
 
 [source,cpp]
 ----
-request_parser pr(ctx);
+request_parser pr;
 pr.reset();  // Once per connection
 
 while (connection_open)

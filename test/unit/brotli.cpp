@@ -7,13 +7,23 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
+#include <boost/capy/ex/execution_context.hpp>
 #include <boost/http/brotli.hpp>
-#include <boost/http/core/polystore.hpp>
 
 #include "test_helpers.hpp"
 
 namespace boost {
 namespace http {
+
+class test_context : public capy::execution_context
+{
+public:
+    ~test_context()
+    {
+        shutdown();
+        destroy();
+    }
+};
 
 struct brotli_test
 {
@@ -27,16 +37,14 @@ struct brotli_test
     void
     test_decode()
     {
-        // TODO
-        http::polystore ctx;
+        test_context ctx;
         brotli::install_decode_service(ctx);
     }
 
     void
     test_encode()
     {
-        // TODO
-        http::polystore ctx;
+        test_context ctx;
         brotli::install_encode_service(ctx);
     }
 

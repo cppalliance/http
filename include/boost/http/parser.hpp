@@ -29,10 +29,10 @@
 #include <boost/capy/io_result.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/core/span.hpp>
-#include <boost/http/core/polystore_fwd.hpp>
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace boost {
 namespace http {
@@ -42,6 +42,119 @@ class request_parser;
 class response_parser;
 class static_request;
 class static_response;
+struct parser_config_impl;
+
+//------------------------------------------------
+
+/** Parser configuration settings.
+
+    @see @ref make_parser_config,
+         @ref request_parser,
+         @ref response_parser.
+*/
+struct parser_config
+{
+    /// Limits for HTTP headers.
+    header_limits headers;
+
+    /** Maximum content body size (after decoding).
+
+        @see @ref parser::set_body_limit.
+    */
+    std::uint64_t body_limit;
+
+    /** Enable Brotli Content-Encoding decoding.
+    */
+    bool apply_brotli_decoder = false;
+
+    /** Enable Deflate Content-Encoding decoding.
+    */
+    bool apply_deflate_decoder = false;
+
+    /** Enable Gzip Content-Encoding decoding.
+    */
+    bool apply_gzip_decoder = false;
+
+    /** Zlib window bits (9-15).
+
+        Must be >= the value used during compression.
+        Larger windows improve decompression at the
+        cost of memory.
+    */
+    int zlib_window_bits = 15;
+
+    /** Minimum payload buffer size.
+
+        Controls:
+        @li Smallest read/decode buffer allocation
+        @li Minimum guaranteed in-place body size
+        @li Reserve size for dynamic buffers when
+            payload size is unknown
+
+        This cannot be zero.
+    */
+    std::size_t min_buffer = 4096;
+
+    /** Maximum buffer size from @ref parser::prepare.
+
+        This cannot be zero.
+    */
+    std::size_t max_prepare = std::size_t(-1);
+
+    /** Space reserved for type-erased @ref sink objects.
+    */
+    std::size_t max_type_erase = 1024;
+
+    /** Constructor.
+
+        @param server True for server mode (parsing requests,
+               64KB body limit), false for client mode
+               (parsing responses, 1MB body limit).
+    */
+    explicit
+    parser_config(bool server = true) noexcept
+        : body_limit(server ? 64 * 1024 : 1024 * 1024)
+    {
+    }
+};
+
+/** Parser configuration with computed fields.
+
+    Derived from @ref parser_config with additional
+    precomputed values for workspace allocation.
+
+    @see @ref make_parser_config.
+*/
+struct parser_config_impl : parser_config
+{
+    /// Total workspace allocation size.
+    std::size_t space_needed;
+
+    /// Space for decompressor state.
+    std::size_t max_codec;
+
+    /// Maximum overread bytes.
+    BOOST_HTTP_DECL
+    std::size_t
+    max_overread() const noexcept;
+};
+
+/** Create parser configuration with computed values.
+
+    @param cfg User-provided configuration settings.
+
+    @return Shared pointer to configuration with
+            precomputed fields.
+
+    @see @ref parser_config,
+         @ref request_parser,
+         @ref response_parser.
+*/
+BOOST_HTTP_DECL
+std::shared_ptr<parser_config_impl const>
+make_parser_config(parser_config cfg);
+
+//------------------------------------------------
 
 /** A parser for HTTP/1 messages.
 
@@ -70,8 +183,6 @@ class static_response;
 class parser
 {
 public:
-    struct config_base;
-
     template<capy::ReadStream Stream>
     class read_source_adapter;
 
@@ -263,7 +374,7 @@ public:
 
     /** Set maximum body size for the current message.
 
-        Overrides @ref config_base::body_limit for this
+        Overrides @ref parser_config::body_limit for this
         message only. The limit resets to the default
         for subsequent messages.
 
@@ -276,7 +387,7 @@ public:
 
         @param n The body size limit in bytes.
 
-        @see @ref config_base::body_limit.
+        @see @ref parser_config::body_limit.
     */
     BOOST_HTTP_DECL
     void
@@ -477,7 +588,9 @@ private:
     BOOST_HTTP_DECL ~parser();
     BOOST_HTTP_DECL parser() noexcept;
     BOOST_HTTP_DECL parser(parser&& other) noexcept;
-    BOOST_HTTP_DECL parser(http::polystore&, detail::kind);
+    BOOST_HTTP_DECL parser(
+        std::shared_ptr<parser_config_impl const> cfg,
+        detail::kind k);
     BOOST_HTTP_DECL void assign(parser&& other) noexcept;
 
     BOOST_HTTP_DECL
@@ -530,94 +643,6 @@ public:
     capy::task<capy::io_result<std::size_t>>
     read(MB const& buffers);
 };
-
-/// Parser configuration settings.
-struct parser::config_base
-{
-    /// Limits for HTTP headers.
-    header_limits headers;
-
-    /** Maximum content body size ( after decoding ).
-
-        @see @ref set_body_limit.
-    */
-    std::uint64_t body_limit = 64 * 1024;
-
-    /** Enable Brotli Content-Encoding decoding.
-
-        Requires `boost::http::brotli::decode_service`.
-    */
-    bool apply_brotli_decoder = false;
-
-    /** Enable Deflate Content-Encoding decoding.
-
-        Requires `boost::zlib::inflate_service`.
-    */
-    bool apply_deflate_decoder = false;
-
-    /** Enable Gzip Content-Encoding decoding.
-
-        Requires `boost::zlib::inflate_service`.
-    */
-    bool apply_gzip_decoder = false;
-
-    /** Zlib window bits ( 9-15 ).
-
-        Must be >= the value used during compression.
-        Larger windows improve decompression at the
-        cost of memory. If the window is too small,
-        decoding fails with `http::zlib::error::data_err`.
-    */
-    int zlib_window_bits = 15;
-
-    /** Minimum payload buffer size.
-
-        Controls:
-        @li Smallest read/decode buffer allocation
-        @li Minimum guaranteed in-place body size
-        @li Reserve size for dynamic buffers when
-            payload size is unknown
-
-        This cannot be zero.
-    */
-    std::size_t min_buffer = 4096;
-
-    /** Maximum buffer size from @ref prepare.
-
-        This cannot be zero.
-    */
-    std::size_t max_prepare = std::size_t(-1);
-
-    /** Space reserved for type-erased @ref sink objects.
-    */
-    std::size_t max_type_erase = 1024;
-};
-
-/** Install the parser service.
-
-    @par Example
-    @code
-    install_parser_service( ctx, response_parser::config{} );
-    response_parser pr( ctx );
-    @endcode
-
-    @par Exception Safety
-    Strong guarantee.
-
-    @throws std::invalid_argument The service is
-    already installed on the context.
-
-    @param ctx The context to install the service on.
-
-    @param cfg Configuration settings for the parser.
-
-    @see @ref response_parser, @ref request_parser.
-*/
-BOOST_HTTP_DECL
-void
-install_parser_service(
-    http::polystore& ctx,
-    parser::config_base const& cfg);
 
 template<class Sink, class... Args, class>
 Sink&

@@ -11,9 +11,10 @@
 #ifndef BOOST_HTTP_ZLIB_DEFLATE_HPP
 #define BOOST_HTTP_ZLIB_DEFLATE_HPP
 
-#include <boost/http/core/polystore_fwd.hpp>
 #include <boost/http/detail/config.hpp>
 #include <boost/http/zlib/stream.hpp>
+
+#include <boost/capy/ex/execution_context.hpp>
 
 #include <cstddef>
 
@@ -80,6 +81,7 @@ namespace zlib {
 */
 struct BOOST_SYMBOL_VISIBLE
     deflate_service
+    : capy::execution_context::service
 {
     /** Return the ZLib version string. */
     virtual char const* version() const noexcept = 0;
@@ -182,15 +184,22 @@ struct BOOST_SYMBOL_VISIBLE
         @return Zero on success, or an error code.
     */
     virtual int set_header(stream& st, void* header) const = 0;
+
+protected:
+    void shutdown() override {}
 };
 
-/** Install the deflate service into a polystore.
-    @param ctx The polystore to install the service into.
+/** Install the deflate service.
+
+    Installs the deflate service into the specified execution context.
+
+    @param ctx The execution context to install into.
+
     @return A reference to the installed deflate service.
 */
 BOOST_HTTP_DECL
 deflate_service&
-install_deflate_service(http::polystore& ctx);
+install_deflate_service(capy::execution_context& ctx);
 
 } // zlib
 } // http
