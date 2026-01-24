@@ -13,7 +13,7 @@
 #include <boost/http/serializer.hpp>
 
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/buffers/string_buffer.hpp>
@@ -253,7 +253,7 @@ struct zlib_test
             if(stream.is_open())
             {
                 auto mbs = stream.prepare();
-                auto n = capy::copy(mbs, body);
+                auto n = capy::buffer_copy(mbs, body);
                 capy::remove_prefix(body, n);
                 stream.commit(n);
                 if(body.size() == 0)
@@ -270,7 +270,7 @@ struct zlib_test
             {
                 auto n = capy::buffer_size(cbs.value());
                 BOOST_TEST_GT(n, 0);
-                capy::copy(out.prepare(n), cbs.value());
+                capy::buffer_copy(out.prepare(n), cbs.value());
                 sr.consume(n);
                 out.commit(n);
             }
@@ -303,7 +303,7 @@ struct zlib_test
             auto cbs = sr.prepare();
             auto n = capy::buffer_size(cbs.value());
             BOOST_TEST_GT(n, 0);
-            capy::copy(out.prepare(n), cbs.value());
+            capy::buffer_copy(out.prepare(n), cbs.value());
             sr.consume(n);
             out.commit(n);
         }while(!sr.is_done());
@@ -325,7 +325,7 @@ struct zlib_test
             auto cbs = sr.prepare();
             auto n = capy::buffer_size(cbs.value());
             BOOST_TEST_GT(n, 0);
-            capy::copy(out.prepare(n), cbs.value());
+            capy::buffer_copy(out.prepare(n), cbs.value());
             sr.consume(n);
             out.commit(n);
         }while(!sr.is_done());
@@ -440,7 +440,7 @@ struct zlib_test
         {
             if(input.size() != 0)
             {
-                auto n1 = capy::copy(pr.prepare(), input);
+                auto n1 = capy::buffer_copy(pr.prepare(), input);
                 capy::remove_prefix(input, n1);
                 pr.commit(n1);
             }
@@ -454,7 +454,7 @@ struct zlib_test
                     || ec == error::need_data);
 
             // consume in_place body
-            auto n2 = capy::copy(
+            auto n2 = capy::buffer_copy(
                 buf.prepare(capy::buffer_size(pr.pull_body())),
                 pr.pull_body());
             buf.commit(n2);
@@ -479,7 +479,7 @@ struct zlib_test
         capy::const_buffer input)
     {
         std::string rs;
-        auto n1 = capy::copy(pr.prepare(), input);
+        auto n1 = capy::buffer_copy(pr.prepare(), input);
         capy::remove_prefix(input, n1);
         pr.commit(n1);
         system::error_code ec;
@@ -492,7 +492,7 @@ struct zlib_test
 
         while(ec == error::need_data)
         {
-            auto n2 = capy::copy(pr.prepare(), input);
+            auto n2 = capy::buffer_copy(pr.prepare(), input);
             capy::remove_prefix(input, n2);
             pr.commit(n2);
             pr.parse(ec);
@@ -512,7 +512,7 @@ struct zlib_test
         response_parser& pr,
         capy::const_buffer input)
     {
-        auto n1 = capy::copy(pr.prepare(), input);
+        auto n1 = capy::buffer_copy(pr.prepare(), input);
         capy::remove_prefix(input, n1);
         pr.commit(n1);
         system::error_code ec;
@@ -553,7 +553,7 @@ struct zlib_test
 
         while(ec == error::need_data)
         {
-            auto n2 = capy::copy(pr.prepare(), input);
+            auto n2 = capy::buffer_copy(pr.prepare(), input);
             capy::remove_prefix(input, n2);
             pr.commit(n2);
             pr.parse(ec);

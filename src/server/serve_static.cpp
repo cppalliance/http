@@ -10,8 +10,8 @@
 #include <boost/http/server/serve_static.hpp>
 #include <boost/http/server/send_file.hpp>
 #include <boost/http/field.hpp>
+#include <boost/http/file.hpp>
 #include <boost/http/status.hpp>
-#include <boost/capy/file.hpp>
 #include <filesystem>
 #include <string>
 
@@ -230,9 +230,9 @@ operator()(route_params& rp) const
         co_return co_await rp.send("");
 
     // Open and stream the file
-    capy::file f;
+    file f;
     system::error_code ec;
-    f.open(path.c_str(), capy::file_mode::scan, ec);
+    f.open(path.c_str(), file_mode::scan, ec);
     if(ec)
     {
         if(impl_->opts.fallthrough)

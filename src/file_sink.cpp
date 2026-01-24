@@ -15,7 +15,7 @@ namespace http {
 
 file_sink::
 file_sink(
-    capy::file&& f) noexcept
+    file&& f) noexcept
     : f_(std::move(f))
 {
 }

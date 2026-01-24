@@ -13,7 +13,7 @@
 #include <boost/http/request_parser.hpp>
 #include <boost/http/response_parser.hpp>
 
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/flat_buffer.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/string_buffer.hpp>
@@ -239,7 +239,7 @@ struct parser_test
         {
             core::string_view& s = in[0];
             auto const n =
-                capy::copy(
+                capy::buffer_copy(
                 pr.prepare(),
                 capy::make_buffer(
                     s.data(), s.size()));
@@ -300,7 +300,7 @@ struct parser_test
         pr.reset();
         pr.start();
         auto const n =
-            capy::copy(
+            capy::buffer_copy(
             pr.prepare(),
             capy::make_buffer(
                 s.data(), s.size()));
@@ -1893,7 +1893,7 @@ struct parser_test
                 octets += std::string(100, 'a');
                 remaining -= 100;
 
-                pr.commit(capy::copy(
+                pr.commit(capy::buffer_copy(
                     pr.prepare(),
                     capy::const_buffer(
                         octets.data(), octets.size())));
@@ -1918,7 +1918,7 @@ struct parser_test
             octets += make_header(i % 100);
             octets += std::string(i % 100, 'a');
 
-            pr.commit(capy::copy(
+            pr.commit(capy::buffer_copy(
                 pr.prepare(),
                 capy::const_buffer(
                     octets.data(), octets.size())));
@@ -1997,7 +1997,7 @@ struct parser_test
                 octets += to_hex(1);
                 remaining -= 100;
 
-                pr.commit(capy::copy(
+                pr.commit(capy::buffer_copy(
                     pr.prepare(),
                     capy::const_buffer(
                         octets.data(), octets.size())));
@@ -2023,7 +2023,7 @@ struct parser_test
             octets += make_chunk(i % 100 + 1);
             octets += make_chunk(0);
 
-            pr.commit(capy::copy(
+            pr.commit(capy::buffer_copy(
                 pr.prepare(),
                 capy::const_buffer(
                     octets.data(), octets.size())));

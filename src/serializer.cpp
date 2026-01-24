@@ -20,7 +20,7 @@
 #include "src/detail/zlib_filter_base.hpp"
 
 #include <boost/capy/buffers/circular_buffer.hpp>
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/brotli/encode.hpp>
@@ -78,7 +78,7 @@ write_chunk_header(
     }
     buf[16] = '\r';
     buf[17] = '\n';
-    auto copied = capy::copy(
+    auto copied = capy::buffer_copy(
         mbs,
         capy::const_buffer(p, n));
     ignore_unused(copied);
@@ -791,7 +791,7 @@ private:
             out_.prepare(n);
             out_.commit(n);
 
-            capy::copy(out_.prepare(crlf.size()), crlf);
+            capy::buffer_copy(out_.prepare(crlf.size()), crlf);
             out_.commit(crlf.size());
         }
         else
@@ -819,7 +819,7 @@ private:
     {
         if(is_chunked_)
         {
-            capy::copy(
+            capy::buffer_copy(
                 out_.prepare(final_chunk.size()), final_chunk);
             out_.commit(final_chunk.size());
         }

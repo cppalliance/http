@@ -15,7 +15,7 @@
 #include <boost/http/core/polystore.hpp>
 
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/concept/read_stream.hpp>

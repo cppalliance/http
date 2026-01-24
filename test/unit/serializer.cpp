@@ -12,7 +12,7 @@
 #include <boost/http/serializer.hpp>
 #include <boost/http/response.hpp>
 
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/buffers/string_buffer.hpp>
@@ -42,7 +42,7 @@ struct serializer_test
         auto n0 = dest.size();
         auto n = capy::buffer_size(src);
         dest.resize(n0 + n);
-        capy::copy(
+        capy::buffer_copy(
             capy::mutable_buffer(
                 &dest[n0], n), src);
         return n;
@@ -182,7 +182,7 @@ struct serializer_test
             // consume 5 bytes
             {
                 auto cbs = sr1.prepare().value();
-                auto n = capy::copy(buf.prepare(5), cbs);
+                auto n = capy::buffer_copy(buf.prepare(5), cbs);
                 sr1.consume(n);
                 buf.commit(n);
                 BOOST_TEST_EQ(n, 5);
@@ -193,7 +193,7 @@ struct serializer_test
             // consume the reset from sr2
             {
                 auto cbs = sr2.prepare().value();
-                auto n = capy::copy(
+                auto n = capy::buffer_copy(
                     buf.prepare(capy::buffer_size(cbs)),
                     cbs);
                 sr2.consume(n);
@@ -317,7 +317,7 @@ struct serializer_test
             if( bs > body.size() )
                 bs = body.size();
 
-            capy::copy(
+            capy::buffer_copy(
                 mbs, capy::const_buffer(body.data(), bs));
 
             stream.commit(bs);
@@ -341,7 +341,7 @@ struct serializer_test
 
             while( buf.size() > 0 )
             {
-                auto n = capy::copy(out_buf, buf);
+                auto n = capy::buffer_copy(out_buf, buf);
                 capy::remove_prefix(buf, n);
 
                 s.insert(

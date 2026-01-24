@@ -16,7 +16,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/concept/read_stream.hpp>
 #include <boost/capy/error.hpp>
@@ -169,7 +169,7 @@ public:
                 auto body_data = pr_.pull_body();
                 if(capy::buffer_size(body_data) > 0)
                 {
-                    std::size_t n = capy::copy(buffers, body_data);
+                    std::size_t n = capy::buffer_copy(buffers, body_data);
                     pr_.consume_body(n);
                     co_return {{}, n};
                 }

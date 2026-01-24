@@ -16,7 +16,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/capy/buffers/circular_buffer.hpp>
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/flat_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/slice.hpp>
@@ -1344,7 +1344,7 @@ public:
                         {
                         case style::in_place:
                         {
-                            auto copied = capy::copy(
+                            auto copied = capy::buffer_copy(
                                 cb1_.prepare(cb1_.capacity()),
                                 chunk);
                             chunk_remain_ -= copied;
@@ -1388,7 +1388,7 @@ public:
                                 state_ = state::reset;
                                 return;
                             }
-                            capy::copy(
+                            capy::buffer_copy(
                                 eb_->prepare(chunk_avail),
                                 chunk);
                             chunk_remain_ -= chunk_avail;
@@ -1501,9 +1501,9 @@ public:
                                 state_ = state::reset;
                                 return;
                             }
-                            // only happens when an elastic body
-                            // is attached in header_done state
-                            capy::copy(
+                        // only happens when an elastic body
+                        // is attached in header_done state
+                        capy::buffer_copy(
                                 eb_->prepare(payload_avail),
                                 cb0_.data());
                             cb0_.consume(payload_avail);
@@ -1571,7 +1571,7 @@ public:
                         error::buffer_overflow);
                     return;
                 }
-                capy::copy(
+                capy::buffer_copy(
                     eb_->prepare(body_avail_),
                     body_buf.data());
                 body_buf.consume(body_avail_);

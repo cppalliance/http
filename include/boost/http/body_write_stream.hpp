@@ -15,7 +15,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/copy.hpp>
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/concept/write_stream.hpp>
 #include <boost/capy/io_result.hpp>
 #include <boost/capy/task.hpp>
@@ -166,7 +166,7 @@ public:
         for(;;)
         {
             // Copy data from input buffers to serializer stream
-            bytes = capy::copy(srs_.prepare(), buffers);
+            bytes = capy::buffer_copy(srs_.prepare(), buffers);
             srs_.commit(bytes);
 
             // Write serializer output to underlying stream

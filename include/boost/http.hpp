@@ -15,6 +15,8 @@
 #include <boost/http/field.hpp>
 #include <boost/http/fields.hpp>
 #include <boost/http/fields_base.hpp>
+#include <boost/http/file.hpp>
+#include <boost/http/file_mode.hpp>
 #include <boost/http/file_sink.hpp>
 #include <boost/http/header_limits.hpp>
 #include <boost/http/message_base.hpp>
