@@ -15,7 +15,7 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/slice.hpp>
-#include <boost/capy/buffers/string_buffer.hpp>
+#include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/core/polystore.hpp>
 
@@ -175,7 +175,7 @@ struct serializer_test
         // serializer(serializer&&)
         {
             std::string message;
-            capy::string_buffer buf(&message);
+            capy::string_dynamic_buffer buf(&message);
             serializer sr1(ctx);
             sr1.start(res);
 

@@ -14,6 +14,7 @@
 #include <boost/http/server/router_types.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/buffer_param.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/http/datastore.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/http/request.hpp>           // VFALCO forward declare?

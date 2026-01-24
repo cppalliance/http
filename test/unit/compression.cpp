@@ -16,7 +16,7 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/slice.hpp>
-#include <boost/capy/buffers/string_buffer.hpp>
+#include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <boost/core/span.hpp>
 #include <boost/http/brotli.hpp>
@@ -64,7 +64,7 @@ struct zlib_test
         core::string_view body)
     {
         std::string result;
-        auto buf = capy::string_buffer(&result);
+        auto buf = capy::string_dynamic_buffer(&result);
 
         if(encoding == "deflate" || encoding == "gzip")
         {
@@ -245,7 +245,7 @@ struct zlib_test
         response const& res,
         serializer& sr,
         capy::const_buffer body,
-        capy::string_buffer out)
+        capy::string_dynamic_buffer out)
     {
         auto stream = sr.start_stream(res);
         do
@@ -283,7 +283,7 @@ struct zlib_test
         response const& res,
         serializer& sr,
         capy::const_buffer body,
-        capy::string_buffer out)
+        capy::string_dynamic_buffer out)
     {
         std::vector<capy::const_buffer> buf_seq;
         do
@@ -315,7 +315,7 @@ struct zlib_test
         response const& res,
         serializer& sr,
         capy::const_buffer body,
-        capy::string_buffer out)
+        capy::string_dynamic_buffer out)
     {
         BOOST_TEST(body.size() == 0);
         // empty body
@@ -379,7 +379,7 @@ struct zlib_test
                 resp,
                 sr,
                 capy::make_buffer(body),
-                capy::string_buffer(&buf));
+                capy::string_dynamic_buffer(&buf));
 
             BOOST_TEST(
                 core::string_view{ buf }.starts_with(resp.buffer()));
@@ -435,7 +435,7 @@ struct zlib_test
         capy::const_buffer input)
     {
         std::string rs;
-        capy::string_buffer buf(&rs);
+        capy::string_dynamic_buffer buf(&rs);
         for(;;)
         {
             if(input.size() != 0)
@@ -468,40 +468,6 @@ struct zlib_test
             }
             if( pr.is_complete() )
                 break;
-        }
-        return rs;
-    }
-
-    static
-    std::string
-    parser_elastic_body(
-        response_parser& pr,
-        capy::const_buffer input)
-    {
-        std::string rs;
-        auto n1 = capy::buffer_copy(pr.prepare(), input);
-        capy::remove_prefix(input, n1);
-        pr.commit(n1);
-        system::error_code ec;
-        pr.parse(ec);
-        BOOST_TEST(pr.got_header());
-
-        capy::string_buffer buf(&rs);
-        pr.set_body(std::ref(buf));
-        pr.parse(ec);
-
-        while(ec == error::need_data)
-        {
-            auto n2 = capy::buffer_copy(pr.prepare(), input);
-            capy::remove_prefix(input, n2);
-            pr.commit(n2);
-            pr.parse(ec);
-            if(n2 == 0)
-            {
-                pr.commit_eof();
-                pr.parse(ec);
-                break;
-            }
         }
         return rs;
     }
@@ -620,7 +586,7 @@ struct zlib_test
         for(core::string_view encoding : encodings) 
         for(core::string_view transfer : { "chunked", "sized", "to_eof" })
         for(auto body_size : { 0, 7, 64 * 1024, 1024 * 1024 })
-        for(auto driver : { parser_pull_body, parser_sink_body, parser_elastic_body })
+        for(auto driver : { parser_pull_body, parser_sink_body })
         {
             std::string msg = "HTTP/1.1 200 OK\r\n";
             msg += "Content-Encoding: ";

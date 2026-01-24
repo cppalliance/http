@@ -15,7 +15,7 @@
 #include <boost/http/static_response.hpp>
 
 #include <boost/assert.hpp>
-#include <boost/capy/buffers/circular_buffer.hpp>
+#include <boost/capy/buffers/circular_dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/flat_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
@@ -531,7 +531,6 @@ class parser::impl
     {
         in_place,
         sink,
-        elastic,
     };
 
     const http::polystore& ctx_;
@@ -547,14 +546,13 @@ class parser::impl
     std::size_t nprepare_;
 
     capy::flat_buffer fb_;
-    capy::circular_buffer cb0_;
-    capy::circular_buffer cb1_;
+    capy::circular_dynamic_buffer cb0_;
+    capy::circular_dynamic_buffer cb1_;
 
     capy::mutable_buffer_pair mbp_;
     capy::const_buffer_pair cbp_;
 
     detail::filter* filter_;
-    capy::any_DynamicBuffer* eb_;
     sink* sink_;
 
     state state_;
@@ -742,7 +740,6 @@ public:
         nprepare_ = 0;
 
         filter_ = nullptr;
-        eb_ = nullptr;
         sink_ = nullptr;
 
         got_header_ = false;
@@ -842,55 +839,6 @@ public:
                     mbp_ = cb0_.prepare(n);
                     return detail::make_span(mbp_);
                 }
-                case style::elastic:
-                {
-                    BOOST_ASSERT(cb0_.size() == 0);
-                    BOOST_ASSERT(body_avail_ == 0);
-
-                    std::size_t n = svc_.cfg.min_buffer;
-
-                    if(m_.payload() == payload::size)
-                    {
-                        // Overreads are not allowed, or
-                        // else the caller will see extra
-                        // unrelated data.
-                        n = clamp(payload_remain_, n);
-                    }
-                    else
-                    {
-                        BOOST_ASSERT(
-                            m_.payload() == payload::to_eof);
-                        // No more messages can be pipelined, so
-                        // limit the output buffer to the remaining
-                        // body limit plus one byte to detect
-                        // exhaustion.
-                        std::uint64_t r = body_limit_remain();
-                        if(r != std::uint64_t(-1))
-                            r += 1;
-                        n = clamp(r, n);
-                        n = clamp(n, eb_->max_size() - eb_->size());
-                        // fill capacity first to avoid an allocation
-                        std::size_t avail =
-                            eb_->capacity() - eb_->size();
-                        if(avail != 0)
-                            n = clamp(n, avail);
-
-                        if(n == 0)
-                        {
-                            // dynamic buffer is full
-                            // attempt a 1 byte read so
-                            // we can detect overflow
-                            nprepare_ = 1;
-                            mbp_ = cb0_.prepare(1);
-                            return detail::make_span(mbp_);
-                        }
-                    }
-
-                    n = clamp(n, svc_.cfg.max_prepare);
-                    BOOST_ASSERT(n != 0);
-                    nprepare_ = n;
-                    return eb_->prepare(n);
-                }
                 }
             }
         }
@@ -967,26 +915,7 @@ public:
             }
         
             nprepare_ = 0; // invalidate
-            if(is_plain() && style_ == style::elastic)
-            {
-                if(eb_->max_size() == eb_->size())
-                {
-                    // borrowed 1 byte from
-                    // cb0_ in prepare()
-                    BOOST_ASSERT(n <= 1);
-                    cb0_.commit(n);
-                }
-                else
-                {
-                    eb_->commit(n);
-                    payload_remain_ -= n;
-                    body_total_     += n;
-                }
-            }
-            else
-            {
-                cb0_.commit(n);
-            }
+            cb0_.commit(n);
             break;
         }
 
@@ -1183,7 +1112,7 @@ public:
                 break;
             }
 
-            if(is_plain() || style_ == style::elastic)
+            if(is_plain())
             {
                 cb0_ = { p, cap, overread };
                 cb1_ = {};
@@ -1378,25 +1307,6 @@ public:
                             }
                             break;
                         }
-                        case style::elastic:
-                        {
-                            if(eb_->max_size() - eb_->size()
-                                < chunk_avail)
-                            {
-                                ec = BOOST_HTTP_ERR(
-                                    error::buffer_overflow);
-                                state_ = state::reset;
-                                return;
-                            }
-                            capy::buffer_copy(
-                                eb_->prepare(chunk_avail),
-                                chunk);
-                            chunk_remain_ -= chunk_avail;
-                            body_total_   += chunk_avail;
-                            cb0_.consume(chunk_avail);
-                            eb_->commit(chunk_avail);
-                            break;
-                        }
                         }
 
                         if(chunked_body_ended)
@@ -1485,34 +1395,6 @@ public:
                         }
                         break;
                     }
-                    case style::elastic:
-                    {
-                        // payload_remain_ and body_total_
-                        // are already updated in commit()
-
-                        // cb0_ contains data
-                        if(payload_avail != 0)
-                        {
-                            if(eb_->max_size() - eb_->size()
-                                < payload_avail)
-                            {
-                                ec = BOOST_HTTP_ERR(
-                                    error::buffer_overflow);
-                                state_ = state::reset;
-                                return;
-                            }
-                        // only happens when an elastic body
-                        // is attached in header_done state
-                        capy::buffer_copy(
-                                eb_->prepare(payload_avail),
-                                cb0_.data());
-                            cb0_.consume(payload_avail);
-                            eb_->commit(payload_avail);
-                            payload_remain_ -= payload_avail;
-                            body_total_ += payload_avail;
-                        }
-                        break;
-                    }
                     }
 
                     if(is_complete)
@@ -1560,24 +1442,6 @@ public:
                     state_ = state::reset;
                     return;
                 }
-                break;
-            }
-            case style::elastic:
-            {
-                if(eb_->max_size() - eb_->size()
-                    < body_avail_)
-                {
-                    ec = BOOST_HTTP_ERR(
-                        error::buffer_overflow);
-                    return;
-                }
-                capy::buffer_copy(
-                    eb_->prepare(body_avail_),
-                    body_buf.data());
-                body_buf.consume(body_avail_);
-                eb_->commit(body_avail_);
-                body_avail_ = 0;
-                // TODO: expand cb0_ when possible?
                 break;
             }
             }
@@ -1674,17 +1538,6 @@ public:
     }
 
     void
-    set_body(
-        capy::any_DynamicBuffer& eb) noexcept
-    {
-        eb_ = &eb;
-        style_ = style::elastic;
-        nprepare_ = 0; // invalidate
-        if(state_ == state::body)
-            state_ = state::set_body;
-    }
-
-    void
     set_body(sink& s) noexcept
     {
         sink_ = &s;
@@ -1728,34 +1581,13 @@ private:
 
             auto f_rs = [&](){
                 BOOST_ASSERT(filter_ != nullptr);
-                if(style_ == style::elastic)
-                {
-                    std::size_t n = clamp(body_limit_remain());
-                    n = clamp(n, svc_.cfg.min_buffer);
-                    n = clamp(n, eb_->max_size() - eb_->size());
+                std::size_t n = clamp(body_limit_remain());
+                n = clamp(n, cb1_.capacity());
 
-                    // fill capacity first to avoid
-                    // an allocation
-                    std::size_t avail = 
-                        eb_->capacity() - eb_->size();
-                    if(avail != 0)
-                        n = clamp(n, avail);
-
-                    return filter_->process(
-                        eb_->prepare(n),
-                        capy::prefix(cb0_.data(), payload_avail),
-                        more);
-                }
-                else // in-place and sink 
-                {
-                    std::size_t n = clamp(body_limit_remain());
-                    n = clamp(n, cb1_.capacity());
-
-                    return filter_->process(
-                        detail::make_span(cb1_.prepare(n)),
-                        capy::prefix(cb0_.data(), payload_avail),
-                        more);
-                }
+                return filter_->process(
+                    detail::make_span(cb1_.prepare(n)),
+                    capy::prefix(cb0_.data(), payload_avail),
+                    more);
             }();
 
             cb0_.consume(f_rs.in_bytes);
@@ -1786,19 +1618,6 @@ private:
                 if(sink_rs.ec.failed())
                 {
                     ec  = sink_rs.ec;
-                    state_ = state::reset;
-                    goto done;
-                }
-                break;
-            }
-            case style::elastic:
-            {
-                eb_->commit(f_rs.out_bytes);
-                if(eb_->max_size() - eb_->size() == 0 &&
-                    !f_rs.finished && f_rs.in_bytes == 0)
-                {
-                    ec = BOOST_HTTP_ERR(
-                        error::buffer_overflow);
                     state_ = state::reset;
                     goto done;
                 }
@@ -2046,15 +1865,6 @@ is_body_set() const noexcept
 {
     BOOST_ASSERT(impl_);
     return impl_->is_body_set();
-}
-
-void
-parser::
-set_body_impl(
-    capy::any_DynamicBuffer& eb) noexcept
-{
-    BOOST_ASSERT(impl_);
-    impl_->set_body(eb);
 }
 
 void

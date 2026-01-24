@@ -175,7 +175,7 @@ For larger bodies, attach an elastic buffer:
 ----
 // After headers complete
 std::string body_storage;
-pr.set_body(capy::string_buffer(&body_storage));
+pr.set_body(capy::string_dynamic_buffer(&body_storage));
 
 // Continue parsing - body goes into body_storage
 while (!pr.is_complete())

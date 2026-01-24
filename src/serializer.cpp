@@ -19,7 +19,7 @@
 #include "src/detail/buffer_utils.hpp"
 #include "src/detail/zlib_filter_base.hpp"
 
-#include <boost/capy/buffers/circular_buffer.hpp>
+#include <boost/capy/buffers/circular_dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/core/bit.hpp>
 #include <boost/core/ignore_unused.hpp>
@@ -301,8 +301,8 @@ class serializer::impl
     detail::filter* filter_ = nullptr;
     cbs_gen* cbs_gen_ = nullptr;
 
-    capy::circular_buffer out_;
-    capy::circular_buffer in_;
+    capy::circular_dynamic_buffer out_;
+    capy::circular_dynamic_buffer in_;
     detail::array_of_const_buffers prepped_;
     capy::const_buffer tmp_;
 

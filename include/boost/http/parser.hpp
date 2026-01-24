@@ -18,7 +18,6 @@
 #include <boost/http/header_limits.hpp>
 #include <boost/http/sink.hpp>
 
-#include <boost/capy/buffers/dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
 #include <boost/http/core/polystore_fwd.hpp>
@@ -293,128 +292,6 @@ public:
     bool
     is_body_set() const noexcept;
 
-    /** Attach an elastic buffer body.
-
-        This function attaches the specified elastic
-        buffer as the storage for the message body.
-
-        A call to @ref parse is required after this
-        function for the changes to take effect. This
-        should automatically happen during the next
-        IO layer call when reading the body.
-
-        The parser takes ownership of the `eb` object and
-        will destroy it when one of the following occurs:
-        @li `this->is_complete() == true`
-        @li An unrecoverable parsing error occurs
-        @li The parser is destroyed
-
-        @par Example
-        @code
-        response_parser pr{ctx};
-        pr.start();
-
-        read_header(stream, pr);
-
-        std::string body;
-        pr.set_body(capy::string_buffer{&body});
-
-        read(stream, pr);
-        @endcode
-
-        @par Preconditions
-        @li `this->got_header() == true`
-        @li No previous call to @ref set_body
-
-        @par Constraints
-        @code
-        capy::is_dynamic_buffer<ElasticBuffer>::value == true
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-        Exceptions thrown if there is insufficient
-        internal buffer to emplace the type-erased
-        object of the ElasticBuffer.
-
-        @throw std::length_error if there is
-        insufficient internal buffer space to to
-        emplace the type-erased object of the
-        ElasticBuffer.
-
-        @param eb The elastic buffer.
-
-        @see
-            @ref parse.
-    */
-    template<class ElasticBuffer>
-    typename std::enable_if<
-        ! detail::is_reference_wrapper<
-            ElasticBuffer>::value &&
-        ! is_sink<ElasticBuffer>::value>::type
-    set_body(ElasticBuffer&& eb);
-
-    /** Attach a reference to an elastic buffer body.
-
-        This function attaches the specified elastic
-        buffer reference as the storage for
-        the message body.
-
-        A call to @ref parse is required after this
-        function for the changes to take effect. This
-        should automatically happen during the next
-        IO layer call when reading the body.
-
-        Ownership is not transferred; the caller must
-        ensure that the lifetime of the object
-        reference by `eb` extends until:
-        @li `this->is_complete() == true`
-        @li An unrecoverable parsing error occurs
-        @li The parser is destroyed
-
-        @par Example
-        @code
-        response_parser pr{ctx};
-        pr.start();
-
-        read_header(stream, pr);
-
-        std::string body;
-        capy::string_buffer buffer(&body);
-        pr.set_body(std::ref(buffer));
-
-        read(stream, pr);
-        @endcode
-
-        @par Preconditions
-        @li `this->got_header() == true`
-        @li No previous call to @ref set_body
-
-        @par Constraints
-        @code
-        capy::is_dynamic_buffer<ElasticBuffer>::value == true
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-        Exceptions thrown if there is insufficient
-        internal buffer to emplace the type-erased
-        object of the ElasticBuffer.
-
-        @throw std::length_error if there is
-        insufficient internal buffer space to to
-        emplace the type-erased object of the
-        ElasticBuffer.
-
-        @param eb A reference to an elastic buffer.
-
-        @see
-            @ref parse.
-    */
-    template<class ElasticBuffer>
-    void set_body(
-        std::reference_wrapper<ElasticBuffer> eb);
-
     /** Attach a Sink body.
 
         This function constructs a Sink for transferring
@@ -642,13 +519,8 @@ private:
 
     BOOST_HTTP_DECL
     void
-    set_body_impl(capy::any_DynamicBuffer&) noexcept;
-
-    BOOST_HTTP_DECL
-    void
     set_body_impl(sink&) noexcept;
 
-    static constexpr unsigned buffers_N = 8;
     impl* impl_;
 };
 
@@ -728,14 +600,8 @@ struct parser::config_base
 
     /** Space to reserve for type-erasure.
 
-        This space is used for the following
-        purposes:
-
-        @li Storing an instance of the user-provided
-            @ref sink objects.
-
-        @li Storing an instance of the user-provided
-            ElasticBuffer.
+        This space is used for storing an instance
+        of the user-provided @ref sink objects.
     */
     std::size_t max_type_erase = 1024;
 };

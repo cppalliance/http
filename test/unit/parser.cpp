@@ -16,7 +16,6 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/flat_buffer.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/buffers/string_buffer.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/core/polystore.hpp>
 
@@ -543,176 +542,6 @@ struct parser_test
                 "\r\n");
         }
 
-        //
-        // dynamic body
-        //
-
-        constexpr std::size_t
-            dynamic_max_size = 7;
-
-        auto const check_dynamic = [&](
-            request_parser::config const& cfg,
-            std::size_t n,
-            core::string_view s,
-            system::error_code ex = error::need_data)
-        {
-            http::polystore ctx;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            request_parser req_pr(ctx);
-            response_parser res_pr(ctx);
-            BOOST_ASSERT(! s.empty());
-            parser* pr;
-            if(s.front() != 'H')
-            {
-                req_pr.reset();
-                req_pr.start();
-                pr = &req_pr;
-            }
-            else
-            {
-                res_pr.reset();
-                res_pr.start();
-                pr = &res_pr;
-            }
-            pieces in({ s });
-            read_header(*pr, in, ec);
-            if( ! BOOST_TEST(! ec.failed()) ||
-                ! BOOST_TEST(pr->got_header()))
-                return;
-
-            // we use a heap-allocated std::string object because internally,
-            // parsers store copies of the provided buffers (which have view
-            // semantics)
-            // placing the object on the heap ensures reliable
-            // use-after-free errors are produced under sanitized builds
-            std::unique_ptr<std::string> ptmp(new std::string());
-            auto &tmp = *ptmp;
-            capy::string_buffer sb(
-                &tmp, dynamic_max_size);
-            pr->set_body(std::move(sb));
-            pr->parse(ec);
-            BOOST_TEST_EQ(ec, ex);
-            if(! ec.failed())
-            {
-                parser::mutable_buffers_type dest;
-                BOOST_TEST_NO_THROW(
-                    dest = pr->prepare());
-                BOOST_TEST_EQ(
-                    capy::buffer_size(dest), n);
-            }
-
-            // the parser must be manually reset() to clear its inner workspace
-            // otherwise, ~workspace itself will wind up clearing the registered
-            // buffers which winds up touching the long-dead `ptmp` used by the
-            // `capy::string_buffer`
-            pr->reset();
-        };
-
-        {
-            // Content-Length
-            request_parser::config cfg;
-            check_dynamic(cfg, 3,
-                "POST / HTTP/1.1\r\n"
-                "Content-Length: 3\r\n"
-                "\r\n");
-        }
-
-        {
-            // Content-Length, no overread
-            request_parser::config cfg;
-            cfg.max_prepare = 10;
-            check_dynamic(cfg, 5,
-                "POST / HTTP/1.1\r\n"
-                "Content-Length: 5\r\n"
-                "\r\n");
-        }
-
-        {
-            // Content-Length, max_prepare
-            request_parser::config cfg;
-            cfg.max_prepare = 3;
-            check_dynamic(cfg, 3,
-                "POST / HTTP/1.1\r\n"
-                "Content-Length: 5\r\n"
-                "\r\n");
-        }
-
-        {
-            // to_eof
-            request_parser::config cfg;
-            check_dynamic(cfg,
-                dynamic_max_size,
-                "HTTP/1.1 200 OK\r\n"
-                "\r\n");
-        }
-
-        {
-            // to_eof, max_prepare
-            request_parser::config cfg;
-            cfg.max_prepare = 3;
-            BOOST_TEST(cfg.max_prepare <
-                dynamic_max_size);
-            check_dynamic(cfg,
-                cfg.max_prepare,
-                "HTTP/1.1 200 OK\r\n"
-                "\r\n");
-        }
-
-        {
-            // to_eof, max_prepare
-            request_parser::config cfg;
-            BOOST_TEST(
-                dynamic_max_size == 7);
-            check_dynamic(cfg,
-                1,
-                "HTTP/1.1 200 OK\r\n"
-                "\r\n"
-                "1234567");
-        }
-
-        {
-            // fill capacity first
-            http::polystore ctx;
-            request_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
-            pr.reset();
-            pr.start();
-            pieces in({
-                "HTTP/1.1 200 OK\r\n"
-                "\r\n" });
-            read_header(pr, in, ec);
-            std::unique_ptr<std::string> ps(new std::string());
-            auto &s = *ps;
-            // requires small string optimization
-            BOOST_TEST_GT(s.capacity(), 0);
-            BOOST_TEST_LT(s.capacity(), 5000);
-            pr.set_body(capy::string_buffer(&s));
-            pr.parse(ec);
-            BOOST_TEST(ec == error::need_data);
-            auto dest = pr.prepare();
-            BOOST_TEST_LE(
-                capy::buffer_size(dest),
-                s.capacity());
-            pr.reset();
-        }
-
-        {
-            // set_body, no room
-            request_parser::config cfg;
-            BOOST_TEST(
-                dynamic_max_size == 7);
-            check_dynamic(cfg,
-                0,
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 10\r\n"
-                "\r\n"
-                "1234567890",
-                error::buffer_overflow);
-        }
-
         // prepare when complete
         {
             request_parser::config cfg;
@@ -912,64 +741,6 @@ struct parser_test
         // incidentally from other tests
 
         //
-        // set_body
-        //
-
-        {
-            // no-op
-            http::polystore ctx;
-            response_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
-            pr.reset();
-            pr.start();
-            pieces in = {
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 3\r\n"
-                "\r\n"
-                "123" };
-            read(pr, in, ec);
-            BOOST_TEST(! ec.failed());
-            BOOST_TEST(pr.is_complete());
-            std::unique_ptr<std::string> ps(new std::string());
-            auto &s = *ps;
-            pr.set_body(
-                capy::string_buffer(&s));
-            pr.parse(ec);
-            BOOST_TEST(! ec.failed());
-            pr.reset();
-        }
-
-        {
-            // commit too large
-            http::polystore ctx;
-            response_parser::config cfg;
-            install_parser_service(ctx, cfg);
-            system::error_code ec;
-            response_parser pr(ctx);
-            pr.reset();
-            pr.start();
-            pieces in = {
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 3\r\n"
-                "\r\n"
-                "123" };
-            read(pr, in, ec);
-            BOOST_TEST(! ec.failed());
-            BOOST_TEST(pr.is_complete());
-
-            std::unique_ptr<std::string> ps(new std::string());
-            auto &s = *ps;
-            pr.set_body(
-                capy::string_buffer(&s));
-            BOOST_TEST_THROWS(
-                pr.commit(1),
-                std::logic_error);
-            pr.reset();
-        }
-
-        //
         // complete
         //
 
@@ -1066,29 +837,6 @@ struct parser_test
                 ec, condition::need_more_input);
             BOOST_TEST_NO_THROW(
                 pr.commit_eof());
-        }
-
-        {
-            // set_body
-            response_parser pr(ctx_);
-            pr.reset();
-            pr.start();
-            system::error_code ec;
-            pieces in = {
-                "HTTP/1.1 200 OK\r\n"
-                "\r\n" };
-            read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
-            BOOST_TEST(! pr.is_complete());
-            std::unique_ptr<std::string> ps(new std::string());
-            auto &s = *ps;
-            pr.set_body(
-                capy::string_buffer(&s));
-            pr.parse(ec);
-            BOOST_TEST(ec == error::need_data);
-            BOOST_TEST_NO_THROW(
-                pr.commit_eof());
-            pr.reset();
         }
 
         {
@@ -1305,45 +1053,6 @@ struct parser_test
     }
 
     void
-    check_dynamic(
-        pieces& in,
-        system::error_code ex = {})
-    {
-        char buf[5];
-        system::error_code ec;
-
-        start();
-        read_header(*pr_, in, ec);
-        if(ec.failed())
-        {
-            BOOST_TEST_EQ(ec, ex);
-            pr_->reset();
-            return;
-        }
-        capy::flat_buffer fb(buf, sizeof(buf));
-        pr_->set_body(std::ref(fb));
-        if(! pr_->is_complete())
-        {
-            read(*pr_, in, ec);
-            if(ec.failed())
-            {
-                BOOST_TEST_EQ(ec, ex);
-                pr_->reset();
-                return;
-            }
-            if(! BOOST_TEST(pr_->is_complete()))
-                return;
-        }
-        BOOST_TEST(
-            test_to_string(fb.data()) == sb_);
-        // this should be a no-op
-        read(*pr_, in, ec);
-        BOOST_TEST(! ec.failed());
-        BOOST_TEST(
-            test_to_string(fb.data()) == sb_);
-    }
-
-    void
     check_sink(
         pieces& in,
         system::error_code ex = {})
@@ -1390,12 +1099,6 @@ struct parser_test
             check_in_place(in, ex);
         }
 
-        // dynamic
-        {
-            auto in = in0;
-            check_dynamic(in, ex);
-        }
-
         // sink
         {
             auto in = in0;
@@ -1412,12 +1115,6 @@ struct parser_test
         {
             auto in = in0;
             check_in_place(in, ex);
-        }
-
-        // dynamic
-        {
-            auto in = in0;
-            check_dynamic(in, ex);
         }
 
         // sink

@@ -11,7 +11,6 @@
 #define BOOST_HTTP_IMPL_SINK_HPP
 
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/range.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/assert.hpp>
 
