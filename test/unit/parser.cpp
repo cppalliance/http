@@ -16,6 +16,9 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/flat_buffer.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
+#include <boost/capy/cond.hpp>
+#include <boost/capy/test/fuse.hpp>
+#include <boost/capy/test/read_stream.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/core/polystore.hpp>
 
@@ -1892,6 +1895,201 @@ struct parser_test
 TEST_SUITE(
     parser_test,
     "boost.http.parser");
+
+struct parser_coro_test
+{
+    void
+    testReadHeader()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 5\r\n"
+                "\r\n"
+                "hello");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto [ec] = co_await pr.read_header(rs);
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST(pr.got_header());
+            BOOST_TEST_EQ(pr.get().status_int(), 200);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testAsReadSource()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 13\r\n"
+                "\r\n"
+                "Hello, World!");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.as_read_source(rs);
+
+            char buf[64];
+            auto [ec, n] = co_await source.read(capy::make_buffer(buf));
+            if(ec.failed() && ec != capy::cond::eof)
+                co_return;
+
+            BOOST_TEST_EQ(n, 13u);
+            BOOST_TEST(std::string_view(buf, n) == "Hello, World!");
+            BOOST_TEST(pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadSourceCompleteFill()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 26\r\n"
+                "\r\n"
+                "abcdefghijklmnopqrstuvwxyz");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.as_read_source(rs);
+
+            // Small buffer - should fill completely
+            char buf[10];
+            auto [ec, n] = co_await source.read(capy::make_buffer(buf));
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST_EQ(n, 10u);
+            BOOST_TEST(std::string_view(buf, n) == "abcdefghij");
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadSourceEof()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 5\r\n"
+                "\r\n"
+                "hello");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.as_read_source(rs);
+
+            char buf[64];
+            auto [ec1, n1] = co_await source.read(capy::make_buffer(buf));
+            if(ec1.failed() && ec1 != capy::cond::eof)
+                co_return;
+
+            // Body is 5 bytes, so we get EOF with partial fill
+            BOOST_TEST(ec1 == capy::cond::eof);
+            BOOST_TEST_EQ(n1, 5u);
+            BOOST_TEST(pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadSourceChunked()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n"
+                "5\r\nHello\r\n"
+                "7\r\n, World\r\n"
+                "0\r\n\r\n");
+
+            http::polystore ctx;
+            install_parser_service(ctx, response_parser::config{});
+            response_parser pr(ctx);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.as_read_source(rs);
+
+            std::string body;
+            char buf[64];
+            bool completed = false;
+
+            for(;;)
+            {
+                auto [ec, n] = co_await source.read(capy::make_buffer(buf));
+                body.append(buf, n);
+                if(ec == capy::cond::eof)
+                {
+                    completed = true;
+                    break;
+                }
+                if(ec.failed())
+                    co_return;
+            }
+
+            if(completed)
+            {
+                BOOST_TEST(body == "Hello, World");
+                BOOST_TEST(pr.is_complete());
+            }
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    run()
+    {
+        testReadHeader();
+        testAsReadSource();
+        testReadSourceCompleteFill();
+        testReadSourceEof();
+        testReadSourceChunked();
+    }
+};
+
+TEST_SUITE(
+    parser_coro_test,
+    "boost.http.parser_coro");
 
 } // http
 } // boost

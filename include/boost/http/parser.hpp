@@ -15,10 +15,18 @@
 #include <boost/http/detail/header.hpp>
 #include <boost/http/detail/type_traits.hpp>
 #include <boost/http/detail/workspace.hpp>
+#include <boost/http/error.hpp>
 #include <boost/http/header_limits.hpp>
 #include <boost/http/sink.hpp>
 
+#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/buffer_pair.hpp>
+#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/concept/read_stream.hpp>
+#include <boost/capy/cond.hpp>
+#include <boost/capy/error.hpp>
+#include <boost/capy/io_result.hpp>
+#include <boost/capy/task.hpp>
 #include <boost/core/span.hpp>
 #include <boost/http/core/polystore_fwd.hpp>
 
@@ -37,33 +45,22 @@ class static_response;
 /** A parser for HTTP/1 messages.
 
     This parser uses a single block of memory allocated
-    during construction and guarantees that it will
-    never exceed the specified size. This space will be
-    reused for parsing multiple HTTP messages (one
-    message at a time).
+    during construction and guarantees it will never
+    exceed the specified size. This space is reused for
+    parsing multiple HTTP messages ( one at a time ).
 
-    The allocated space will be utilized for the
-    following purposes:
+    The allocated space is used for:
 
-    @li Provide a mutable buffer sequence for reading
-        raw input (for example, from a socket).
-    @li Storing HTTP headers and provide a non-owning,
-        read-only view that allows efficient access and
-        iteration through header names and values.
-    @li Offering O(1) access to important HTTP headers,
-        including the request method, target, and
-        response status code.
-    @li Storing all or part of an HTTP message and
-        provide the necessary interfaces for retrieving
-        it.
-    @li Taking ownership of user-provided elastic
-        buffer and Sink objects.
-    @li Storing the necessary state for inflate
-        algorithms.
+    @li Buffering raw input from a socket
+    @li Storing HTTP headers with O(1) access to
+        method, target, and status code
+    @li Storing all or part of an HTTP message body
+    @li Taking ownership of user-provided Sink objects
+    @li Storing state for inflate algorithms
 
-    The parser is strict. Any malformed inputs
-    according to the documented HTTP ABNFs is treated
-    as an unrecoverable error.
+    The parser is strict. Any malformed input according
+    to the HTTP ABNFs is treated as an unrecoverable
+    error.
 
     @see
         @ref response_parser,
@@ -74,13 +71,14 @@ class parser
 public:
     struct config_base;
 
-    /** The type of buffer returned from @ref prepare.
-    */
+    template<capy::ReadStream Stream>
+    class read_source_adapter;
+
+    /// Buffer type returned from @ref prepare.
     using mutable_buffers_type =
         boost::span<capy::mutable_buffer const>;
 
-    /** The type of buffer returned from @ref pull_body.
-    */
+    /// Buffer type returned from @ref pull_body.
     using const_buffers_type =
         boost::span<capy::const_buffer const>;
 
@@ -90,56 +88,15 @@ public:
     //
     //--------------------------------------------
 
-    /** Return true if a complete header has been
-        parsed.
-
-        @see
-            @ref response_parser::get,
-            @ref request_parser::get.
-    */
+    /// Check if a complete header has been parsed.
     BOOST_HTTP_DECL
     bool
     got_header() const noexcept;
 
-    /** Return true if a complete message has been
-        parsed.
-
-        Calling @ref start prepares the parser to
-        process the next message in the stream.
-
-        @see
-            @ref body,
-            @ref start.
-    */
+    /// Check if a complete message has been parsed.
     BOOST_HTTP_DECL
     bool
     is_complete() const noexcept;
-
-#if 0
-    /** Return true if any input was committed.
-    */
-    BOOST_HTTP_DECL
-    bool
-    got_some() const noexcept;
-
-    /** Return true if the end of the stream was reached.
-
-        The end of the stream is encountered
-        when @ref commit_eof was called and there
-        is no more data left to parse.
-
-        When the end of stream is reached, the
-        function @ref reset must be called
-        to start parsing a new stream.
-    */
-    bool
-    is_end_of_stream() const noexcept
-    {
-        return
-            got_eof_ &&
-            (st_ == state::reset || st_ >= state::complete_in_place);
-    }
-#endif
 
     //--------------------------------------------
     //
@@ -147,176 +104,130 @@ public:
     //
     //--------------------------------------------
 
-    /** Prepare for a new stream.
-
-        This function must be called before parsing  
-        the first message in a new stream.
-    */
+    /// Prepare for a new stream.
     BOOST_HTTP_DECL
     void
     reset() noexcept;
 
     /** Prepare for a new message.
 
-        This function must be called before parsing
-        a new message.
-
         @par Preconditions
-        This function may only be called if it is the
-        first message being read from the stream or if
-        the previous message has been fully parsed.
+        Either this is the first message in the stream,
+        or the previous message has been fully parsed.
     */
     BOOST_HTTP_DECL
     void
     start();
 
-    /** Prepares the input buffer.
+    /** Return a buffer for reading input.
 
-        The returned buffer sequence will either
-        reference the internal buffer or, if in use,
-        the attached elastic buffer.
-
-        A call to @ref commit is required to
-        report the number of written bytes used,
-        if any.
+        After writing to the buffer, call @ref commit
+        with the number of bytes written.
 
         @par Preconditions
-        This function may only be called after a call
-        to @ref parse completes with an error code
-        equal to @ref condition::need_more_input.
+        @ref parse returned @ref condition::need_more_input.
+
+        @par Postconditions
+        A call to @ref commit or @ref commit_eof is
+        required before calling @ref prepare again.
 
         @par Exception Safety
         Strong guarantee.
 
         @return A non-empty mutable buffer.
 
-        @see
-            @ref commit,
-            @ref commit_eof.
+        @see @ref commit, @ref commit_eof.
     */
     BOOST_HTTP_DECL
     mutable_buffers_type
     prepare();
 
-    /** Commit bytes to the input buffer
-
-        After committing, a call to @ref parse
-        is required to process the input.
+    /** Commit bytes to the input buffer.
 
         @par Preconditions
-        @li `n <= capy::buffer_size(this->prepare())`
-        @li No previous call to @ref commit
-        @li No previous call to @ref commit_eof
+        @li `n <= capy::buffer_size( this->prepare() )`
+        @li No prior call to @ref commit or @ref commit_eof
+            since the last @ref prepare
 
         @par Postconditions
-        All buffer sequences previously obtained  
-        from @ref prepare are invalidated.
+        Buffers from @ref prepare are invalidated.
 
         @par Exception Safety
         Strong guarantee.
 
-        @param n The number of bytes written to
-        the input buffer.
+        @param n The number of bytes written.
 
-        @see
-            @ref parse,
-            @ref prepare.
+        @see @ref parse, @ref prepare.
     */
     BOOST_HTTP_DECL
     void
     commit(
         std::size_t n);
 
-    /** Indicate there will be no more input.
+    /** Indicate end of input.
+
+        Call this when the underlying stream has closed
+        and no more data will arrive.
 
         @par Postconditions
-        All buffer sequences previously obtained
-        from @ref prepare are invalidated.
+        Buffers from @ref prepare are invalidated.
 
         @par Exception Safety
         Strong guarantee.
 
-        @see
-            @ref parse,
-            @ref prepare.
+        @see @ref parse, @ref prepare.
     */
     BOOST_HTTP_DECL
     void
     commit_eof();
 
-    /** Parse pending input data
+    /** Parse pending input data.
 
-        This function attempts to parse the pending
-        input data.
+        Returns immediately after the header is fully
+        parsed to allow @ref set_body_limit or
+        @ref set_body to be called before body parsing
+        begins. If an error occurs during body parsing,
+        the parsed header remains valid and accessible.
 
-        This function returns immediately after the
-        header is fully parsed. This is because certain
-        operations, like @ref set_body_limit, must be
-        performed before the body parsing starts. It is
-        also more efficient to attach the body at this
-        stage to avoid extra copy operations. The body
-        parsing will begin in a subsequent call.
+        When `ec == condition::need_more_input`, read
+        more data and call @ref commit before calling
+        this function again.
 
-        If an error occurs during body parsing, the
-        parsed header will remain valid and accessible.
-
-        If @ref set_body was called previously, this
-        function first tries to transfer available
-        body data to the Sink or elastic buffer.
-
-        When `ec == condition::need_more`, more input
-        needs to be read into the internal buffer
-        before continuing parsing.
-
-        When `ec == error::end_of_stream`, all
-        messages have been parsed, and the stream has
-        closed cleanly. The parser can be reused for  
-        a new stream after a call to @ref reset.
+        When `ec == error::end_of_stream`, the stream
+        closed cleanly. Call @ref reset to reuse the
+        parser for a new stream.
 
         @param ec Set to the error, if any occurred.
 
-        @see
-            @ref start,
-            @ref prepare,
-            @ref commit,
-            @ref commit_eof.
+        @see @ref start, @ref prepare, @ref commit.
     */
     BOOST_HTTP_DECL
     void
     parse(
         system::error_code& ec);
 
-    /** Return true if a body has been attached.
-    */
+    /// Check if a body sink has been attached.
     BOOST_HTTP_DECL
     bool
     is_body_set() const noexcept;
 
-    /** Attach a Sink body.
+    /** Attach a Sink for receiving body data.
 
-        This function constructs a Sink for transferring
-        the message body to it.
+        Constructs a Sink in-place and transfers body
+        data to it during subsequent @ref parse calls.
 
-        A call to @ref parse is required after this
-        function for the changes to take effect. This
-        should automatically happen during the next
-        IO layer call when reading the body.
-
-        The parser destroys Sink object when:
+        The parser destroys the Sink when:
         @li `this->is_complete() == true`
         @li An unrecoverable parsing error occurs
         @li The parser is destroyed
 
         @par Example
         @code
-        response_parser pr{ctx};
+        response_parser pr( ctx );
         pr.start();
-
-        read_header(stream, pr);
-
-        pr.set_body<file_sink>("example.zip", file_mode::write_new);
-
-        read(stream, pr);
+        co_await pr.read_header( stream );
+        pr.set_body<file_sink>( "example.zip", file_mode::write_new );
+        // ... continue reading body
         @endcode
 
         @par Preconditions
@@ -330,22 +241,16 @@ public:
 
         @par Exception Safety
         Strong guarantee.
-        Exceptions thrown if there is insufficient
-        internal buffer to emplace the Sink object.
 
-        @throw std::length_error if there is
-        insufficient internal buffer space to to
-        emplace the Sink object.
+        @throws std::length_error Insufficient internal
+        buffer space for the Sink object.
 
-        @param args Arguments to be passed to the
-        `Sink` constructor.
+        @param args Arguments forwarded to the Sink
+        constructor.
 
-        @return A reference to the constructed Sink object.
+        @return Reference to the constructed Sink.
 
-        @see
-            @ref sink,
-            @ref file_sink,
-            @ref parse.
+        @see @ref sink, @ref file_sink.
     */
     template<
         class Sink,
@@ -355,49 +260,45 @@ public:
     Sink&
     set_body(Args&&... args);
 
-    /** Sets a maximum body size for the current message.
+    /** Set maximum body size for the current message.
 
-        This value overrides the default limit
-        defined by @ref config_base::body_limit,
-        but applies *only* to the current message.
-        The limit is automatically reset to the
-        default for subsequent messages.
+        Overrides @ref config_base::body_limit for this
+        message only. The limit resets to the default
+        for subsequent messages.
+
+        @par Preconditions
+        `this->got_header() == true` and body parsing
+        has not started.
 
         @par Exception Safety
         Strong guarantee.
 
-        @par Preconditions
-        Can be called after @ref start and before
-        parsing the message body. It can be called
-        right after `this->got_header() == true`.
-
         @param n The body size limit in bytes.
 
-        @see
-            @ref config_base::body_limit.
+        @see @ref config_base::body_limit.
     */
     BOOST_HTTP_DECL
     void
     set_body_limit(std::uint64_t n);
 
-    /** Return the available body data.
+    /** Return available body data.
 
-        The returned buffer may become invalid if
-        any modifying member function is called.
+        Use this to incrementally process body data
+        without attaching a Sink. Call @ref consume_body
+        after processing to release the buffer space.
 
         @par Example
         @code
-        request_parser pr{ctx};
+        request_parser pr( ctx );
         pr.start();
+        co_await pr.read_header( stream );
 
-        read_header(stream, pr);
-
-        while(!pr.is_complete())
+        while( ! pr.is_complete() )
         {
-            read_some(stream, pr);
-            capy::const_buffer_span cbs = pr.pull_body();
-            // Do something with cbs ...
-            pr.consume_body(buffer::buffer_size(cbs));
+            co_await read_some( stream, pr );
+            auto cbs = pr.pull_body();
+            // process cbs ...
+            pr.consume_body( capy::buffer_size( cbs ) );
         }
         @endcode
 
@@ -405,92 +306,150 @@ public:
         @li `this->got_header() == true`
         @li No previous call to @ref set_body
 
+        @par Postconditions
+        The returned buffer is invalidated by any
+        modifying member function.
+
         @par Exception Safety
         Strong guarantee.
 
-        @return An instance of @ref const_buffers_type
-        containing the parsed body data.
+        @return Buffers containing available body data.
 
-        @see
-            @ref consume_body.
+        @see @ref consume_body.
     */
     BOOST_HTTP_DECL
     const_buffers_type
     pull_body();
 
-    /** Consumes bytes from the available body data.
+    /** Consume bytes from available body data.
 
         @par Preconditions
-        @code
-        this->got_header() == true && n <= capy::buffer_size(this->pull_body())
-        @endcode
+        `n <= capy::buffer_size( this->pull_body() )`
 
         @par Exception Safety
         Strong guarantee.
 
-        @param n The number of bytes to consume from
-        the available body data.
+        @param n The number of bytes to consume.
 
-        @see
-            @ref pull_body.
+        @see @ref pull_body.
     */
     BOOST_HTTP_DECL
     void
     consume_body(std::size_t n);
 
-    /** Return the complete body as a contiguous buffer.
+    /** Return the complete body.
 
-        This function is useful when the entire
-        parsed message fits within the internal
-        buffer allocated by the parser.
+        Use this when the entire message fits within
+        the parser's internal buffer.
 
         @par Example
         @code
-        request_parser pr{ctx};
+        request_parser pr( ctx );
         pr.start();
-
-        read_header(stream, pr);
-        // Read the entire body
-        read(stream, pr);
-
-        string_view body = pr.body();
+        co_await pr.read_header( stream );
+        // ... read entire body ...
+        core::string_view body = pr.body();
         @endcode
-
-        @par Exception Safety
-        Strong guarantee.
 
         @par Preconditions
         @li `this->is_complete() == true`
         @li No previous call to @ref set_body
         @li No previous call to @ref consume_body
 
-        @return A string view to the complete body
-        data.
+        @par Exception Safety
+        Strong guarantee.
 
-        @see
-            @ref is_complete.
+        @return A string view of the complete body.
+
+        @see @ref is_complete.
     */
     BOOST_HTTP_DECL
     core::string_view
     body() const;
 
-    /** Return any leftover data
+    /** Return unconsumed data past the last message.
 
-        This is used to forward unconsumed data
-        that could lie past the last message.
-        For example on a CONNECT request there
-        could be additional protocol-dependent
-        data that we want to retrieve.
+        Use this after an upgrade or CONNECT request
+        to retrieve protocol-dependent data that
+        follows the HTTP message.
 
-        @return A string view to leftover data.
+        @return A string view of leftover data.
 
-        @see
-            @ref metadata::upgrade, @ref metadata::connection.
+        @see @ref metadata::upgrade, @ref metadata::connection.
     */
-    // VFALCO rename to get_leftovers()?
     BOOST_HTTP_DECL
     core::string_view
     release_buffered_data() noexcept;
+
+    /** Asynchronously read the HTTP headers.
+
+        Reads from the stream until the headers are
+        complete or an error occurs.
+
+        @par Preconditions
+        @li @ref reset has been called
+        @li @ref start has been called
+
+        @param stream The stream to read from.
+
+        @return An awaitable yielding `(error_code)`.
+
+        @see @ref read.
+    */
+    template<capy::ReadStream Stream>
+    capy::task<capy::io_result<>>
+    read_header(Stream& stream);
+
+    /** Asynchronously read body data into buffers.
+
+        Reads from the stream and copies body data into
+        the provided buffers with complete-fill semantics.
+        Returns `capy::error::eof` when the body is complete.
+
+        @par Preconditions
+        @li @ref reset has been called
+        @li @ref start has been called
+
+        @param stream The stream to read from.
+
+        @param buffers The buffers to read into.
+
+        @return An awaitable yielding `(error_code,std::size_t)`.
+
+        @see @ref read_header.
+    */
+    template<capy::ReadStream Stream, capy::MutableBufferSequence MB>
+    capy::task<capy::io_result<std::size_t>>
+    read(Stream& stream, MB const& buffers);
+
+    /** Return an adapter for reading body data.
+
+        The returned adapter satisfies @ref capy::ReadSource.
+        Buffers are filled completely before returning, or
+        `capy::error::eof` is returned when the body is
+        complete.
+
+        @par Example
+        @code
+        response_parser pr( ctx );
+        pr.reset();
+        pr.start();
+        co_await pr.read_header( socket );
+
+        auto body = pr.as_read_source( socket );
+        char buf[4096];
+        auto [ ec, n ] = co_await body.read( capy::mutable_buffer( buf ) );
+        @endcode
+
+        @param stream The stream to read from.
+
+        @return An adapter satisfying @ref capy::ReadSource.
+
+        @see @ref read_header, @ref capy::ReadSource.
+    */
+    template<capy::ReadStream Stream>
+    read_source_adapter<Stream>
+    as_read_source(Stream& stream);
 
 private:
     friend class request_parser;
@@ -524,84 +483,94 @@ private:
     impl* impl_;
 };
 
-//------------------------------------------------
+/** Adapter for reading body data from a parser.
 
-/** Parser configuration settings.
+    Satisfies @ref capy::ReadSource with complete-fill
+    semantics.
+
+    @see @ref parser::as_read_source.
 */
+template<capy::ReadStream Stream>
+class parser::read_source_adapter
+{
+    Stream& stream_;
+    parser& pr_;
+
+public:
+    /// Construct an adapter for reading body data.
+    read_source_adapter(Stream& stream, parser& pr) noexcept
+        : stream_(stream)
+        , pr_(pr)
+    {
+    }
+
+    /** Asynchronously read body data into buffers.
+
+        @return An awaitable yielding `(error_code,std::size_t)`.
+    */
+    template<capy::MutableBufferSequence MB>
+    capy::task<capy::io_result<std::size_t>>
+    read(MB const& buffers);
+};
+
+/// Parser configuration settings.
 struct parser::config_base
 {
-    /** Configurable limits for HTTP headers.
-    */
+    /// Limits for HTTP headers.
     header_limits headers;
 
-    /** Maximum allowed size of the content body.
+    /** Maximum content body size ( after decoding ).
 
-        Measured after decoding.
+        @see @ref set_body_limit.
     */
     std::uint64_t body_limit = 64 * 1024;
 
     /** Enable Brotli Content-Encoding decoding.
 
-        Requires `boost::http::brotli::decode_service` to be
-        installed, otherwise an exception is thrown.
+        Requires `boost::http::brotli::decode_service`.
     */
     bool apply_brotli_decoder = false;
 
     /** Enable Deflate Content-Encoding decoding.
 
-        Requires `boost::zlib::inflate_service` to be
-        installed, otherwise an exception is thrown.
+        Requires `boost::zlib::inflate_service`.
     */
     bool apply_deflate_decoder = false;
 
     /** Enable Gzip Content-Encoding decoding.
 
-        Requires `boost::zlib::inflate_service` to be
-        installed, otherwise an exception is thrown.
+        Requires `boost::zlib::inflate_service`.
     */
     bool apply_gzip_decoder = false;
 
-    /** Zlib window bits (9–15).
+    /** Zlib window bits ( 9-15 ).
 
         Must be >= the value used during compression.
-        Larger windows improve decompression at the cost
-        of memory. If a larger window is required than
-        allowed, decoding fails with
-        `http::zlib::error::data_err`.
+        Larger windows improve decompression at the
+        cost of memory. If the window is too small,
+        decoding fails with `http::zlib::error::data_err`.
     */
     int zlib_window_bits = 15;
 
-    /** Minimum space for payload buffering.
+    /** Minimum payload buffer size.
 
-        This value controls the following
-        settings:
-
-        @li The smallest allocated size of
-            the buffers used for reading
-            and decoding the payload.
-
-        @li The lowest guaranteed size of
-            an in-place body.
-
-        @li The largest size used to reserve
-            space in dynamic buffer bodies
-            when the payload size is not
-            known ahead of time.
+        Controls:
+        @li Smallest read/decode buffer allocation
+        @li Minimum guaranteed in-place body size
+        @li Reserve size for dynamic buffers when
+            payload size is unknown
 
         This cannot be zero.
     */
     std::size_t min_buffer = 4096;
 
-    /** Largest permissible output size in prepare.
+    /** Maximum buffer size from @ref prepare.
 
         This cannot be zero.
     */
     std::size_t max_prepare = std::size_t(-1);
 
-    /** Space to reserve for type-erasure.
-
-        This space is used for storing an instance
-        of the user-provided @ref sink objects.
+    /** Space reserved for type-erased @ref sink objects.
     */
     std::size_t max_type_erase = 1024;
 };
@@ -610,29 +579,21 @@ struct parser::config_base
 
     @par Example
     @code
-    // default configuration settings for response_parser
-    install_parser_service(ctx, response_parser::config{});
-
-    response_parser pr(ctx);
+    install_parser_service( ctx, response_parser::config{} );
+    response_parser pr( ctx );
     @endcode
 
     @par Exception Safety
     Strong guarantee.
 
-    @throw std::invalid_argument If the service is
+    @throws std::invalid_argument The service is
     already installed on the context.
 
-    @param ctx Reference to the context on which
-    the service should be installed.
+    @param ctx The context to install the service on.
 
-    @param cfg Configuration settings for the
-    @ref response_parser or @ref request_parser.
+    @param cfg Configuration settings for the parser.
 
-    @see
-        @ref response_parser::config,
-        @ref response_parser,
-        @ref request_parser::config,
-        @ref request_parser.
+    @see @ref response_parser, @ref request_parser.
 */
 BOOST_HTTP_DECL
 void
@@ -640,9 +601,123 @@ install_parser_service(
     http::polystore& ctx,
     parser::config_base const& cfg);
 
+template<class Sink, class... Args, class>
+Sink&
+parser::
+set_body(Args&&... args)
+{
+    if(is_body_set())
+        detail::throw_logic_error();
+    if(! got_header())
+        detail::throw_logic_error();
+
+    auto& s = ws().emplace<Sink>(
+        std::forward<Args>(args)...);
+
+    set_body_impl(s);
+    return s;
+}
+
+template<capy::ReadStream Stream>
+capy::task<capy::io_result<>>
+parser::
+read_header(Stream& stream)
+{
+    for(;;)
+    {
+        system::error_code ec;
+        parse(ec);
+
+        if(got_header())
+            co_return {};
+
+        if(ec != condition::need_more_input)
+            co_return {ec};
+
+        auto mbs = prepare();
+        auto [read_ec, n] = co_await stream.read_some(mbs);
+
+        if(read_ec == capy::cond::eof)
+            commit_eof();
+        else if(!read_ec.failed())
+            commit(n);
+        else
+            co_return {read_ec};
+    }
+}
+
+template<capy::ReadStream Stream, capy::MutableBufferSequence MB>
+capy::task<capy::io_result<std::size_t>>
+parser::
+read(Stream& stream, MB const& buffers)
+{
+    if(capy::buffer_size(buffers) == 0)
+        co_return {{}, 0};
+
+    std::size_t total = 0;
+    auto dest = buffers;
+
+    for(;;)
+    {
+        system::error_code ec;
+        parse(ec);
+
+        if(got_header())
+        {
+            auto body_data = pull_body();
+            if(capy::buffer_size(body_data) > 0)
+            {
+                std::size_t copied = capy::buffer_copy(dest, body_data);
+                consume_body(copied);
+                total += copied;
+                dest = capy::sans_prefix(dest, copied);
+
+                if(capy::buffer_size(dest) == 0)
+                    co_return {{}, total};
+            }
+
+            if(is_complete())
+                co_return {capy::error::eof, total};
+        }
+
+        if(ec == condition::need_more_input)
+        {
+            auto mbs = prepare();
+            auto [read_ec, n] = co_await stream.read_some(mbs);
+
+            if(read_ec == capy::cond::eof)
+                commit_eof();
+            else if(!read_ec.failed())
+                commit(n);
+            else
+                co_return {read_ec, total};
+
+            continue;
+        }
+
+        if(ec.failed())
+            co_return {ec, total};
+    }
+}
+
+template<capy::ReadStream Stream>
+template<capy::MutableBufferSequence MB>
+capy::task<capy::io_result<std::size_t>>
+parser::read_source_adapter<Stream>::
+read(MB const& buffers)
+{
+    return pr_.read(stream_, buffers);
+}
+
+template<capy::ReadStream Stream>
+parser::read_source_adapter<Stream>
+parser::
+as_read_source(Stream& stream)
+{
+    return read_source_adapter<Stream>(stream, *this);
+}
+
 } // http
 } // boost
-
-#include <boost/http/impl/parser.hpp>
 
 #endif
