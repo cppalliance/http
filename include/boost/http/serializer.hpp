@@ -11,15 +11,13 @@
 #ifndef BOOST_HTTP_SERIALIZER_HPP
 #define BOOST_HTTP_SERIALIZER_HPP
 
-#include <boost/http/detail/config.hpp>
+#include <boost/http/config.hpp>
 #include <boost/http/detail/workspace.hpp>
 
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/result.hpp>
 
-#include <cstdint>
-#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -28,96 +26,6 @@ namespace http {
 
 // Forward declaration
 class message_base;
-struct serializer_config_impl;
-
-//------------------------------------------------
-
-/** Serializer configuration settings.
-
-    @see @ref make_serializer_config,
-         @ref serializer.
-*/
-struct serializer_config
-{
-    /** Enable Brotli Content-Encoding.
-    */
-    bool apply_brotli_encoder = false;
-
-    /** Enable Deflate Content-Encoding.
-    */
-    bool apply_deflate_encoder = false;
-
-    /** Enable Gzip Content-Encoding.
-    */
-    bool apply_gzip_encoder = false;
-
-    /** Brotli compression quality (0-11).
-
-        Higher values yield better but slower compression.
-    */
-    std::uint32_t brotli_comp_quality = 5;
-
-    /** Brotli compression window size (10-24).
-
-        Larger windows improve compression but increase
-        memory usage.
-    */
-    std::uint32_t brotli_comp_window = 18;
-
-    /** Zlib compression level (0-9).
-
-        0 = no compression, 1 = fastest, 9 = best.
-    */
-    int zlib_comp_level = 6;
-
-    /** Zlib window bits (9-15).
-
-        Controls the history buffer size.
-    */
-    int zlib_window_bits = 15;
-
-    /** Zlib memory level (1-9).
-
-        Higher values use more memory, but offer faster
-        and more efficient compression.
-    */
-    int zlib_mem_level = 8;
-
-    /** Minimum buffer size for payloads (must be > 0).
-    */
-    std::size_t payload_buffer = 8192;
-
-    /** Reserved space for type-erasure storage.
-    */
-    std::size_t max_type_erase = 1024;
-};
-
-/** Serializer configuration with computed fields.
-
-    Derived from @ref serializer_config with additional
-    precomputed values for workspace allocation.
-
-    @see @ref make_serializer_config.
-*/
-struct serializer_config_impl : serializer_config
-{
-    /// Total workspace allocation size.
-    std::size_t space_needed;
-};
-
-/** Create serializer configuration with computed values.
-
-    @param cfg User-provided configuration settings.
-
-    @return Shared pointer to configuration with
-            precomputed fields.
-
-    @see @ref serializer_config,
-         @ref serializer.
-*/
-BOOST_HTTP_DECL
-std::shared_ptr<serializer_config_impl const>
-make_serializer_config(serializer_config cfg);
 
 //------------------------------------------------
 

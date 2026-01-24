@@ -11,12 +11,11 @@
 #ifndef BOOST_HTTP_PARSER_HPP
 #define BOOST_HTTP_PARSER_HPP
 
-#include <boost/http/detail/config.hpp>
+#include <boost/http/config.hpp>
 #include <boost/http/detail/header.hpp>
 #include <boost/http/detail/type_traits.hpp>
 #include <boost/http/detail/workspace.hpp>
 #include <boost/http/error.hpp>
-#include <boost/http/header_limits.hpp>
 #include <boost/http/sink.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
@@ -42,117 +41,6 @@ class request_parser;
 class response_parser;
 class static_request;
 class static_response;
-struct parser_config_impl;
-
-//------------------------------------------------
-
-/** Parser configuration settings.
-
-    @see @ref make_parser_config,
-         @ref request_parser,
-         @ref response_parser.
-*/
-struct parser_config
-{
-    /// Limits for HTTP headers.
-    header_limits headers;
-
-    /** Maximum content body size (after decoding).
-
-        @see @ref parser::set_body_limit.
-    */
-    std::uint64_t body_limit;
-
-    /** Enable Brotli Content-Encoding decoding.
-    */
-    bool apply_brotli_decoder = false;
-
-    /** Enable Deflate Content-Encoding decoding.
-    */
-    bool apply_deflate_decoder = false;
-
-    /** Enable Gzip Content-Encoding decoding.
-    */
-    bool apply_gzip_decoder = false;
-
-    /** Zlib window bits (9-15).
-
-        Must be >= the value used during compression.
-        Larger windows improve decompression at the
-        cost of memory.
-    */
-    int zlib_window_bits = 15;
-
-    /** Minimum payload buffer size.
-
-        Controls:
-        @li Smallest read/decode buffer allocation
-        @li Minimum guaranteed in-place body size
-        @li Reserve size for dynamic buffers when
-            payload size is unknown
-
-        This cannot be zero.
-    */
-    std::size_t min_buffer = 4096;
-
-    /** Maximum buffer size from @ref parser::prepare.
-
-        This cannot be zero.
-    */
-    std::size_t max_prepare = std::size_t(-1);
-
-    /** Space reserved for type-erased @ref sink objects.
-    */
-    std::size_t max_type_erase = 1024;
-
-    /** Constructor.
-
-        @param server True for server mode (parsing requests,
-               64KB body limit), false for client mode
-               (parsing responses, 1MB body limit).
-    */
-    explicit
-    parser_config(bool server = true) noexcept
-        : body_limit(server ? 64 * 1024 : 1024 * 1024)
-    {
-    }
-};
-
-/** Parser configuration with computed fields.
-
-    Derived from @ref parser_config with additional
-    precomputed values for workspace allocation.
-
-    @see @ref make_parser_config.
-*/
-struct parser_config_impl : parser_config
-{
-    /// Total workspace allocation size.
-    std::size_t space_needed;
-
-    /// Space for decompressor state.
-    std::size_t max_codec;
-
-    /// Maximum overread bytes.
-    BOOST_HTTP_DECL
-    std::size_t
-    max_overread() const noexcept;
-};
-
-/** Create parser configuration with computed values.
-
-    @param cfg User-provided configuration settings.
-
-    @return Shared pointer to configuration with
-            precomputed fields.
-
-    @see @ref parser_config,
-         @ref request_parser,
-         @ref response_parser.
-*/
-BOOST_HTTP_DECL
-std::shared_ptr<parser_config_impl const>
-make_parser_config(parser_config cfg);
 
 //------------------------------------------------
 

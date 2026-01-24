@@ -226,23 +226,6 @@ clamp(
 
 //------------------------------------------------
 
-std::shared_ptr<serializer_config_impl const>
-make_serializer_config(serializer_config cfg)
-{
-    auto impl = std::make_shared<serializer_config_impl>();
-    static_cast<serializer_config&>(*impl) = std::move(cfg);
-
-    std::size_t space_needed = 0;
-    space_needed += impl->payload_buffer;
-    space_needed += impl->max_type_erase;
-
-    impl->space_needed = space_needed;
-
-    return impl;
-}
-
-//------------------------------------------------
-
 class serializer::impl
 {
     friend stream;
