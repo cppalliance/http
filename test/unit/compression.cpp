@@ -10,8 +10,11 @@
 
 #include <boost/capy/ex/execution_context.hpp>
 #include <boost/core/detail/string_view.hpp>
-#include <boost/http/brotli.hpp>
 #include <boost/http/zlib.hpp>
+
+#ifdef BOOST_HTTP_HAS_BROTLI
+#include <boost/http/brotli.hpp>
+#endif
 
 #include "test_helpers.hpp"
 
@@ -98,6 +101,7 @@ struct compression_test
         BOOST_TEST(std::string(reinterpret_cast<char*>(decompressed.data()), decompressed_size) == input);
     }
 
+#ifdef BOOST_HTTP_HAS_BROTLI
     void
     test_brotli_encode_decode()
     {
@@ -139,6 +143,7 @@ struct compression_test
         BOOST_TEST_EQ(decompressed_size, input.size());
         BOOST_TEST(std::string(reinterpret_cast<char*>(decompressed.data()), decompressed_size) == input);
     }
+#endif
 
     void
     test_multiple_contexts()
@@ -159,7 +164,9 @@ struct compression_test
     void run()
     {
         test_zlib_deflate_inflate();
+#ifdef BOOST_HTTP_HAS_BROTLI
         test_brotli_encode_decode();
+#endif
         test_multiple_contexts();
     }
 };
