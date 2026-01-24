@@ -14,7 +14,7 @@
 #include <boost/http/response_parser.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/flat_buffer.hpp>
+#include <boost/capy/buffers/flat_dynamic_buffer.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/test/fuse.hpp>
@@ -88,9 +88,9 @@ This all speaks to DynamicBuffer as the correct API
     pr.set_body( capy::make_any( s ) ); // reference semantics
 
     parser pr;
-    capy::flat_buffer fb;
+    capy::flat_dynamic_buffer fb;
     ...
-    pr.set_body( fb ); // flat_buffer&
+    pr.set_body( fb ); // flat_dynamic_buffer&
 */
 //------------------------------------------------
 

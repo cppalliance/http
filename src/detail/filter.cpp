@@ -60,10 +60,10 @@ process(
         capy::remove_prefix(out, rs.out_bytes);
         capy::remove_prefix(in, rs.in_bytes);
 
-        if(capy::buffer_size(out) == 0)
+        if(capy::buffer_empty(out))
             return rv;
 
-        if(capy::buffer_size(in) == 0 && rs.out_bytes < ob.size())
+        if(capy::buffer_empty(in) && rs.out_bytes < ob.size())
             return rv;
     }
 }

@@ -157,7 +157,7 @@ public:
         }
 
         // Zero-sized buffer completes immediately
-        if(capy::buffer_size(buffers) == 0)
+        if(capy::buffer_empty(buffers))
             co_return {{}, 0};
 
         std::size_t bytes = 0;
@@ -255,7 +255,7 @@ public:
                 co_return {cbs.error()};
             }
 
-            if(capy::buffer_size(*cbs) == 0)
+            if(capy::buffer_empty(*cbs))
             {
                 sr_.consume(0);
                 continue;

@@ -17,7 +17,7 @@
 #include <boost/assert.hpp>
 #include <boost/capy/buffers/circular_dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/flat_buffer.hpp>
+#include <boost/capy/buffers/flat_dynamic_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/http/brotli/decode.hpp>
@@ -426,7 +426,7 @@ public:
     /*
         | fb |     cb0     |     cb1     | C | T | f |
 
-        fb  flat_buffer         headers.max_size
+        fb  flat_dynamic_buffer         headers.max_size
         cb0 circular_buffer     min_buffer
         cb1 circular_buffer     min_buffer
         C   codec               max_codec
@@ -545,7 +545,7 @@ class parser::impl
     std::size_t body_avail_;
     std::size_t nprepare_;
 
-    capy::flat_buffer fb_;
+    capy::flat_dynamic_buffer fb_;
     capy::circular_dynamic_buffer cb0_;
     capy::circular_dynamic_buffer cb1_;
 

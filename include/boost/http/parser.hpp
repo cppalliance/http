@@ -669,7 +669,7 @@ capy::task<capy::io_result<std::size_t>>
 parser::
 read(Stream& stream, MB const& buffers)
 {
-    if(capy::buffer_size(buffers) == 0)
+    if(capy::buffer_empty(buffers))
         co_return {{}, 0};
 
     std::size_t total = 0;
@@ -690,7 +690,7 @@ read(Stream& stream, MB const& buffers)
                 total += copied;
                 dest = capy::sans_prefix(dest, copied);
 
-                if(capy::buffer_size(dest) == 0)
+                if(capy::buffer_empty(dest))
                     co_return {{}, total};
             }
 
