@@ -268,9 +268,9 @@ operator()(route_params& rp) const
         if(ec || n1 == 0)
             break;
 
-        auto [ec] =co_await rp.write(capy::const_buffer(buffer, n1));
+        auto [ec2] =co_await rp.write(capy::const_buffer(buffer, n1));
         if(ec.failed())
-            co_return {ec};
+            co_return {ec2};
         remaining -= static_cast<std::int64_t>(n1);
     }
 
