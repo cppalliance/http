@@ -23,8 +23,6 @@ cpp:boost::http::fields_base[fields_base]
 
 cpp:boost::http::file[file]
 
-cpp:boost::http::file_sink[file_sink]
-
 cpp:boost::http::file_source[file_source]
 
 cpp:boost::http::header_limits[header_limits]
@@ -50,8 +48,6 @@ cpp:boost::http::response_parser[response_parser]
 cpp:boost::http::serializer[serializer]
 
 | **Types (2/2)**
-
-cpp:boost::http::sink[sink]
 
 cpp:boost::http::source[source]
 
@@ -106,8 +102,6 @@ cpp:boost::http::status_class[status_class]
 cpp:boost::http::version[version]
 
 **Type Traits**
-
-cpp:boost::http::is_sink[is_sink]
 
 cpp:boost::http::is_source[is_source]
 

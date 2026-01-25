@@ -9,6 +9,7 @@
 //
 
 #include <boost/http/detail/except.hpp>
+#include <boost/http/detail/workspace.hpp>
 #include <boost/http/error.hpp>
 #include <boost/http/parser.hpp>
 #include <boost/http/static_request.hpp>
@@ -421,15 +422,7 @@ class parser::impl
         header,
         header_done,
         body,
-        set_body,
-        complete_in_place,
-        complete
-    };
-
-    enum class style
-    {
-        in_place,
-        sink,
+        complete,
     };
 
     std::shared_ptr<parser_config_impl const> cfg_;
@@ -451,10 +444,8 @@ class parser::impl
     capy::const_buffer_pair cbp_;
 
     std::unique_ptr<detail::filter> filter_;
-    sink* sink_;
 
     state state_;
-    style style_;
     bool got_header_;
     bool got_eof_;
     bool head_response_;
@@ -482,7 +473,7 @@ public:
     bool
     is_complete() const noexcept
     {
-        return state_ >= state::complete_in_place;
+        return state_ == state::complete;
     }
 
     static_request const&
@@ -504,12 +495,6 @@ public:
 
         // TODO: use a union
         return reinterpret_cast<static_response const&>(m_);
-    }
-
-    bool
-    is_body_set() const noexcept
-    {
-        return style_ != style::in_place;
     }
 
     void
@@ -549,18 +534,14 @@ public:
 
         case state::header_done:
         case state::body:
-        case state::set_body:
             // current message is incomplete
             detail::throw_logic_error();
 
-        case state::complete_in_place:
+        case state::complete:
+        {
             // remove available body.
             if(is_plain())
                 cb0_.consume(body_avail_);
-            BOOST_FALLTHROUGH;
-
-        case state::complete:
-        {
             // move leftovers to front
 
             ws_.clear();
@@ -625,7 +606,6 @@ public:
         m_.h_.cap = ws_.size();
 
         state_ = state::header;
-        style_ = style::in_place;
 
         // reset to the configured default
         body_limit_ = cfg_->body_limit;
@@ -637,7 +617,6 @@ public:
         nprepare_ = 0;
 
         filter_.reset();
-        sink_ = nullptr;
 
         got_header_ = false;
         head_response_ = head_response;
@@ -698,53 +677,41 @@ public:
             }
             else
             {
-                switch(style_)
-                {
-                default:
-                case style::in_place:
-                case style::sink:
-                {
-                    std::size_t n = cb0_.capacity();
-                    n = clamp(n, cfg_->max_prepare);
+                // plain payload
+                std::size_t n = cb0_.capacity();
+                n = clamp(n, cfg_->max_prepare);
 
-                    if(m_.payload() == payload::size)
+                if(m_.payload() == payload::size)
+                {
+                    if(n > payload_remain_)
                     {
-                        if(n > payload_remain_)
-                        {
-                            std::size_t overread =
-                                n - static_cast<std::size_t>(payload_remain_);
-                            if(overread > cfg_->max_overread())
-                                n = static_cast<std::size_t>(payload_remain_) +
-                                    cfg_->max_overread();
-                        }
+                        std::size_t overread =
+                            n - static_cast<std::size_t>(payload_remain_);
+                        if(overread > cfg_->max_overread())
+                            n = static_cast<std::size_t>(payload_remain_) +
+                                cfg_->max_overread();
                     }
-                    else
-                    {
-                        BOOST_ASSERT(
-                            m_.payload() == payload::to_eof);
-                        // No more messages can be pipelined, so
-                        // limit the output buffer to the remaining
-                        // body limit plus one byte to detect
-                        // exhaustion.
-                        std::uint64_t r = body_limit_remain();
-                        if(r != std::uint64_t(-1))
-                            r += 1;
-                        n = clamp(r, n);
-                    }
+                }
+                else
+                {
+                    BOOST_ASSERT(
+                        m_.payload() == payload::to_eof);
+                    // No more messages can be pipelined, so
+                    // limit the output buffer to the remaining
+                    // body limit plus one byte to detect
+                    // exhaustion.
+                    std::uint64_t r = body_limit_remain();
+                    if(r != std::uint64_t(-1))
+                        r += 1;
+                    n = clamp(r, n);
+                }
 
-                    nprepare_ = n;
-                    mbp_ = cb0_.prepare(n);
-                    return detail::make_span(mbp_);
-                }
-                }
+                nprepare_ = n;
+                mbp_ = cb0_.prepare(n);
+                return detail::make_span(mbp_);
             }
         }
 
-        case state::set_body:
-            // forgot to call parse()
-            detail::throw_logic_error();
-
-        case state::complete_in_place:
         case state::complete:
             // already complete
             detail::throw_logic_error();
@@ -816,13 +783,6 @@ public:
             break;
         }
 
-        case state::set_body:
-        {
-            // forgot to call parse()
-            detail::throw_logic_error();
-        }
-
-        case state::complete_in_place:
         case state::complete:
         {
             // already complete
@@ -859,11 +819,6 @@ public:
             got_eof_ = true;
             break;
 
-        case state::set_body:
-            // forgot to call parse()
-            detail::throw_logic_error();
-
-        case state::complete_in_place:
         case state::complete:
             // can't commit eof when complete
             detail::throw_logic_error();
@@ -944,7 +899,7 @@ public:
                 auto overread = fb_.size() - m_.h_.size;
                 cb0_ = { ws_.data(), overread, overread };
                 ws_.reserve_front(overread);
-                state_ = state::complete_in_place;
+                state_ = state::complete;
                 return;
             }
 
@@ -1054,18 +1009,12 @@ public:
 
         case state::body:
         {
-        do_body:
             BOOST_ASSERT(state_ == state::body);
             BOOST_ASSERT(m_.payload() != payload::none);
             BOOST_ASSERT(m_.payload() != payload::error);
 
             auto set_state_to_complete = [&]()
             {
-                if(style_ == style::in_place)
-                {
-                    state_ = state::complete_in_place;
-                    return;
-                }
                 state_ = state::complete;
             };
 
@@ -1175,44 +1124,21 @@ public:
                             return;
                         }
 
-                        switch(style_)
+                        // in_place style
+                        auto copied = capy::buffer_copy(
+                            cb1_.prepare(cb1_.capacity()),
+                            chunk);
+                        chunk_remain_ -= copied;
+                        body_avail_   += copied;
+                        body_total_   += copied;
+                        cb0_.consume(copied);
+                        cb1_.commit(copied);
+                        if(cb1_.capacity() == 0
+                            && !chunked_body_ended)
                         {
-                        case style::in_place:
-                        {
-                            auto copied = capy::buffer_copy(
-                                cb1_.prepare(cb1_.capacity()),
-                                chunk);
-                            chunk_remain_ -= copied;
-                            body_avail_   += copied;
-                            body_total_   += copied;
-                            cb0_.consume(copied);
-                            cb1_.commit(copied);
-                            if(cb1_.capacity() == 0
-                                && !chunked_body_ended)
-                            {
-                                ec = BOOST_HTTP_ERR(
-                                    error::in_place_overflow);
-                                return;
-                            }
-                            break;
-                        }
-                        case style::sink:
-                        {
-                            auto sink_rs = sink_->write(
-                                chunk, !chunked_body_ended);
-                            chunk_remain_ -= sink_rs.bytes;
-                            body_total_   += sink_rs.bytes;
-                            cb0_.consume(sink_rs.bytes);
-                            if(sink_rs.ec.failed())
-                            {
-                                body_avail_ += 
-                                    chunk_avail - sink_rs.bytes;
-                                ec  = sink_rs.ec;
-                                state_ = state::reset;
-                                return;
-                            }
-                            break;
-                        }
+                            ec = BOOST_HTTP_ERR(
+                                error::in_place_overflow);
+                            return;
                         }
 
                         if(chunked_body_ended)
@@ -1268,39 +1194,15 @@ public:
                         }
                     }
 
-                    switch(style_)
+                    // in_place style
+                    payload_remain_ -= payload_avail;
+                    body_avail_     += payload_avail;
+                    body_total_     += payload_avail;
+                    if(cb0_.capacity() == 0 && !is_complete)
                     {
-                    case style::in_place:
-                    {
-                        payload_remain_ -= payload_avail;
-                        body_avail_     += payload_avail;
-                        body_total_     += payload_avail;
-                        if(cb0_.capacity() == 0 && !is_complete)
-                        {
-                            ec = BOOST_HTTP_ERR(
-                                error::in_place_overflow);
-                            return;
-                        }
-                        break;
-                    }
-                    case style::sink:
-                    {
-                        payload_remain_ -= payload_avail;
-                        body_total_     += payload_avail;
-                        auto sink_rs = sink_->write(
-                            capy::prefix(cb0_.data(), payload_avail),
-                            !is_complete);
-                        cb0_.consume(sink_rs.bytes);
-                        if(sink_rs.ec.failed())
-                        {
-                            body_avail_ += 
-                                payload_avail - sink_rs.bytes;
-                            ec  = sink_rs.ec;
-                            state_ = state::reset;
-                            return;
-                        }
-                        break;
-                    }
+                        ec = BOOST_HTTP_ERR(
+                            error::in_place_overflow);
+                        return;
                     }
 
                     if(is_complete)
@@ -1326,42 +1228,6 @@ public:
             break;
         }
 
-        case state::set_body:
-        case state::complete_in_place:
-        {
-            auto& body_buf = is_plain() ? cb0_ : cb1_;
-
-            switch(style_)
-            {
-            case style::in_place:
-                return; // no-op
-            case style::sink:
-            {
-                auto rs = sink_->write(
-                    capy::prefix(body_buf.data(), body_avail_),
-                    state_ == state::set_body);
-                body_buf.consume(rs.bytes);
-                body_avail_ -= rs.bytes;
-                if(rs.ec.failed())
-                {
-                    ec  = rs.ec;
-                    state_ = state::reset;
-                    return;
-                }
-                break;
-            }
-            }
-
-            if(state_ == state::set_body)
-            {
-                state_ = state::body;
-                goto do_body;
-            }
-
-            state_ = state::complete;
-            break;
-        }
-
         case state::complete:
             break;
         }
@@ -1376,7 +1242,7 @@ public:
         case state::header_done:
             return {};
         case state::body:
-        case state::complete_in_place:
+        case state::complete:
             cbp_ = capy::prefix(
                 (is_plain() ? cb0_ : cb1_).data(),
                 body_avail_);
@@ -1394,7 +1260,7 @@ public:
         case state::header_done:
             return;
         case state::body:
-        case state::complete_in_place:
+        case state::complete:
             n = clamp(n, body_avail_);
             (is_plain() ? cb0_ : cb1_).consume(n);
             body_avail_ -= n;
@@ -1408,7 +1274,7 @@ public:
     body() const
     {
         // Precondition violation
-        if(state_ != state::complete_in_place)
+        if(state_ != state::complete)
             detail::throw_logic_error();
 
         // Precondition violation
@@ -1432,7 +1298,7 @@ public:
         case state::header_done:
             body_limit_ = n;
             break;
-        case state::complete_in_place:
+        case state::complete:
             // only allowed for empty bodies
             if(body_total_ == 0)
                 break;
@@ -1441,22 +1307,6 @@ public:
             // set body_limit before parsing the body
             detail::throw_logic_error();
         }
-    }
-
-    void
-    set_body(sink& s) noexcept
-    {
-        sink_ = &s;
-        style_ = style::sink;
-        nprepare_ = 0; // invalidate
-        if(state_ == state::body)
-            state_ = state::set_body;
-    }
-
-    detail::workspace&
-    ws() noexcept
-    {
-        return ws_;
     }
 
 private:
@@ -1500,35 +1350,15 @@ private:
             payload_avail -= f_rs.in_bytes;
             body_total_   += f_rs.out_bytes;
 
-            switch(style_)
+            // in_place style
+            cb1_.commit(f_rs.out_bytes);
+            body_avail_ += f_rs.out_bytes;
+            if(cb1_.capacity() == 0 &&
+                !f_rs.finished && f_rs.in_bytes == 0)
             {
-            case style::in_place:
-            {
-                cb1_.commit(f_rs.out_bytes);
-                body_avail_ += f_rs.out_bytes;
-                if(cb1_.capacity() == 0 &&
-                    !f_rs.finished && f_rs.in_bytes == 0)
-                {
-                    ec = BOOST_HTTP_ERR(
-                        error::in_place_overflow);
-                    goto done;
-                }
-                break;
-            }
-            case style::sink:
-            {
-                cb1_.commit(f_rs.out_bytes);
-                auto sink_rs = sink_->write(
-                    cb1_.data(), !f_rs.finished || more);
-                cb1_.consume(sink_rs.bytes);
-                if(sink_rs.ec.failed())
-                {
-                    ec  = sink_rs.ec;
-                    state_ = state::reset;
-                    goto done;
-                }
-                break;
-            }
+                ec = BOOST_HTTP_ERR(
+                    error::in_place_overflow);
+                goto done;
             }
 
             if(f_rs.ec.failed())
@@ -1550,11 +1380,7 @@ private:
             if(f_rs.finished)
             {
                 if(!more)
-                {
-                    state_ = (style_ == style::in_place)
-                        ? state::complete_in_place
-                        : state::complete;
-                }
+                    state_ = state::complete;
                 break;
             }
         }
@@ -1755,30 +1581,6 @@ safe_get_response() const
 {
     BOOST_ASSERT(impl_);
     return impl_->safe_get_response();
-}
-
-detail::workspace&
-parser::
-ws() noexcept
-{
-    BOOST_ASSERT(impl_);
-    return impl_->ws();
-}
-
-bool
-parser::
-is_body_set() const noexcept
-{
-    BOOST_ASSERT(impl_);
-    return impl_->is_body_set();
-}
-
-void
-parser::
-set_body_impl(sink& s) noexcept
-{
-    BOOST_ASSERT(impl_);
-    impl_->set_body(s);
 }
 
 } // http

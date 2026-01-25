@@ -70,7 +70,6 @@ purposes:
   and response status code.
 - Store all or part of an HTTP message and provide the necessary interfaces for
   retrieving it.
-- Take ownership of user-provided dynamic buffers and sink objects.
 - Store the necessary state for inflate algorithms.
 
 Using a `parser` that works with a fixed-size buffer, an application can ensure
@@ -205,52 +204,6 @@ while(!pr.is_complete())
     auto cbs = pr.pull_body();
     pr.consume_body(buffer::buffer_size(cbs));
 }
-----
-
-
-=== Sink Body
-
-A `sink`-like body enables algorithms to read body contents directly from the
-`parser` 's internal buffer, either in one step or multiple steps, such as when
-writing the body to a file. The `parser` takes ownership of the `sink` object,
-drives the algorithm, and provides a `ConstBufferSequence` by calling the
-relevant virtual interfaces on the `sink`.
-
-[source,cpp]
-----
-response_parser pr{ctx};
-pr.start();
-
-read_header(stream, pr);
-
-http::file file;
-system::error_code ec;
-file.open("./index.html", file_mode::write_new, ec);
-if(ec.failed())
-    return ec;
-
-pr.set_body<file_body>(std::move(file));
-
-read(stream, pr);
-----
-
-
-=== Dynamic Buffer
-
-Using the dynamic buffer interface, the `parser` can store body contents
-directly into the user-provided buffer or container, avoiding double copying.
-
-[source,cpp]
-----
-response_parser pr{ctx};
-pr.start();
-
-read_header(stream, pr);
-
-std::string body;
-pr.set_body(buffers::dynamic_for(body));
-
-read(stream, pr);
 ----
 
 

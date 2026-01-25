@@ -164,55 +164,6 @@ core::string_view body = pr.body();
 
 This works well for small bodies that fit in the parser's buffer.
 
-=== Dynamic Buffer Body
-
-For larger bodies, attach an elastic buffer:
-
-[source,cpp]
-----
-// After headers complete
-std::string body_storage;
-pr.set_body(capy::string_dynamic_buffer(&body_storage));
-
-// Continue parsing - body goes into body_storage
-while (!pr.is_complete())
-{
-    auto buf = pr.prepare();
-    std::size_t n = socket.read_some(buf);
-    pr.commit(n);
-    
-    system::error_code ec;
-    pr.parse(ec);
-    if (ec && ec != condition::need_more_input)
-        throw system::system_error(ec);
-}
-
-// Body is now in body_storage
-std::cout << "Body size: " << body_storage.size() << "\n";
-----
-
-=== Sink Body
-
-For streaming or when you need custom processing, use a sink:
-
-[source,cpp]
-----
-// Write body directly to file
-pr.set_body<file_sink>("upload.bin", file_mode::write_new);
-
-while (!pr.is_complete())
-{
-    auto buf = pr.prepare();
-    std::size_t n = socket.read_some(buf);
-    pr.commit(n);
-    
-    system::error_code ec;
-    pr.parse(ec);
-    if (ec && ec != condition::need_more_input)
-        throw system::system_error(ec);
-}
-----
-
 === Pull-Based Body
 
 For maximum control, pull body chunks manually:
@@ -346,36 +297,6 @@ Common errors include:
 * Header size exceeded
 * Body size exceeded
 * Incomplete chunked encoding
-
-== Custom Sinks
-
-Implement the `sink` interface to handle body data your way:
-
-[source,cpp]
-----
-class my_sink : public sink
-{
-    std::vector<char>& output_;
-    
-public:
-    explicit my_sink(std::vector<char>& out)
-        : output_(out)
-    {
-    }
-
-protected:
-    results on_write(capy::const_buffer b, bool more) override
-    {
-        auto p = static_cast<char const*>(b.data());
-        output_.insert(output_.end(), p, p + b.size());
-        return { {}, b.size() };
-    }
-};
-
-// Use it
-std::vector<char> body_data;
-pr.set_body<my_sink>(body_data);
-----
 
 == Next Steps
 

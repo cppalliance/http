@@ -156,41 +156,6 @@ struct parser_test
         }
     };
 
-    struct test_sink : sink
-    {
-        std::string s;
-        std::size_t max_size_;
-
-        explicit
-        test_sink(
-            std::size_t max_size =
-                std::size_t(-1)) noexcept
-            : max_size_(max_size)
-        {
-        }
-
-        results
-        on_write(
-            capy::const_buffer b,
-            bool more) noexcept override
-        {
-            (void)more;
-            results rv;
-            auto const space =
-                max_size_ - s.size();
-            auto n = b.size();
-            if( n > space)
-                n = space;
-            s.append(static_cast<
-                char const*>(b.data()),
-                    b.size());
-            rv.bytes = n;
-            if(n < b.size())
-                rv.ec = error::buffer_overflow;
-            return rv;
-        }
-    };
-
     //--------------------------------------------
 
     using pieces = std::vector<
@@ -1039,57 +1004,12 @@ struct parser_test
     }
 
     void
-    check_sink(
-        pieces& in,
-        system::error_code ex = {})
-    {
-        system::error_code ec;
-
-        start();
-        read_header(*pr_, in, ec);
-        if(ec.failed())
-        {
-            BOOST_TEST_EQ(ec, ex);
-            pr_->reset();
-            return;
-        }
-        auto& ts = pr_->set_body<test_sink>();
-        if(! pr_->is_complete())
-        {
-            read(*pr_, in, ec);
-            if(ec.failed())
-            {
-                BOOST_TEST_EQ(ec, ex);
-                pr_->reset();
-                return;
-            }
-            if(! BOOST_TEST(pr_->is_complete()))
-                return;
-        }
-        BOOST_TEST(ts.s == sb_);
-        // this should be a no-op
-        read(*pr_, in, ec);
-        BOOST_TEST(! ec.failed());
-        BOOST_TEST(ts.s == sb_);
-    }
-
-
-    void
     check_req_1(
         pieces const& in0,
         system::error_code ex)
     {
-        // in_place
-        {
-            auto in = in0;
-            check_in_place(in, ex);
-        }
-
-        // sink
-        {
-            auto in = in0;
-            check_sink(in, ex);
-        }
+        auto in = in0;
+        check_in_place(in, ex);
     }
 
     void
@@ -1097,17 +1017,8 @@ struct parser_test
         pieces const& in0,
         system::error_code ex)
     {
-        // in_place
-        {
-            auto in = in0;
-            check_in_place(in, ex);
-        }
-
-        // sink
-        {
-            auto in = in0;
-            check_sink(in, ex);
-        }
+        auto in = in0;
+        check_in_place(in, ex);
     }
 
     // void Fn( pieces& )

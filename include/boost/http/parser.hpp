@@ -14,9 +14,7 @@
 #include <boost/http/config.hpp>
 #include <boost/http/detail/header.hpp>
 #include <boost/http/detail/type_traits.hpp>
-#include <boost/http/detail/workspace.hpp>
 #include <boost/http/error.hpp>
-#include <boost/http/sink.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/buffer_pair.hpp>
@@ -57,7 +55,6 @@ class static_response;
     @li Storing HTTP headers with O(1) access to
         method, target, and status code
     @li Storing all or part of an HTTP message body
-    @li Taking ownership of user-provided Sink objects
     @li Storing state for inflate algorithms
 
     The parser is strict. Any malformed input according
@@ -184,10 +181,10 @@ public:
     /** Parse pending input data.
 
         Returns immediately after the header is fully
-        parsed to allow @ref set_body_limit or
-        @ref set_body to be called before body parsing
-        begins. If an error occurs during body parsing,
-        the parsed header remains valid and accessible.
+        parsed to allow @ref set_body_limit to be called
+        before body parsing begins. If an error occurs
+        during body parsing, the parsed header remains
+        valid and accessible.
 
         When `ec == condition::need_more_input`, read
         more data and call @ref commit before calling
@@ -205,60 +202,6 @@ public:
     void
     parse(
         system::error_code& ec);
-
-    /// Check if a body sink has been attached.
-    BOOST_HTTP_DECL
-    bool
-    is_body_set() const noexcept;
-
-    /** Attach a Sink for receiving body data.
-
-        Constructs a Sink in-place and transfers body
-        data to it during subsequent @ref parse calls.
-
-        The parser destroys the Sink when:
-        @li `this->is_complete() == true`
-        @li An unrecoverable parsing error occurs
-        @li The parser is destroyed
-
-        @par Example
-        @code
-        response_parser pr( ctx );
-        pr.start();
-        co_await pr.read_header( stream );
-        pr.set_body<file_sink>( "example.zip", file_mode::write_new );
-        // ... continue reading body
-        @endcode
-
-        @par Preconditions
-        @li `this->got_header() == true`
-        @li No previous call to @ref set_body
-
-        @par Constraints
-        @code
-        is_sink<Sink>::value == true
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-
-        @throws std::length_error Insufficient internal
-        buffer space for the Sink object.
-
-        @param args Arguments forwarded to the Sink
-        constructor.
-
-        @return Reference to the constructed Sink.
-
-        @see @ref sink, @ref file_sink.
-    */
-    template<
-        class Sink,
-        class... Args,
-        class = typename std::enable_if<
-            is_sink<Sink>::value>::type>
-    Sink&
-    set_body(Args&&... args);
 
     /** Set maximum body size for the current message.
 
@@ -283,9 +226,9 @@ public:
 
     /** Return available body data.
 
-        Use this to incrementally process body data
-        without attaching a Sink. Call @ref consume_body
-        after processing to release the buffer space.
+        Use this to incrementally process body data.
+        Call @ref consume_body after processing to
+        release the buffer space.
 
         @par Example
         @code
@@ -303,8 +246,7 @@ public:
         @endcode
 
         @par Preconditions
-        @li `this->got_header() == true`
-        @li No previous call to @ref set_body
+        `this->got_header() == true`
 
         @par Postconditions
         The returned buffer is invalidated by any
@@ -353,7 +295,6 @@ public:
 
         @par Preconditions
         @li `this->is_complete() == true`
-        @li No previous call to @ref set_body
         @li No previous call to @ref consume_body
 
         @par Exception Safety
@@ -491,14 +432,6 @@ private:
     static_response const&
     safe_get_response() const;
 
-    BOOST_HTTP_DECL
-    detail::workspace&
-    ws() noexcept;
-
-    BOOST_HTTP_DECL
-    void
-    set_body_impl(sink&) noexcept;
-
     impl* impl_;
 };
 
@@ -531,23 +464,6 @@ public:
     capy::task<capy::io_result<std::size_t>>
     read(MB const& buffers);
 };
-
-template<class Sink, class... Args, class>
-Sink&
-parser::
-set_body(Args&&... args)
-{
-    if(is_body_set())
-        detail::throw_logic_error();
-    if(! got_header())
-        detail::throw_logic_error();
-
-    auto& s = ws().emplace<Sink>(
-        std::forward<Args>(args)...);
-
-    set_body_impl(s);
-    return s;
-}
 
 template<capy::ReadStream Stream>
 capy::task<capy::io_result<>>
