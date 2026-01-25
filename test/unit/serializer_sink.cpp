@@ -170,7 +170,7 @@ struct serializer_sink_test
 
             response res;
             res.set_payload_size(13);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             std::string_view body = "Hello, World!";
@@ -210,7 +210,7 @@ struct serializer_sink_test
 
             response res;
             res.set_payload_size(5);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             // Write with eof=true in one call
@@ -247,7 +247,7 @@ struct serializer_sink_test
 
             response res;
             res.set_payload_size(0);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             // Empty buffer
@@ -282,7 +282,7 @@ struct serializer_sink_test
 
             response res;
             res.set_chunked(true);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             // First write
@@ -335,7 +335,7 @@ struct serializer_sink_test
 
             response res;
             res.set_chunked(true);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             std::string_view body = "test";
@@ -373,7 +373,7 @@ struct serializer_sink_test
 
             response res;
             res.set_chunked(true);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             // Close without writing any body
@@ -412,7 +412,7 @@ struct serializer_sink_test
             response res;
             res.set_payload_size(5);
             res.set(field::content_type, "text/plain");
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             std::string_view body = "hello";
@@ -454,7 +454,7 @@ struct serializer_sink_test
             response res;
             res.set_chunked(true);
             res.set(field::content_type, "text/plain");
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             std::string_view body = "chunked data";
@@ -501,7 +501,7 @@ struct serializer_sink_test
 
             response res;
             res.set_chunked(true);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             std::string_view body = "data";
@@ -535,7 +535,7 @@ struct serializer_sink_test
 
             response res;
             res.set_chunked(true);
-            auto sink = sr.get_sink(underlying);
+            auto sink = sr.sink_for(underlying);
             sr.start_stream(res);
 
             // Write some data

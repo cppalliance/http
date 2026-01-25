@@ -696,6 +696,12 @@ public:
     capy::mutable_buffer_pair
     stream_prepare()
     {
+        if(state_ == state::start)
+        {
+            if(!msg_)
+                detail::throw_logic_error();
+            start_stream(*msg_);
+        }
         if(filter_)
             return in_.prepare(in_.capacity());
         return out_prepare();
@@ -877,6 +883,14 @@ reset() noexcept
 {
     BOOST_ASSERT(impl_);
     impl_->reset();
+}
+
+void
+serializer::
+set_message(message_base const& m) noexcept
+{
+    BOOST_ASSERT(impl_);
+    impl_->msg_ = &m;
 }
 
 void

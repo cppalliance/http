@@ -17,7 +17,7 @@
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/write.hpp>
-#include <boost/capy/io/any_read_stream.hpp>
+#include <boost/capy/io/any_read_source.hpp>
 #include <boost/capy/io/any_write_sink.hpp>
 #include <boost/http/datastore.hpp>
 #include <boost/http/request.hpp>           // VFALCO forward declare?
@@ -92,7 +92,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     urls::url_view url; // The complete request target
     http::request req;
     http::response res;
-    capy::any_read_stream req_body;
+    capy::any_read_source req_body;
     capy::any_write_sink res_body;
     http::request_parser parser;
     http::serializer serializer;

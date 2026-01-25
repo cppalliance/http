@@ -190,6 +190,18 @@ public:
     void
     reset() noexcept;
 
+    /** Set the message to serialize.
+
+        Associates a message with the serializer for subsequent
+        streaming operations. The message is not copied; the caller
+        must ensure it remains valid until serialization completes.
+
+        @param m The message to associate.
+    */
+    BOOST_HTTP_DECL
+    void
+    set_message(message_base const& m) noexcept;
+
     /** Start serializing a message with an empty body
 
         This function prepares the serializer to create a message which
@@ -332,7 +344,7 @@ public:
 
         @par Example
         @code
-        auto sink = sr.get_sink(socket);
+        auto sink = sr.sink_for(socket);
         sr.start_stream(response);
         co_await sink.write(capy::make_buffer("Hello"));
         co_await sink.write_eof();
@@ -405,62 +417,12 @@ public:
     void
     start_stream();
 
-    /** Create a sink for writing body data to an output stream.
-
-        Uses the message associated at construction time.
-        Returns a @ref sink object that writes serialized body
-        data to the provided stream.
-
-        This is a convenience function combining @ref start_stream
-        with @ref sink construction.
-
-        @par Example
-        @code
-        capy::task<void>
-        send_response(capy::WriteStream auto& socket)
-        {
-            http::response res;
-            res.set_chunked(true);
-            http::serializer sr(cfg, res);
-
-            auto sink = sr.sink_for(socket);
-            co_await sink.write(capy::make_buffer("Hello"));
-            co_await sink.write_eof();
-        }
-        @endcode
-
-        @par Preconditions
-        A message was associated at construction.
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
-
-        @tparam Stream The output stream type satisfying
-            @ref capy::WriteStream.
-
-        @param ws The output stream to write serialized data to.
-
-        @return A @ref sink object for writing body data.
-
-        @throw std::logic_error if no message is associated.
-
-        @see @ref sink, @ref start_stream.
-    */
-    template<capy::WriteStream Stream>
-    sink<Stream>
-    sink_for(Stream& ws);
-
     /** Get a sink wrapper for writing body data.
 
         Returns a @ref sink object that can be used to write body
-        data to the provided stream. Unlike @ref sink_for, this
-        function does not call @ref start_stream. The caller must
-        call @ref start_stream before using the sink.
+        data to the provided stream. This function does not call
+        @ref start_stream. The caller must call @ref start_stream
+        before using the sink.
 
         This allows the sink to be obtained early (e.g., at
         construction time) and stored, with streaming started
@@ -469,7 +431,7 @@ public:
         @par Example
         @code
         http::serializer sr(cfg, res);
-        auto sink = sr.get_sink(socket);  // Get sink early
+        auto sink = sr.sink_for(socket);
         // ... later ...
         sr.start_stream();  // Configure for streaming
         co_await sink.write(capy::make_buffer("Hello"));
@@ -483,11 +445,11 @@ public:
 
         @return A @ref sink object for writing body data.
 
-        @see @ref sink, @ref sink_for, @ref start_stream.
+        @see @ref sink, @ref start_stream.
     */
     template<capy::WriteStream Stream>
     sink<Stream>
-    get_sink(Stream& ws) noexcept;
+    sink_for(Stream& ws) noexcept;
 
     /** Return the output area.
 
@@ -737,7 +699,7 @@ private:
         res.set_chunked(true);
         http::serializer sr(cfg, res);
 
-        auto sink = sr.get_sink(socket);
+        auto sink = sr.sink_for(socket);
         sr.start_stream();
         co_await sink.write(capy::make_buffer("Hello"));
         co_await sink.write_eof();
@@ -785,7 +747,7 @@ public:
     */
     template<capy::ConstBufferSequence CB>
     auto
-    write(CB const& buffers)
+    write(CB buffers)
         -> capy::task<capy::io_result<std::size_t>>
     {
         return write(buffers, false);
@@ -806,7 +768,7 @@ public:
     */
     template<capy::ConstBufferSequence CB>
     auto
-    write(CB const& buffers, bool eof)
+    write(CB buffers, bool eof)
         -> capy::task<capy::io_result<std::size_t>>
     {
         std::size_t bytes = capy::buffer_copy(sr_->stream_prepare(), buffers);
@@ -890,16 +852,8 @@ public:
 
 template<capy::WriteStream Stream>
 serializer::sink<Stream>
-serializer::get_sink(Stream& ws) noexcept
+serializer::sink_for(Stream& ws) noexcept
 {
-    return sink<Stream>(ws, *this);
-}
-
-template<capy::WriteStream Stream>
-serializer::sink<Stream>
-serializer::sink_for(Stream& ws)
-{
-    start_stream();
     return sink<Stream>(ws, *this);
 }
 
