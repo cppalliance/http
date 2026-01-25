@@ -228,8 +228,6 @@ clamp(
 
 class serializer::impl
 {
-    friend stream;
-
     enum class state
     {
         reset,
@@ -265,10 +263,21 @@ class serializer::impl
     bool filter_done_ = false;
 
 public:
+    message_base const* msg_ = nullptr;
+
     explicit
     impl(std::shared_ptr<serializer_config_impl const> cfg)
         : cfg_(std::move(cfg))
         , ws_(cfg_->space_needed)
+    {
+    }
+
+    impl(
+        std::shared_ptr<serializer_config_impl const> cfg,
+        message_base const& msg)
+        : cfg_(std::move(cfg))
+        , ws_(cfg_->space_needed)
+        , msg_(&msg)
     {
     }
 
@@ -653,7 +662,7 @@ public:
         more_input_ = true;
     }
 
-    stream
+    void
     start_stream(message_base const& m)
     {
         start_init(m);
@@ -674,7 +683,43 @@ public:
 
         prepped_.append({ m.h_.cbuf, m.h_.size });
         more_input_ = true;
-        return stream{ this };
+    }
+
+    std::size_t
+    stream_capacity() const
+    {
+        if(filter_)
+            return in_.capacity();
+        return out_capacity();
+    }
+
+    capy::mutable_buffer_pair
+    stream_prepare()
+    {
+        if(filter_)
+            return in_.prepare(in_.capacity());
+        return out_prepare();
+    }
+
+    void
+    stream_commit(std::size_t n)
+    {
+        if(n > stream_capacity())
+            detail::throw_invalid_argument();
+
+        if(filter_)
+            return in_.commit(n);
+
+        out_commit(n);
+    }
+
+    void
+    stream_close() noexcept
+    {
+        if(!filter_)
+            out_finish();
+
+        more_input_ = false;
     }
 
     bool
@@ -818,6 +863,14 @@ serializer(
 {
 }
 
+serializer::
+serializer(
+    std::shared_ptr<serializer_config_impl const> cfg,
+    message_base const& m)
+    : impl_(new impl(std::move(cfg), m))
+{
+}
+
 void
 serializer::
 reset() noexcept
@@ -834,13 +887,31 @@ start(message_base const& m)
     impl_->start_empty(m);
 }
 
-auto
+void
+serializer::
+start()
+{
+    if(!impl_ || !impl_->msg_)
+        detail::throw_logic_error();
+    impl_->start_empty(*impl_->msg_);
+}
+
+void
 serializer::
 start_stream(
-    message_base const& m) -> stream
+    message_base const& m)
 {
     BOOST_ASSERT(impl_);
-    return impl_->start_stream(m);
+    impl_->start_stream(m);
+}
+
+void
+serializer::
+start_stream()
+{
+    if(!impl_ || !impl_->msg_)
+        detail::throw_logic_error();
+    impl_->start_stream(*impl_->msg_);
 }
 
 auto
@@ -900,68 +971,35 @@ start_buffers(
 
 std::size_t
 serializer::
-stream::
-capacity() const
+stream_capacity() const
 {
-    // Precondition violation
-    if(!is_open())
-        detail::throw_logic_error();
-
-    if(impl_->filter_)
-        return impl_->in_.capacity();
-
-    return impl_->out_capacity();
+    BOOST_ASSERT(impl_);
+    return impl_->stream_capacity();
 }
 
 auto
 serializer::
-stream::
-prepare() ->
+stream_prepare() ->
     mutable_buffers_type
 {
-    // Precondition violation
-    if(!is_open())
-        detail::throw_logic_error();
-
-    if(impl_->filter_)
-        return impl_->in_.prepare(
-            impl_->in_.capacity());
-
-    return impl_->out_prepare();
+    BOOST_ASSERT(impl_);
+    return impl_->stream_prepare();
 }
 
 void
 serializer::
-stream::
-commit(std::size_t n)
+stream_commit(std::size_t n)
 {
-    // Precondition violation
-    if(!is_open())
-        detail::throw_logic_error();
-
-    // Precondition violation
-    if(n > capacity())
-        detail::throw_invalid_argument();
-
-    if(impl_->filter_)
-        return impl_->in_.commit(n);
-
-    impl_->out_commit(n);
+    BOOST_ASSERT(impl_);
+    impl_->stream_commit(n);
 }
 
 void
 serializer::
-stream::
-close() noexcept
+stream_close() noexcept
 {
-    if(!is_open())
-        return; // no-op;
-
-    if(!impl_->filter_)
-        impl_->out_finish();
-
-    impl_->more_input_ = false;
-    impl_ = nullptr;
+    BOOST_ASSERT(impl_);
+    impl_->stream_close();
 }
 
 } // http

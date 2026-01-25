@@ -126,7 +126,7 @@ void relay_body_contents(
     res.set_keep_alive(req.keep_alive());
     res.set_chunked(true);
 
-    auto stream = sr.start_stream(res);
+    sr.start_stream(res);
 
     auto write_some = [&]
     {
@@ -139,10 +139,10 @@ void relay_body_contents(
 
     for (;;)
     {
-        auto bs = stream.prepare(stream.capacity());
+        auto bs = sr.stream_prepare();
         system::error_code ec;
         auto length = src.read_some(bs, ec);
-        stream.commit(length);
+        sr.stream_commit(length);
 
         if (ec == asio::error::eof)
             break;
@@ -153,7 +153,7 @@ void relay_body_contents(
     }
 
     // Closing stream to signal serializer end of body contents
-    stream.close();
+    sr.stream_close();
 
     while (!sr.is_done())
         write_some();

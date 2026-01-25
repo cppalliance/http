@@ -22,7 +22,7 @@ namespace http {
     Four body styles for `serializer`
         * Specify a ConstBufferSequence
         * Specify a Source
-        * Write into a serializer::stream
+        * Write using stream_prepare/stream_commit
         * in-place
 
     struct half_duplex_client;

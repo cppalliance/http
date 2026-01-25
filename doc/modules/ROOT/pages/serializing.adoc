@@ -148,15 +148,15 @@ response res(status::ok);
 res.set(field::content_type, "application/octet-stream");
 // No content-length - will use chunked encoding
 
-auto stream = sr.start_stream(res);
+sr.start_stream(res);
 
 // Push body data as it becomes available
 while (has_more_data())
 {
     // Get buffer to write into
-    auto buf = stream.prepare();
+    auto buf = sr.stream_prepare();
     std::size_t n = generate_data(buf);
-    stream.commit(n);
+    sr.stream_commit(n);
     
     // Output is available
     auto result = sr.prepare();
@@ -168,7 +168,7 @@ while (has_more_data())
 }
 
 // Signal end of body
-stream.close();
+sr.stream_close();
 
 // Flush remaining output
 while (!sr.is_done())
@@ -195,14 +195,14 @@ response res(status::ok);
 res.set(field::content_type, "text/event-stream");
 // No Content-Length - chunked encoding will be used
 
-auto stream = sr.start_stream(res);
+sr.start_stream(res);
 
 // Send chunks as events occur
 for (auto& event : events)
 {
-    auto buf = stream.prepare();
+    auto buf = sr.stream_prepare();
     auto n = format_event(event, buf);
-    stream.commit(n);
+    sr.stream_commit(n);
     
     // Flush to client
     auto result = sr.prepare();
@@ -210,7 +210,7 @@ for (auto& event : events)
     sr.consume(capy::buffer_size(*result));
 }
 
-stream.close();
+sr.stream_close();
 ----
 
 == Content Encoding

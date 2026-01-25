@@ -14,10 +14,12 @@
 #include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/router_types.hpp>
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/buffer_param.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/http/datastore.hpp>
 #include <boost/capy/task.hpp>
+#include <boost/capy/write.hpp>
+#include <boost/capy/io/any_read_stream.hpp>
+#include <boost/capy/io/any_write_sink.hpp>
+#include <boost/http/datastore.hpp>
 #include <boost/http/request.hpp>           // VFALCO forward declare?
 #include <boost/http/request_parser.hpp>    // VFALCO forward declare?
 #include <boost/http/response.hpp>          // VFALCO forward declare?
@@ -29,14 +31,6 @@
 
 namespace boost {
 namespace http {
-
-struct acceptor_config
-{
-    bool is_ssl;
-    bool is_admin;
-};
-
-//-----------------------------------------------
 
 /** The coroutine task type returned by route handlers.
 
@@ -95,112 +89,20 @@ using route_task = capy::task<route_result>;
 struct BOOST_HTTP_SYMBOL_VISIBLE
     route_params : route_params_base
 {
-    /** The complete request target
-
-        This is the parsed directly from the start
-        line contained in the HTTP request and is
-        never modified.
-    */
-    urls::url_view url;
-
-    /** The HTTP request message
-    */
+    urls::url_view url; // The complete request target
     http::request req;
-
-    /** The HTTP response message
-    */
     http::response res;
-
-    /** The HTTP request parser
-        This can be used to take over reading the body.
-    */
+    capy::any_read_stream req_body;
+    capy::any_write_sink res_body;
     http::request_parser parser;
-
-    /** The HTTP response serializer
-    */
     http::serializer serializer;
-
-    /** A container for storing arbitrary data associated with the request.
-        This starts out empty for each new request.
-    */
-    http::datastore route_data;
-
-    /** A container for storing arbitrary data associated with the session.
-
-        This starts out empty for each new session.
-    */
+    http::datastore route_data; // arbitrary data
     http::datastore session_data;
 
-    /** Destructor
-    */
-    BOOST_HTTP_DECL
-    ~route_params();
+    BOOST_HTTP_DECL ~route_params();
+    BOOST_HTTP_DECL void reset(); // reset per request
+    BOOST_HTTP_DECL route_params& status(http::status code);
 
-    /** Reset the object for a new request.
-        This clears any state associated with
-        the previous request, preparing the object
-        for use with a new request.
-    */
-    BOOST_HTTP_DECL
-    void reset();
-
-    /** Set the status code of the response.
-        @par Example
-        @code
-        res.status( http::status::not_found );
-        @endcode
-        @param code The status code to set.
-        @return A reference to this response.
-    */
-    BOOST_HTTP_DECL
-    route_params&
-    status(http::status code);
-
-    /** Send the HTTP response with the given body.
-
-        This convenience coroutine handles the entire response
-        lifecycle in a single call, similar to Express.js
-        `res.send()`. It performs the following steps:
-
-        @li Sets the response body to the provided string.
-        @li Sets the `Content-Length` header automatically.
-        @li If `Content-Type` is not already set, detects the
-            type: bodies starting with `<` are sent as
-            `text/html; charset=utf-8`, otherwise as
-            `text/plain; charset=utf-8`.
-        @li Serializes and transmits the complete response.
-
-        After calling this function the response is complete.
-        Do not attempt to modify or send additional data.
-
-        @par Example
-        @code
-        // Plain text (no leading '<')
-        route_task hello( route_params& rp )
-        {
-            co_return co_await rp.send( "Hello, World!" );
-        }
-
-        // HTML (starts with '<')
-        route_task greeting( route_params& rp )
-        {
-            co_return co_await rp.send( "<h1>Welcome</h1>" );
-        }
-
-        // Explicit Content-Type for JSON
-        route_task api( route_params& rp )
-        {
-            rp.res.set( http::field::content_type, "application/json" );
-            co_return co_await rp.send( R"({"status":"ok"})" );
-        }
-        @endcode
-
-        @param body The content to send as the response body.
-
-        @return A @ref route_task that completes when the response
-        has been fully transmitted, yielding a @ref route_result
-        indicating success or failure.
-    */
     route_task send(std::string_view body)
     {
         if(! res.exists(http::field::content_type))
@@ -216,101 +118,11 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
         if(! res.exists(http::field::content_length))
             res.set_payload_size(body.size());
 
-        auto [ec] = co_await write(capy::make_buffer(body));
-        if(ec.failed())
-            co_return ec;
-        co_return co_await end();
+        auto [ec, n] = co_await res_body.write(
+            capy::make_buffer(body), true);
+        (void)n;
+        co_return ec;
     }
-
-    /** Write buffer data to the response body.
-
-        This coroutine writes the provided buffer sequence to
-        the response output stream. It is used for streaming
-        responses where the body is sent in chunks.
-
-        The response headers must be set appropriately before
-        calling this function (e.g., set Transfer-Encoding to
-        chunked, or set Content-Length if known).
-
-        @par Example
-        @code
-        route_task stream_response( route_params& rp )
-        {
-            rp.res.set( field::transfer_encoding, "chunked" );
-
-            // Write in chunks
-            std::string chunk1 = "Hello, ";
-            co_await rp.write( capy::make_buffer(chunk1) );
-
-            std::string chunk2 = "World!";
-            co_await rp.write( capy::make_buffer(chunk2) );
-
-            co_return co_await rp.end();
-        }
-        @endcode
-
-        @param buffers A buffer sequence containing the data to write.
-
-        @return A @ref route_task that completes when the write
-        operation is finished.
-    */
-    capy::task<capy::io_result<>>
-    write(capy::ConstBufferSequence auto buffers)
-    {
-        capy::buffer_param bp(buffers);
-        for(;;)
-        {
-            auto bufs = bp.data();
-            if(bufs.empty())
-                break;
-            auto [ec, n] = co_await write_impl(bufs);
-            if(ec.failed())
-                co_return {ec};
-            bp.consume(n);
-        }
-        co_return {};
-    }
-
-    /** Complete a streaming response.
-
-        This coroutine finalizes a streaming response that was
-        started with @ref write calls. For chunked transfers,
-        it sends the final chunk terminator.
-
-        @par Example
-        @code
-        route_task send_file( route_params& rp )
-        {
-            rp.res.set( field::transfer_encoding, "chunked" );
-
-            // Stream file contents...
-            while( ! file.eof() )
-            {
-                auto data = file.read();
-                co_await rp.write( capy::make_buffer(data) );
-            }
-
-            co_return co_await rp.end();
-        }
-        @endcode
-
-        @return A @ref route_task that completes when the response
-        has been fully finalized.
-    */
-    virtual route_task end() = 0;
-
-protected:
-    /** Implementation of write for a batch of buffers.
-
-        @param buffers Span of buffer descriptors to write.
-
-        @return An awaitable yielding `(error_code, std::size_t)`
-            where the size is the number of bytes written.
-    */
-    virtual
-        capy::task<capy::io_result<std::size_t>>
-        write_impl(
-            std::span<capy::const_buffer> buffers) = 0;
 };
 
 /** The default router type using @ref route_params.

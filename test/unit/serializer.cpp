@@ -292,19 +292,19 @@ struct serializer_test
     {
         response res(headers);
         serializer sr(cfg_);
-        auto stream = sr.start_stream(res);
+        sr.start_stream(res);
         BOOST_TEST_GT(
-            stream.capacity(),
+            sr.stream_capacity(),
             serializer_config{}.payload_buffer);
 
         std::vector<char> s; // stores complete output
 
         auto prepare = [&]()
         {
-            BOOST_TEST(stream.capacity() != 0);
-            auto mbs = stream.prepare();
+            BOOST_TEST(sr.stream_capacity() != 0);
+            auto mbs = sr.stream_prepare();
             auto bs = capy::buffer_size(mbs);
-            BOOST_TEST_EQ(bs, stream.capacity());
+            BOOST_TEST_EQ(bs, sr.stream_capacity());
 
             if( bs > body.size() )
                 bs = body.size();
@@ -312,11 +312,11 @@ struct serializer_test
             capy::buffer_copy(
                 mbs, capy::const_buffer(body.data(), bs));
 
-            stream.commit(bs);
+            sr.stream_commit(bs);
             if( bs < body.size() )
-                BOOST_TEST(stream.capacity() == 0);
+                BOOST_TEST(sr.stream_capacity() == 0);
             else
-                BOOST_TEST(stream.capacity() != 0);
+                BOOST_TEST(sr.stream_capacity() != 0);
 
             body.remove_prefix(bs);
         };
@@ -353,7 +353,7 @@ struct serializer_test
 
             if( body.empty() && !closed )
             {
-                stream.close();
+                sr.stream_close();
                 closed = true;
             }
 
@@ -629,12 +629,6 @@ struct serializer_test
     void
     testStreamErrors()
     {
-        // Default constructor
-        {
-            serializer::stream stream;
-            BOOST_TEST(!stream.is_open());
-        }
-
         // Empty commits 
         {
             core::string_view sv =
@@ -642,7 +636,7 @@ struct serializer_test
                 "\r\n";
             response res(sv);
             serializer sr(cfg_);
-            auto stream = sr.start_stream(res);
+            sr.start_stream(res);
 
             // consume whole header
             {
@@ -663,8 +657,8 @@ struct serializer_test
 
             // commit 0
             {
-                stream.prepare();
-                stream.commit(0);
+                sr.stream_prepare();
+                sr.stream_commit(0);
                 auto cbs = sr.prepare();
                 BOOST_TEST_EQ(
                     cbs.error(),
@@ -674,7 +668,7 @@ struct serializer_test
             // close empty
             {
                 BOOST_TEST(!sr.is_done());
-                stream.close();
+                sr.stream_close();
                 auto cbs = sr.prepare();
                 BOOST_TEST_EQ(
                     capy::buffer_size(cbs.value()),
@@ -692,21 +686,20 @@ struct serializer_test
                 "\r\n";
             response res(sv);
             serializer sr(cfg_);
-            auto stream = sr.start_stream(res);
-            BOOST_TEST(stream.is_open());
+            sr.start_stream(res);
 
-            auto mbs = stream.prepare();
+            auto mbs = sr.stream_prepare();
             BOOST_TEST_GT(
                 capy::buffer_size(mbs), 0);
-            BOOST_TEST(stream.capacity() != 0);
+            BOOST_TEST(sr.stream_capacity() != 0);
 
-            // commit with `n > stream.capacity()`
+            // commit with `n > stream_capacity()`
             BOOST_TEST_THROWS(
-                stream.commit(capy::buffer_size(mbs) + 1),
+                sr.stream_commit(capy::buffer_size(mbs) + 1),
                 std::invalid_argument);
 
             // commiting 0 bytes must be possible
-            stream.commit(0);
+            sr.stream_commit(0);
 
             auto mcbs = sr.prepare();
             auto cbs = mcbs.value();
@@ -720,19 +713,7 @@ struct serializer_test
             BOOST_TEST(
                 mcbs.error() == error::need_data);
 
-            stream.close();
-            BOOST_TEST(!stream.is_open());
-            BOOST_TEST_THROWS(
-                stream.prepare(),
-                std::logic_error);
-            BOOST_TEST_THROWS(
-                stream.capacity(),
-                std::logic_error);
-            BOOST_TEST_THROWS(
-                stream.commit(0),
-                std::logic_error);
-
-            stream.close(); // fine no-op
+            sr.stream_close();
 
             mcbs = sr.prepare();
             std::string body;

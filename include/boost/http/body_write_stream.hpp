@@ -54,18 +54,16 @@ namespace http {
     capy::task<void>
     send_response(capy::WriteStream auto& socket)
     {
-        auto cfg = http::make_serializer_config(http::serializer_config{});
-        http::serializer sr(cfg);
-
         http::response res;
         res.set_chunked(true);  // Enable chunked encoding
         res.set(http::field::content_type, "text/plain");
+        http::serializer sr(cfg, res);
 
-        // Start streaming - returns serializer::stream for body input
-        auto srs = sr.start_stream(res);
+        // Start streaming mode
+        sr.start_stream();
 
         // Wrap socket + serializer for body writing
-        http::body_write_stream bws(socket, sr, std::move(srs));
+        http::body_write_stream bws(socket, sr);
 
         // Write body data - chunking handled automatically
         std::string_view body = "Hello, World!";
@@ -86,14 +84,13 @@ namespace http {
     call to @ref write_some or @ref close. This ensures the caller
     knows exactly how many bytes were accepted.
 
-    @see capy::WriteStream, serializer, serializer::stream
+    @see capy::WriteStream, serializer
 */
 template<capy::WriteStream Stream>
 class body_write_stream
 {
     Stream& stream_;
     serializer& sr_;
-    serializer::stream srs_;
     system::error_code saved_ec_;
 
 public:
@@ -101,21 +98,16 @@ public:
 
         @param s The underlying stream to write serialized data to.
         @param sr The serializer performing HTTP framing.
-        @param srs The serializer stream obtained from
-            @ref serializer::start_stream. Ownership is transferred.
-
-        @pre `srs.is_open() == true`
+            The serializer must be in streaming mode (after calling
+            @ref serializer::start_stream).
     */
     explicit
     body_write_stream(
         Stream& s,
-        serializer& sr,
-        serializer::stream srs)
+        serializer& sr) noexcept
         : stream_(s)
         , sr_(sr)
-        , srs_(std::move(srs))
     {
-        BOOST_ASSERT(srs_.is_open());
     }
 
     /** Write body data to the message.
@@ -165,8 +157,8 @@ public:
         for(;;)
         {
             // Copy data from input buffers to serializer stream
-            bytes = capy::buffer_copy(srs_.prepare(), buffers);
-            srs_.commit(bytes);
+            bytes = capy::buffer_copy(sr_.stream_prepare(), buffers);
+            sr_.stream_commit(bytes);
 
             // Write serializer output to underlying stream
             auto cbs = sr_.prepare();
@@ -238,7 +230,7 @@ public:
         }
 
         // Signal end-of-body to serializer
-        srs_.close();
+        sr_.stream_close();
 
         // Flush all remaining serializer data
         while(!sr_.is_done())

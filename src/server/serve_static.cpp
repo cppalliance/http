@@ -268,13 +268,16 @@ operator()(route_params& rp) const
         if(ec || n1 == 0)
             break;
 
-        auto [ec2] =co_await rp.write(capy::const_buffer(buffer, n1));
-        if(ec.failed())
+        auto [ec2, n2] = co_await rp.res_body.write(
+            capy::const_buffer(buffer, n1));
+        (void)n2;
+        if(ec2.failed())
             co_return {ec2};
         remaining -= static_cast<std::int64_t>(n1);
     }
 
-    co_return co_await rp.end();
+    auto [ec3] = co_await rp.res_body.write_eof();
+    co_return ec3;
 }
 
 } // http

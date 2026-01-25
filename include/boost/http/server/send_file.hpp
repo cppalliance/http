@@ -97,7 +97,7 @@ struct send_file_info
     @li Parses Range headers for partial content
 
     After calling this function, use the returned info to
-    stream the file content using @ref route_params::write.
+    stream the file content using `res_body.write()`.
 
     @par Example
     @code

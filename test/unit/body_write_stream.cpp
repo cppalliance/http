@@ -203,9 +203,9 @@ struct body_write_stream_test
 
             response res;
             res.set_payload_size(13);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             std::string_view body = "Hello, World!";
             auto [ec, n] = co_await bws.write_some(
@@ -244,9 +244,9 @@ struct body_write_stream_test
 
             response res;
             res.set_payload_size(0);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // Empty buffer should complete immediately with n=0
             auto [ec, n] = co_await bws.write_some(
@@ -280,9 +280,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // First write
             std::string_view part1 = "Hello, ";
@@ -330,9 +330,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // Large body requiring multiple flushes
             std::string large_body(32768, 'x');
@@ -380,9 +380,9 @@ struct body_write_stream_test
 
             response res;
             res.set_payload_size(11);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // Multi-buffer sequence
             std::string_view s1 = "Hello";
@@ -426,9 +426,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             std::string_view body = "test";
             auto [ec1, n] = co_await bws.write_some(
@@ -465,9 +465,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // Close without writing any body data
             auto [ec] = co_await bws.close();
@@ -506,9 +506,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             std::string_view body = "data";
             auto [ec, n] = co_await bws.write_some(
@@ -558,9 +558,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             std::string_view body = "Hello";
             auto [ec, n] = co_await bws.write_some(
@@ -604,9 +604,9 @@ struct body_write_stream_test
 
             response res;
             res.set_chunked(true);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // Write to trigger potential deferred error
             std::string_view body = "Hello";
@@ -645,9 +645,9 @@ struct body_write_stream_test
             response res;
             res.set_payload_size(5);
             res.set(field::content_type, "text/plain");
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             std::string_view body = "hello";
             auto [ec, n] = co_await bws.write_some(
@@ -688,9 +688,9 @@ struct body_write_stream_test
             response res;
             res.set_chunked(true);
             res.set(field::content_type, "text/plain");
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             std::string_view body = "chunked data";
             auto [ec, n] = co_await bws.write_some(
@@ -730,9 +730,9 @@ struct body_write_stream_test
 
             response res;
             res.set_payload_size(0);
-            auto srs = sr.start_stream(res);
+            sr.start_stream(res);
 
-            body_write_stream bws(underlying, sr, std::move(srs));
+            body_write_stream bws(underlying, sr);
 
             // Close immediately without writing
             auto [ec] = co_await bws.close();
