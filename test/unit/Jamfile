@@ -17,7 +17,6 @@ lib test_helpers_lib
       ../../../url/extra/test_suite/test_main.cpp
       ../../../url/extra/test_suite/test_suite.cpp
     : requirements
-      <link>shared:<define>BOOST_JSON_DYN_LINK=1
       <library>/boost/http//boost_http
       <library>/boost/url//boost_url
       <include>.
@@ -33,7 +32,6 @@ lib test_helpers_lib
 project
     : requirements
       $(c11-requires)
-      <link>shared:<define>BOOST_JSON_DYN_LINK=1
       <library>/boost/http//boost_http
       <library>/boost/url//boost_url
       [ ac.check-library /boost/http//boost_http_zlib : <library>/boost/http//boost_http_zlib : ]
@@ -44,7 +42,7 @@ project
       <include>../../../url/extra/test_suite
       <warnings>extra
       <warnings-as-errors>on
-      <target-os>darwin,<undefined-sanitizer>norecover:<link>static
+      <link>static
     ;
 
 for local f in [ glob-tree-ex . : *.cpp : file*.cpp test_helpers.cpp ]
@@ -57,6 +55,6 @@ for local f in [ glob-tree-ex . : file*.cpp ]
     run $(f)
         : requirements
           <library>/boost/filesystem//boost_filesystem
-          <warnings>off <undefined-sanitizer>norecover:<link>static
+          <warnings>off
         ;
 }
