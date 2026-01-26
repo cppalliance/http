@@ -17,6 +17,7 @@
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/write.hpp>
+#include <boost/capy/io/any_buffer_source.hpp>
 #include <boost/capy/io/any_read_source.hpp>
 #include <boost/capy/io/any_write_sink.hpp>
 #include <boost/http/datastore.hpp>
@@ -93,6 +94,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     http::request req;
     http::response res;
     capy::any_read_source req_body;
+    capy::any_buffer_source req_bufs;
     capy::any_write_sink res_body;
     http::request_parser parser;
     http::serializer serializer;

@@ -2022,6 +2022,90 @@ struct parser_coro_test
     }
 
     void
+    testBufferSourceFor()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 13\r\n"
+                "\r\n"
+                "Hello, World!");
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.buffer_source_for(rs);
+
+            std::string body;
+            capy::const_buffer arr[16];
+
+            for(;;)
+            {
+                auto [ec, count] = co_await source.pull(arr, 16);
+                if(ec.failed())
+                    co_return;
+                if(count == 0)
+                    break;
+                for(std::size_t i = 0; i < count; ++i)
+                    body.append(
+                        static_cast<char const*>(arr[i].data()),
+                        arr[i].size());
+            }
+
+            BOOST_TEST(body == "Hello, World!");
+            BOOST_TEST(pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testBufferSourceForChunked()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n"
+                "5\r\nHello\r\n"
+                "7\r\n, World\r\n"
+                "0\r\n\r\n");
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.buffer_source_for(rs);
+
+            std::string body;
+            capy::const_buffer arr[16];
+
+            for(;;)
+            {
+                auto [ec, count] = co_await source.pull(arr, 16);
+                if(ec.failed())
+                    co_return;
+                if(count == 0)
+                    break;
+                for(std::size_t i = 0; i < count; ++i)
+                    body.append(
+                        static_cast<char const*>(arr[i].data()),
+                        arr[i].size());
+            }
+
+            BOOST_TEST(body == "Hello, World");
+            BOOST_TEST(pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
     run()
     {
         testReadHeader();
@@ -2031,6 +2115,8 @@ struct parser_coro_test
         testReadSourceChunked();
         testReadWriteSink();
         testReadWriteSinkChunked();
+        testBufferSourceFor();
+        testBufferSourceForChunked();
     }
 };
 
