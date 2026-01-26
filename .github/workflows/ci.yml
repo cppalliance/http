@@ -287,13 +287,6 @@ jobs:
           ref: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
           path: capy-root
 
-      - name: Clone Corosio
-        uses: actions/checkout@v4
-        with:
-          repository: cppalliance/corosio
-          ref: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
-          path: corosio-root
-
       - name: Clone Boost
         uses: alandefreitas/cpp-actions/boost-clone@v1.9.0
         id: boost-clone
@@ -302,7 +295,7 @@ jobs:
           boost-dir: boost-source
           modules-exclude-paths: ''
           scan-modules-dir: http-root
-          scan-modules-ignore: http,capy,corosio
+          scan-modules-ignore: http,capy
 
       - name: ASLR Fix
         if: ${{ startsWith(matrix.runs-on, 'ubuntu' )}}
@@ -329,7 +322,6 @@ jobs:
           # Remove module from boost-source
           rm -r "boost-source/libs/$module" || true
           rm -r "boost-source/libs/capy" || true
-          rm -r "boost-source/libs/corosio" || true
 
           # Copy cached boost-source to an isolated boost-root
           cp -r boost-source boost-root
@@ -345,9 +337,6 @@ jobs:
 
           # Patch boost-root with capy dependency
           cp -r "$workspace_root"/capy-root "libs/capy"
-
-          # Patch boost-root with corosio dependency
-          cp -r "$workspace_root"/corosio-root "libs/corosio"
 
       - name: Boost B2 Workflow
         uses: alandefreitas/cpp-actions/b2-workflow@v1.9.0
@@ -557,13 +546,6 @@ jobs:
           ref: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
           path: capy-root
 
-      - name: Clone Corosio
-        uses: actions/checkout@v4
-        with:
-          repository: cppalliance/corosio
-          ref: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
-          path: corosio-root
-
       - name: Clone Boost
         uses: alandefreitas/cpp-actions/boost-clone@v1.9.0
         id: boost-clone
@@ -572,7 +554,7 @@ jobs:
           boost-dir: boost-source
           modules-exclude-paths: ''
           scan-modules-dir: http-root
-          scan-modules-ignore: http,capy,corosio
+          scan-modules-ignore: http,capy
 
       - name: Patch Boost
         id: patch
@@ -594,7 +576,6 @@ jobs:
           # Remove module from boost-source
           rm -r "boost-source/libs/$module" || true
           rm -r "boost-source/libs/capy" || true
-          rm -r "boost-source/libs/corosio" || true
 
           # Copy cached boost-source to an isolated boost-root
           cp -r boost-source boost-root
@@ -610,9 +591,6 @@ jobs:
 
           # Patch boost-root with capy dependency
           cp -r "$workspace_root"/capy-root "libs/capy"
-
-          # Patch boost-root with corosio dependency
-          cp -r "$workspace_root"/corosio-root "libs/corosio"
 
       - uses: actions/setup-node@v4
         with:

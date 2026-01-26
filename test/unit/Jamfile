@@ -17,6 +17,7 @@ lib test_helpers_lib
       ../../../url/extra/test_suite/test_main.cpp
       ../../../url/extra/test_suite/test_suite.cpp
     : requirements
+      <link>shared:<define>BOOST_JSON_DYN_LINK=1
       <library>/boost/http//boost_http
       <library>/boost/url//boost_url
       <include>.
@@ -32,6 +33,7 @@ lib test_helpers_lib
 project
     : requirements
       $(c11-requires)
+      <link>shared:<define>BOOST_JSON_DYN_LINK=1
       <library>/boost/http//boost_http
       <library>/boost/url//boost_url
       [ ac.check-library /boost/http//boost_http_zlib : <library>/boost/http//boost_http_zlib : ]

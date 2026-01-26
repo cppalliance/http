@@ -47,7 +47,6 @@ lib boost_http
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
      <include>../
-     <include>../../corosio/include
      <define>BOOST_HTTP_SOURCE
      <define>BOOST_COROSIO_NO_LIB
      <target-os>windows:<library>bcrypt_sys
@@ -56,8 +55,8 @@ lib boost_http
      <library>/boost//capy
      <library>/boost/json//boost_json/<warnings-as-errors>off
      <library>/boost//url
-     <include>../../corosio/include
      <define>BOOST_COROSIO_NO_LIB
+     <link>shared:<define>BOOST_JSON_DYN_LINK=1
      <target-os>windows:<library>bcrypt_sys
      <target-os>darwin:<linkflags>"-framework Security"
    ;

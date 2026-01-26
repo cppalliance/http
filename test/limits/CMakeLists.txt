@@ -33,8 +33,6 @@ target_link_libraries(boost_http_limits PRIVATE
     Boost::throw_exception
     Boost::url
     Boost::utility)
-# Add corosio headers without linking (header-only usage)
-target_include_directories(boost_http_limits PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../corosio/include")
 
 target_link_libraries(boost_http_limits INTERFACE Boost::http)
 

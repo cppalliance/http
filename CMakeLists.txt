@@ -67,17 +67,11 @@ set(BOOST_HTTP_DEPENDENCIES
     Boost::url
     Boost::winapi)
 
-# corosio is used header-only (only io_buffer_param.hpp)
-# We include it separately to avoid linking against the full library
-set(BOOST_HTTP_HEADER_ONLY_DEPENDENCIES corosio)
-
 foreach (BOOST_HTTP_DEPENDENCY ${BOOST_HTTP_DEPENDENCIES})
     if (BOOST_HTTP_DEPENDENCY MATCHES "^[ ]*Boost::([A-Za-z0-9_]+)[ ]*$")
         list(APPEND BOOST_HTTP_INCLUDE_LIBRARIES ${CMAKE_MATCH_1})
     endif ()
 endforeach ()
-# Add header-only dependencies to include list (but not link list)
-list(APPEND BOOST_HTTP_INCLUDE_LIBRARIES ${BOOST_HTTP_HEADER_ONLY_DEPENDENCIES})
 # Conditional dependencies
 if (NOT BOOST_HTTP_MRDOCS_BUILD)
     if (BOOST_HTTP_BUILD_TESTS)
@@ -159,10 +153,6 @@ function(boost_http_setup_properties target)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}/include")
     target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}")
     target_link_libraries(${target} PUBLIC ${BOOST_HTTP_DEPENDENCIES})
-    # Add corosio headers without linking (header-only usage)
-    # BUILD_INTERFACE: only during build (installed headers are in standard Boost include path)
-    target_include_directories(${target} PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/../corosio/include>)
-    target_compile_definitions(${target} PUBLIC BOOST_COROSIO_NO_LIB)  # Disable corosio auto-linking
     target_compile_definitions(${target} PUBLIC BOOST_HTTP_NO_LIB)
     target_compile_definitions(${target} PRIVATE BOOST_HTTP_SOURCE)
     if (BUILD_SHARED_LIBS)
