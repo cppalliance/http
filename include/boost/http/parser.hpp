@@ -69,13 +69,7 @@ class parser
 {
 public:
     template<capy::ReadStream Stream>
-    class read_source_adapter;
-
-    template<capy::ReadStream Stream>
     class source;
-
-    template<capy::ReadStream Stream>
-    class buffer_source_adapter;
 
     /// Buffer type returned from @ref prepare.
     using mutable_buffers_type =
@@ -369,62 +363,7 @@ public:
     capy::task<capy::io_result<std::size_t>>
     read(Stream& stream, MB buffers);
 
-    /** Return an adapter for reading body data.
-
-        The returned adapter satisfies @ref capy::ReadSource.
-        Buffers are filled completely before returning, or
-        `capy::error::eof` is returned when the body is
-        complete.
-
-        @par Example
-        @code
-        response_parser pr( ctx );
-        pr.reset();
-        pr.start();
-        co_await pr.read_header( socket );
-
-        auto body = pr.as_read_source( socket );
-        char buf[4096];
-        auto [ ec, n ] = co_await body.read( capy::mutable_buffer( buf ) );
-        @endcode
-
-        @param stream The stream to read from.
-
-        @return An adapter satisfying @ref capy::ReadSource.
-
-        @see @ref read_header, @ref capy::ReadSource.
-    */
-    template<capy::ReadStream Stream>
-    read_source_adapter<Stream>
-    as_read_source(Stream& stream);
-
     /** Return a source for reading body data.
-
-        The returned source satisfies @ref capy::ReadSource.
-        On first read, headers are automatically parsed if
-        not yet received.
-
-        @par Example
-        @code
-        request_parser pr( ctx );
-        pr.start();
-        auto body = pr.source_for( socket );
-
-        char buf[4096];
-        auto [ec, n] = co_await body.read( capy::mutable_buffer( buf ) );
-        @endcode
-
-        @param stream The stream to read from.
-
-        @return A source satisfying @ref capy::ReadSource.
-
-        @see @ref read_header, @ref capy::ReadSource.
-    */
-    template<capy::ReadStream Stream>
-    source<Stream>
-    source_for(Stream& stream) noexcept;
-
-    /** Return a buffer source for the message body.
 
         The returned source satisfies @ref capy::BufferSource.
         On first pull, headers are automatically parsed if
@@ -434,10 +373,11 @@ public:
         @code
         request_parser pr( ctx );
         pr.start();
-        auto body = pr.buffer_source_for( socket );
+        auto body = pr.source_for( socket );
 
-        const_buffer arr[16];
+        capy::const_buffer arr[16];
         auto [ec, count] = co_await body.pull( arr, 16 );
+        body.consume( total_bytes );
         @endcode
 
         @param stream The stream to read from.
@@ -447,8 +387,8 @@ public:
         @see @ref read_header, @ref capy::BufferSource.
     */
     template<capy::ReadStream Stream>
-    buffer_source_adapter<Stream>
-    buffer_source_for(Stream& stream) noexcept;
+    source<Stream>
+    source_for(Stream& stream) noexcept;
 
     /** Read body from stream and push to a WriteSink.
 
@@ -493,42 +433,12 @@ private:
     impl* impl_;
 };
 
-/** Adapter for reading body data from a parser.
-
-    Satisfies @ref capy::ReadSource with complete-fill
-    semantics.
-
-    @see @ref parser::as_read_source.
-*/
-template<capy::ReadStream Stream>
-class parser::read_source_adapter
-{
-    Stream& stream_;
-    parser& pr_;
-
-public:
-    /// Construct an adapter for reading body data.
-    read_source_adapter(Stream& stream, parser& pr) noexcept
-        : stream_(stream)
-        , pr_(pr)
-    {
-    }
-
-    /** Asynchronously read body data into buffers.
-
-        @return An awaitable yielding `(error_code,std::size_t)`.
-    */
-    template<capy::MutableBufferSequence MB>
-    capy::task<capy::io_result<std::size_t>>
-    read(MB buffers);
-};
-
 /** A source for reading the message body.
 
-    This type satisfies @ref capy::ReadSource with complete-fill
-    semantics. It can be constructed immediately after parser
-    construction; on first read, headers are automatically
-    parsed if not yet received.
+    This type satisfies @ref capy::BufferSource. It can be
+    constructed immediately after parser construction; on
+    first pull, headers are automatically parsed if not
+    yet received.
 
     @tparam Stream A type satisfying @ref capy::ReadStream.
 
@@ -555,51 +465,6 @@ public:
     {
     }
 
-    /** Asynchronously read body data into buffers.
-
-        On first invocation, reads headers if not yet parsed.
-        Then reads body data with complete-fill semantics.
-
-        @return An awaitable yielding `(error_code,std::size_t)`.
-    */
-    template<capy::MutableBufferSequence MB>
-    capy::task<capy::io_result<std::size_t>>
-    read(MB buffers);
-};
-
-/** A buffer source adapter for the message body.
-
-    This type satisfies @ref capy::BufferSource. It can be
-    constructed immediately after parser construction; on
-    first pull, headers are automatically parsed if not
-    yet received.
-
-    @tparam Stream A type satisfying @ref capy::ReadStream.
-
-    @see @ref parser::buffer_source_for.
-*/
-template<capy::ReadStream Stream>
-class parser::buffer_source_adapter
-{
-    Stream* stream_;
-    parser* pr_;
-    std::size_t to_consume_ = 0;
-
-public:
-    /// Default constructor.
-    buffer_source_adapter() noexcept
-        : stream_(nullptr)
-        , pr_(nullptr)
-    {
-    }
-
-    /// Construct a buffer source for body data.
-    buffer_source_adapter(Stream& stream, parser& pr) noexcept
-        : stream_(&stream)
-        , pr_(&pr)
-    {
-    }
-
     /** Pull buffer data from the body.
 
         On first invocation, reads headers if not yet parsed.
@@ -613,6 +478,17 @@ public:
     */
     capy::task<capy::io_result<std::size_t>>
     pull(capy::const_buffer* arr, std::size_t max_count);
+
+    /** Consume bytes from pulled body data.
+
+        Advances the read position by the specified number of
+        bytes. The next pull returns data starting after the
+        consumed bytes.
+
+        @param n The number of bytes to consume.
+    */
+    void
+    consume(std::size_t n) noexcept;
 };
 
 template<capy::ReadStream Stream>
@@ -698,23 +574,6 @@ read(Stream& stream, MB buffers)
 }
 
 template<capy::ReadStream Stream>
-template<capy::MutableBufferSequence MB>
-capy::task<capy::io_result<std::size_t>>
-parser::read_source_adapter<Stream>::
-read(MB buffers)
-{
-    return pr_.read(stream_, buffers);
-}
-
-template<capy::ReadStream Stream>
-parser::read_source_adapter<Stream>
-parser::
-as_read_source(Stream& stream)
-{
-    return read_source_adapter<Stream>(stream, *this);
-}
-
-template<capy::ReadStream Stream>
 parser::source<Stream>
 parser::
 source_for(Stream& stream) noexcept
@@ -723,40 +582,10 @@ source_for(Stream& stream) noexcept
 }
 
 template<capy::ReadStream Stream>
-template<capy::MutableBufferSequence MB>
 capy::task<capy::io_result<std::size_t>>
 parser::source<Stream>::
-read(MB buffers)
-{
-    if(!pr_->got_header())
-    {
-        auto [ec] = co_await pr_->read_header(*stream_);
-        if(ec.failed())
-            co_return {ec, 0};
-    }
-    co_return co_await pr_->read(*stream_, buffers);
-}
-
-template<capy::ReadStream Stream>
-parser::buffer_source_adapter<Stream>
-parser::
-buffer_source_for(Stream& stream) noexcept
-{
-    return buffer_source_adapter<Stream>(stream, *this);
-}
-
-template<capy::ReadStream Stream>
-capy::task<capy::io_result<std::size_t>>
-parser::buffer_source_adapter<Stream>::
 pull(capy::const_buffer* arr, std::size_t max_count)
 {
-    // Consume data returned from previous pull
-    if(to_consume_ > 0)
-    {
-        pr_->consume_body(to_consume_);
-        to_consume_ = 0;
-    }
-
     // Read headers if not yet parsed
     if(!pr_->got_header())
     {
@@ -773,15 +602,9 @@ pull(capy::const_buffer* arr, std::size_t max_count)
         auto body_data = pr_->pull_body();
         if(capy::buffer_size(body_data) > 0)
         {
-            // Copy buffer descriptors to output array
             std::size_t count = (std::min)(body_data.size(), max_count);
-            std::size_t total = 0;
             for(std::size_t i = 0; i < count; ++i)
-            {
                 arr[i] = body_data[i];
-                total += body_data[i].size();
-            }
-            to_consume_ = total;
             co_return {{}, count};
         }
 
@@ -806,6 +629,14 @@ pull(capy::const_buffer* arr, std::size_t max_count)
         if(ec.failed())
             co_return {ec, 0};
     }
+}
+
+template<capy::ReadStream Stream>
+void
+parser::source<Stream>::
+consume(std::size_t n) noexcept
+{
+    pr_->consume_body(n);
 }
 
 template<capy::WriteSink Sink>

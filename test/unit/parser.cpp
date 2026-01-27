@@ -1813,147 +1813,6 @@ struct parser_coro_test
     }
 
     void
-    testAsReadSource()
-    {
-        capy::test::fuse f;
-        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
-        {
-            capy::test::read_stream rs(f, 1);
-            rs.provide(
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 13\r\n"
-                "\r\n"
-                "Hello, World!");
-
-            response_parser pr(res_cfg_);
-            pr.reset();
-            pr.start();
-
-            auto source = pr.as_read_source(rs);
-
-            char buf[64];
-            auto [ec, n] = co_await source.read(capy::make_buffer(buf));
-            if(ec.failed() && ec != capy::cond::eof)
-                co_return;
-
-            BOOST_TEST_EQ(n, 13u);
-            BOOST_TEST(std::string_view(buf, n) == "Hello, World!");
-            BOOST_TEST(pr.is_complete());
-        });
-        BOOST_TEST(r.success);
-    }
-
-    void
-    testReadSourceCompleteFill()
-    {
-        capy::test::fuse f;
-        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
-        {
-            capy::test::read_stream rs(f, 1);
-            rs.provide(
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 26\r\n"
-                "\r\n"
-                "abcdefghijklmnopqrstuvwxyz");
-
-            response_parser pr(res_cfg_);
-            pr.reset();
-            pr.start();
-
-            auto source = pr.as_read_source(rs);
-
-            // Small buffer - should fill completely
-            char buf[10];
-            auto [ec, n] = co_await source.read(capy::make_buffer(buf));
-            if(ec.failed())
-                co_return;
-
-            BOOST_TEST_EQ(n, 10u);
-            BOOST_TEST(std::string_view(buf, n) == "abcdefghij");
-        });
-        BOOST_TEST(r.success);
-    }
-
-    void
-    testReadSourceEof()
-    {
-        capy::test::fuse f;
-        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
-        {
-            capy::test::read_stream rs(f, 1);
-            rs.provide(
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 5\r\n"
-                "\r\n"
-                "hello");
-
-            response_parser pr(res_cfg_);
-            pr.reset();
-            pr.start();
-
-            auto source = pr.as_read_source(rs);
-
-            char buf[64];
-            auto [ec1, n1] = co_await source.read(capy::make_buffer(buf));
-            if(ec1.failed() && ec1 != capy::cond::eof)
-                co_return;
-
-            // Body is 5 bytes, so we get EOF with partial fill
-            BOOST_TEST(ec1 == capy::cond::eof);
-            BOOST_TEST_EQ(n1, 5u);
-            BOOST_TEST(pr.is_complete());
-        });
-        BOOST_TEST(r.success);
-    }
-
-    void
-    testReadSourceChunked()
-    {
-        capy::test::fuse f;
-        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
-        {
-            capy::test::read_stream rs(f, 1);
-            rs.provide(
-                "HTTP/1.1 200 OK\r\n"
-                "Transfer-Encoding: chunked\r\n"
-                "\r\n"
-                "5\r\nHello\r\n"
-                "7\r\n, World\r\n"
-                "0\r\n\r\n");
-
-            response_parser pr(res_cfg_);
-            pr.reset();
-            pr.start();
-
-            auto source = pr.as_read_source(rs);
-
-            std::string body;
-            char buf[64];
-            bool completed = false;
-
-            for(;;)
-            {
-                auto [ec, n] = co_await source.read(capy::make_buffer(buf));
-                body.append(buf, n);
-                if(ec == capy::cond::eof)
-                {
-                    completed = true;
-                    break;
-                }
-                if(ec.failed())
-                    co_return;
-            }
-
-            if(completed)
-            {
-                BOOST_TEST(body == "Hello, World");
-                BOOST_TEST(pr.is_complete());
-            }
-        });
-        BOOST_TEST(r.success);
-    }
-
-    void
     testReadWriteSink()
     {
         capy::test::fuse f;
@@ -2022,7 +1881,7 @@ struct parser_coro_test
     }
 
     void
-    testBufferSourceFor()
+    testSourceFor()
     {
         capy::test::fuse f;
         auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
@@ -2038,7 +1897,7 @@ struct parser_coro_test
             pr.reset();
             pr.start();
 
-            auto source = pr.buffer_source_for(rs);
+            auto source = pr.source_for(rs);
 
             std::string body;
             capy::const_buffer arr[16];
@@ -2050,10 +1909,15 @@ struct parser_coro_test
                     co_return;
                 if(count == 0)
                     break;
+                std::size_t n = 0;
                 for(std::size_t i = 0; i < count; ++i)
+                {
                     body.append(
                         static_cast<char const*>(arr[i].data()),
                         arr[i].size());
+                    n += arr[i].size();
+                }
+                source.consume(n);
             }
 
             BOOST_TEST(body == "Hello, World!");
@@ -2063,7 +1927,7 @@ struct parser_coro_test
     }
 
     void
-    testBufferSourceForChunked()
+    testSourceForChunked()
     {
         capy::test::fuse f;
         auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
@@ -2081,7 +1945,7 @@ struct parser_coro_test
             pr.reset();
             pr.start();
 
-            auto source = pr.buffer_source_for(rs);
+            auto source = pr.source_for(rs);
 
             std::string body;
             capy::const_buffer arr[16];
@@ -2093,10 +1957,15 @@ struct parser_coro_test
                     co_return;
                 if(count == 0)
                     break;
+                std::size_t n = 0;
                 for(std::size_t i = 0; i < count; ++i)
+                {
                     body.append(
                         static_cast<char const*>(arr[i].data()),
                         arr[i].size());
+                    n += arr[i].size();
+                }
+                source.consume(n);
             }
 
             BOOST_TEST(body == "Hello, World");
@@ -2109,14 +1978,10 @@ struct parser_coro_test
     run()
     {
         testReadHeader();
-        testAsReadSource();
-        testReadSourceCompleteFill();
-        testReadSourceEof();
-        testReadSourceChunked();
         testReadWriteSink();
         testReadWriteSinkChunked();
-        testBufferSourceFor();
-        testBufferSourceForChunked();
+        testSourceFor();
+        testSourceForChunked();
     }
 };
 
