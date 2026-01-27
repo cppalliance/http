@@ -16,13 +16,19 @@
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/slice.hpp>
 #include <boost/capy/buffers/string_dynamic_buffer.hpp>
+#include <boost/capy/concept/buffer_sink.hpp>
+#include <boost/capy/io/any_buffer_sink.hpp>
+#include <boost/capy/test/fuse.hpp>
+#include <boost/capy/test/write_stream.hpp>
 #include <boost/core/ignore_unused.hpp>
 
 #include "test_helpers.hpp"
 
 #include <array>
+#include <cstring>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace boost {
@@ -739,6 +745,367 @@ struct serializer_test
         BOOST_TEST(sr.is_done());
     }
 
+    //--------------------------------------------
+    // Sink tests (BufferSink interface)
+    //--------------------------------------------
+
+    // Verify serializer::sink satisfies BufferSink concept
+    static_assert(capy::BufferSink<
+        serializer::sink<capy::test::write_stream>>);
+
+    void
+    testSinkCommitBasic()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_payload_size(13);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::mutable_buffer arr[16];
+            std::size_t count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view body = "Hello, World!";
+            std::memcpy(arr[0].data(), body.data(), body.size());
+
+            auto [ec] = co_await sink.commit(body.size());
+            if(ec.failed())
+                co_return;
+
+            auto [ec2] = co_await sink.commit_eof();
+            if(ec2.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("Hello, World!") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkCommitWithEof()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_payload_size(5);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::mutable_buffer arr[16];
+            std::size_t count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view body = "hello";
+            std::memcpy(arr[0].data(), body.data(), body.size());
+
+            auto [ec] = co_await sink.commit(body.size(), true);
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("hello") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkCommitEmpty()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_payload_size(0);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            auto [ec] = co_await sink.commit(0);
+            if(ec.failed())
+                co_return;
+
+            auto [ec2] = co_await sink.commit_eof();
+            if(ec2.failed())
+                co_return;
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkCommitMultiple()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_chunked(true);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            // First commit
+            capy::mutable_buffer arr[16];
+            std::size_t count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view part1 = "Hello, ";
+            std::memcpy(arr[0].data(), part1.data(), part1.size());
+            auto [ec1] = co_await sink.commit(part1.size());
+            if(ec1.failed())
+                co_return;
+
+            // Second commit
+            count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view part2 = "World!";
+            std::memcpy(arr[0].data(), part2.data(), part2.size());
+            auto [ec2] = co_await sink.commit(part2.size());
+            if(ec2.failed())
+                co_return;
+
+            auto [ec3] = co_await sink.commit_eof();
+            if(ec3.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("Hello, ") !=
+                std::string::npos);
+            BOOST_TEST(ws.data().find("World!") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkCommitEofBasic()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_chunked(true);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::mutable_buffer arr[16];
+            std::size_t count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view body = "test";
+            std::memcpy(arr[0].data(), body.data(), body.size());
+            auto [ec1] = co_await sink.commit(body.size());
+            if(ec1.failed())
+                co_return;
+
+            auto [ec2] = co_await sink.commit_eof();
+            if(ec2.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("0\r\n\r\n") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkCommitEofEmpty()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_chunked(true);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            auto [ec] = co_await sink.commit_eof();
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("0\r\n\r\n") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkContentLength()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_payload_size(5);
+            res.set(field::content_type, "text/plain");
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::mutable_buffer arr[16];
+            std::size_t count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view body = "hello";
+            std::memcpy(arr[0].data(), body.data(), body.size());
+            auto [ec] = co_await sink.commit(body.size());
+            if(ec.failed())
+                co_return;
+
+            auto [ec2] = co_await sink.commit_eof();
+            if(ec2.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("Content-Length: 5") !=
+                std::string::npos);
+            BOOST_TEST(ws.data().find("hello") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSinkChunked()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_chunked(true);
+            res.set(field::content_type, "text/plain");
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::mutable_buffer arr[16];
+            std::size_t count = sink.prepare(arr, 16);
+            if(count == 0)
+                co_return;
+
+            std::string_view body = "chunked data";
+            std::memcpy(arr[0].data(), body.data(), body.size());
+            auto [ec] = co_await sink.commit(body.size());
+            if(ec.failed())
+                co_return;
+
+            auto [ec2] = co_await sink.commit_eof();
+            if(ec2.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("Transfer-Encoding: chunked") !=
+                std::string::npos);
+            BOOST_TEST(ws.data().find("0\r\n\r\n") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    //--------------------------------------------
+    // any_buffer_sink wrapper tests (WriteSink)
+    //--------------------------------------------
+
+    void
+    testAnyBufferSinkWrite()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_payload_size(13);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::any_buffer_sink abs(sink);
+
+            std::string_view body = "Hello, World!";
+            auto [ec, n] = co_await abs.write(
+                capy::make_buffer(body));
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST_EQ(n, 13u);
+
+            auto [ec2] = co_await abs.write_eof();
+            if(ec2.failed())
+                co_return;
+
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("Hello, World!") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testAnyBufferSinkWriteWithEof()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([this](capy::test::fuse& f) -> capy::task<>
+        {
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+
+            response res;
+            res.set_payload_size(5);
+            auto sink = sr.sink_for(ws);
+            sr.start_stream(res);
+
+            capy::any_buffer_sink abs(sink);
+
+            std::string_view body = "hello";
+            auto [ec, n] = co_await abs.write(
+                capy::make_buffer(body), true);
+            if(ec.failed())
+                co_return;
+
+            BOOST_TEST_EQ(n, 5u);
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(ws.data().find("hello") !=
+                std::string::npos);
+        });
+        BOOST_TEST(r.success);
+    }
+
     void
     run()
     {
@@ -749,6 +1116,20 @@ struct serializer_test
         testExpect100Continue();
         testStreamErrors();
         testOverConsume();
+
+        // Sink tests (BufferSink interface)
+        testSinkCommitBasic();
+        testSinkCommitWithEof();
+        testSinkCommitEmpty();
+        testSinkCommitMultiple();
+        testSinkCommitEofBasic();
+        testSinkCommitEofEmpty();
+        testSinkContentLength();
+        testSinkChunked();
+
+        // any_buffer_sink wrapper tests (WriteSink)
+        testAnyBufferSinkWrite();
+        testAnyBufferSinkWriteWithEof();
     }
 };
 

@@ -16,8 +16,8 @@
 #include <boost/http/error.hpp>
 
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/buffer_pair.hpp>
+#include <boost/capy/concept/buffer_sink.hpp>
 #include <boost/capy/concept/write_stream.hpp>
 #include <boost/capy/io_result.hpp>
 #include <boost/capy/task.hpp>
@@ -346,8 +346,11 @@ public:
         @code
         auto sink = sr.sink_for(socket);
         sr.start_stream(response);
-        co_await sink.write(capy::make_buffer("Hello"));
-        co_await sink.write_eof();
+
+        capy::mutable_buffer arr[16];
+        std::size_t count = sink.prepare(arr, 16);
+        std::memcpy(arr[0].data(), "Hello", 5);
+        co_await sink.commit(5, true);
         @endcode
 
         @par Preconditions
@@ -434,8 +437,11 @@ public:
         auto sink = sr.sink_for(socket);
         // ... later ...
         sr.start_stream();  // Configure for streaming
-        co_await sink.write(capy::make_buffer("Hello"));
-        co_await sink.write_eof();
+
+        capy::mutable_buffer arr[16];
+        std::size_t count = sink.prepare(arr, 16);
+        std::memcpy(arr[0].data(), "Hello", 5);
+        co_await sink.commit(5, true);
         @endcode
 
         @tparam Stream The output stream type satisfying
@@ -675,13 +681,18 @@ private:
 /** A sink adapter for writing HTTP message bodies.
 
     This class wraps an underlying @ref capy::WriteStream and a
-    @ref serializer to provide a @ref capy::WriteSink interface
-    for writing message body data. The caller provides raw body
-    bytes; the serializer automatically handles:
+    @ref serializer to provide a @ref capy::BufferSink interface
+    for writing message body data. The caller writes directly into
+    the serializer's internal buffer (zero-copy); the serializer
+    automatically handles:
 
     @li Chunked transfer-encoding (chunk framing added automatically)
     @li Content-Encoding compression (gzip, deflate, brotli if configured)
     @li Content-Length validation (if specified in headers)
+
+    For @ref capy::WriteSink semantics (caller owns buffers), wrap
+    this sink with @ref capy::any_buffer_sink which provides both
+    interfaces.
 
     @tparam Stream The underlying stream type satisfying
         @ref capy::WriteStream.
@@ -701,12 +712,16 @@ private:
 
         auto sink = sr.sink_for(socket);
         sr.start_stream();
-        co_await sink.write(capy::make_buffer("Hello"));
-        co_await sink.write_eof();
+
+        // Zero-copy write using BufferSink interface
+        capy::mutable_buffer arr[16];
+        std::size_t count = sink.prepare(arr, 16);
+        std::memcpy(arr[0].data(), "Hello", 5);
+        co_await sink.commit(5, true);
     }
     @endcode
 
-    @see capy::WriteSink, serializer
+    @see capy::BufferSink, capy::any_buffer_sink, serializer
 */
 template<capy::WriteStream Stream>
 class serializer::sink
@@ -734,45 +749,66 @@ public:
     {
     }
 
-    /** Write body data.
+    /** Prepare writable buffers.
 
-        Copies data from @p buffers into the serializer's internal
-        buffer, serializes it, and writes the output to the
-        associated stream.
+        Fills the provided array with mutable buffer descriptors
+        pointing to the serializer's internal storage. This
+        operation is synchronous.
 
-        @param buffers Buffer sequence containing body data.
+        @param arr Pointer to array of mutable_buffer to fill.
+        @param max_count Maximum number of buffers to fill.
 
-        @return An awaitable yielding `(error_code, std::size_t)`.
-            On success, all bytes from @p buffers have been consumed.
+        @return The number of buffers filled.
     */
-    template<capy::ConstBufferSequence CB>
-    auto
-    write(CB buffers)
-        -> capy::task<capy::io_result<std::size_t>>
+    std::size_t
+    prepare(
+        capy::mutable_buffer* arr,
+        std::size_t max_count)
     {
-        return write(buffers, false);
+        auto bufs = sr_->stream_prepare();
+        std::size_t count = 0;
+        for(auto const& b : bufs)
+        {
+            if(count >= max_count || b.size() == 0)
+                break;
+            arr[count++] = b;
+        }
+        return count;
     }
 
-    /** Write body data with optional end-of-stream.
+    /** Commit bytes written to the prepared buffers.
 
-        Copies data from @p buffers into the serializer's internal
-        buffer, serializes it, and writes the output to the
-        associated stream. If @p eof is true, signals end-of-body
-        after writing.
+        Commits `n` bytes written to the buffers returned by the
+        most recent call to @ref prepare. The operation flushes
+        serialized output to the underlying stream.
 
-        @param buffers Buffer sequence containing body data.
-        @param eof If true, signals end-of-body after writing.
+        @param n The number of bytes to commit.
 
-        @return An awaitable yielding `(error_code, std::size_t)`.
-            On success, all bytes from @p buffers have been consumed.
+        @return An awaitable yielding `(error_code)`.
     */
-    template<capy::ConstBufferSequence CB>
     auto
-    write(CB buffers, bool eof)
-        -> capy::task<capy::io_result<std::size_t>>
+    commit(std::size_t n)
+        -> capy::task<capy::io_result<>>
     {
-        std::size_t bytes = capy::buffer_copy(sr_->stream_prepare(), buffers);
-        sr_->stream_commit(bytes);
+        return commit(n, false);
+    }
+
+    /** Commit bytes written with optional end-of-stream.
+
+        Commits `n` bytes written to the buffers returned by the
+        most recent call to @ref prepare. If `eof` is true, also
+        signals end-of-stream.
+
+        @param n The number of bytes to commit.
+        @param eof If true, signals end-of-stream after committing.
+
+        @return An awaitable yielding `(error_code)`.
+    */
+    auto
+    commit(std::size_t n, bool eof)
+        -> capy::task<capy::io_result<>>
+    {
+        sr_->stream_commit(n);
 
         if(eof)
             sr_->stream_close();
@@ -786,7 +822,7 @@ public:
                     break;
                 if(cbs.error() == error::need_data)
                     continue;
-                co_return {cbs.error(), 0};
+                co_return {cbs.error()};
             }
 
             if(capy::buffer_empty(*cbs))
@@ -795,17 +831,17 @@ public:
                 continue;
             }
 
-            auto [ec, n] = co_await stream_->write_some(*cbs);
-            sr_->consume(n);
+            auto [ec, written] = co_await stream_->write_some(*cbs);
+            sr_->consume(written);
 
             if(ec.failed())
-                co_return {ec, bytes};
+                co_return {ec};
         }
 
-        co_return {{}, bytes};
+        co_return {{}};
     }
 
-    /** Signal end of body data.
+    /** Signal end-of-stream.
 
         Closes the body stream and flushes any remaining serializer
         output to the underlying stream. For chunked encoding, this
@@ -816,7 +852,7 @@ public:
         @post The serializer's `is_done()` returns `true` on success.
     */
     auto
-    write_eof()
+    commit_eof()
         -> capy::task<capy::io_result<>>
     {
         sr_->stream_close();
@@ -837,8 +873,8 @@ public:
                 continue;
             }
 
-            auto [ec, n] = co_await stream_->write_some(*cbs);
-            sr_->consume(n);
+            auto [ec, written] = co_await stream_->write_some(*cbs);
+            sr_->consume(written);
 
             if(ec.failed())
                 co_return {ec};
