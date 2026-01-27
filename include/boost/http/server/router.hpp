@@ -103,26 +103,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     BOOST_HTTP_DECL void reset(); // reset per request
     BOOST_HTTP_DECL route_params& status(http::status code);
 
-    route_task send(std::string_view body)
-    {
-        if(! res.exists(http::field::content_type))
-        {
-            if(! body.empty() && body[0] == '<')
-                res.set(http::field::content_type,
-                    "text/html; charset=utf-8");
-            else
-                res.set(http::field::content_type,
-                    "text/plain; charset=utf-8");
-        }
-
-        if(! res.exists(http::field::content_length))
-            res.set_payload_size(body.size());
-
-        auto [ec, n] = co_await res_body.write(
-            capy::make_buffer(body), true);
-        (void)n;
-        co_return ec;
-    }
+    BOOST_HTTP_DECL route_task send(std::string_view body);
 };
 
 /** The default router type using @ref route_params.

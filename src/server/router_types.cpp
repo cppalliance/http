@@ -8,7 +8,11 @@
 //
 
 #include <boost/http/server/router_types.hpp>
+#include <boost/http/server/router.hpp>
+#include <boost/http/server/etag.hpp>
+#include <boost/http/server/fresh.hpp>
 #include <boost/url/grammar/ci_string.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/assert.hpp>
 #include <cstring>
 
@@ -77,6 +81,77 @@ is_method(
     if(m != http::method::unknown)
         return verb_ == m;
     return s == verb_str_;
+}
+
+//------------------------------------------------
+
+route_task
+route_params::
+send(std::string_view body)
+{
+    auto const sc = res.status();
+
+    // 204 No Content / 304 Not Modified: strip headers, no body
+    if(sc == status::no_content ||
+       sc == status::not_modified)
+    {
+        res.erase(field::content_type);
+        res.erase(field::content_length);
+        res.erase(field::transfer_encoding);
+        co_await res_body.write_eof();
+        co_return {};
+    }
+
+    // 205 Reset Content: Content-Length=0, no body
+    if(sc == status::reset_content)
+    {
+        res.erase(field::transfer_encoding);
+        res.set_payload_size(0);
+        co_await res_body.write_eof();
+        co_return {};
+    }
+
+    // Set Content-Type if not already set
+    if(! res.exists(field::content_type))
+    {
+        if(! body.empty() && body[0] == '<')
+            res.set(field::content_type,
+                "text/html; charset=utf-8");
+        else
+            res.set(field::content_type,
+                "text/plain; charset=utf-8");
+    }
+
+    // Generate ETag if not already set
+    if(! res.exists(field::etag))
+        res.set(field::etag, etag(body));
+
+    // Set Content-Length if not already set
+    if(! res.exists(field::content_length))
+        res.set_payload_size(body.size());
+
+    // Freshness check: auto-304 for conditional GET
+    if(is_fresh(req, res))
+    {
+        res.set_status(status::not_modified);
+        res.erase(field::content_type);
+        res.erase(field::content_length);
+        res.erase(field::transfer_encoding);
+        co_await res_body.write_eof();
+        co_return {};
+    }
+
+    // HEAD: send headers only, skip body
+    if(req.method() == method::head)
+    {
+        co_await res_body.write_eof();
+        co_return {};
+    }
+
+    auto [ec, n] = co_await res_body.write(
+        capy::make_buffer(body), true);
+    (void)n;
+    co_return ec;
 }
 
 } // http
