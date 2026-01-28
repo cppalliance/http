@@ -45,7 +45,7 @@ process(
         rv.in_bytes  += rs.in_bytes;
         rv.out_bytes += rs.out_bytes;
 
-        if(rs.ec.failed())
+        if(rs.ec)
         {
             rv.ec = rs.ec;
             return rv;

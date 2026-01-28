@@ -540,7 +540,7 @@ struct fields_base_test
                 {
                     ec = {};
                     f.append("X", str, ec);
-                    BOOST_TEST(ec.failed());
+                    BOOST_TEST(ec);
                 }
             });
 
@@ -580,7 +580,7 @@ struct fields_base_test
                 {
                     system::error_code ec;
                     auto it = f.insert(f.find("T"), field::server, "x", ec);
-                    BOOST_TEST(!ec.failed());
+                    BOOST_TEST(!ec);
                     BOOST_TEST(it == f.find(field::server));
                 }
                 f.erase(field::server);
@@ -603,7 +603,7 @@ struct fields_base_test
                     system::error_code ec;
                     auto pos = f.find("T");
                     auto it = f.insert(f.find("U"), field::server, "x", ec);
-                    BOOST_TEST(!ec.failed());
+                    BOOST_TEST(!ec);
                     BOOST_TEST(it == f.find(field::server));
                     BOOST_TEST(pos == f.find("T"));
                 }
@@ -628,7 +628,7 @@ struct fields_base_test
             {
                 system::error_code ec;
                 f.insert(f.find("U"), field::server, "a\r\nb", ec);
-                BOOST_TEST(ec.failed());
+                BOOST_TEST(ec);
                 BOOST_TEST_THROWS(
                     f.insert(f.find("U"), field::server, "a\r\nb"),
                     system::system_error);
@@ -937,7 +937,7 @@ struct fields_base_test
                 f.set(f.find("T"), "2");
                 system::error_code ec;
                 f.set(f.find("T"), "2", ec);
-                BOOST_TEST(!ec.failed());
+                BOOST_TEST(!ec);
             },
             "T: 2\r\n"
             "\r\n");
@@ -1006,7 +1006,7 @@ struct fields_base_test
                 f.set(field::server, "x");
                 system::error_code ec;
                 f.set(field::server, "x");
-                BOOST_TEST(!ec.failed());
+                BOOST_TEST(!ec);
             },
             "Server: x\r\n"
             "\r\n");
@@ -1057,7 +1057,7 @@ struct fields_base_test
                 f.set(field::server, "\r\n x\r\n yz \r\n \r\n\t");
                 system::error_code ec;
                 f.set(field::server, "\r\n x\r\n yz \r\n \r\n\t", ec);
-                BOOST_TEST(!ec.failed());
+                BOOST_TEST(!ec);
             },
             "Server: x   yz\r\n"
             "\r\n");
@@ -1309,7 +1309,7 @@ struct fields_base_test
             auto it = res.find(field::expect);
             res.erase(it);
             BOOST_TEST(
-                ! res.metadata().expect.ec.failed());
+                ! res.metadata().expect.ec);
             BOOST_TEST_EQ(
                 res.metadata().expect.count, 0);
             BOOST_TEST_EQ(

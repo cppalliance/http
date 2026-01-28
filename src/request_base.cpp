@@ -23,7 +23,7 @@ set_expect_100_continue(bool b)
     if(h_.md.expect.count == 0)
     {
         BOOST_ASSERT(
-            ! h_.md.expect.ec.failed());
+            ! h_.md.expect.ec);
         BOOST_ASSERT(
             ! h_.md.expect.is_100_continue);
         if( b )
@@ -40,7 +40,7 @@ set_expect_100_continue(bool b)
     {
         if(b)
         {
-            if(! h_.md.expect.ec.failed())
+            if(! h_.md.expect.ec)
             {
                 BOOST_ASSERT(
                     h_.md.expect.is_100_continue);
@@ -60,7 +60,7 @@ set_expect_100_continue(bool b)
         return;
     }
 
-    BOOST_ASSERT(h_.md.expect.ec.failed());
+    BOOST_ASSERT(h_.md.expect.ec);
 
     auto nc = (b ? 1 : 0);
     auto ne = h_.md.expect.count - nc;

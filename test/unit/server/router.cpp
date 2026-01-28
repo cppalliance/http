@@ -41,30 +41,30 @@ struct router_test
     { co_return route::next_route; }
 
     // returns specified error
-    static auto h_fail(system::error_code ec)
+    static auto h_fail(std::error_code ec)
     {
         return [ec](params&) -> route_task
         { co_return ec; };
     }
 
     // error handler returns success
-    static auto eh_send(system::error_code expect)
+    static auto eh_send(std::error_code expect)
     {
-        return [expect](params&, system::error_code ec) -> route_task
+        return [expect](params&, std::error_code ec) -> route_task
         { BOOST_TEST(ec == expect); co_return route_result{}; };
     }
 
     // error handler returns route::next
-    static auto eh_next(system::error_code expect)
+    static auto eh_next(std::error_code expect)
     {
-        return [expect](params&, system::error_code ec) -> route_task
+        return [expect](params&, std::error_code ec) -> route_task
         { BOOST_TEST(ec == expect); co_return route::next; };
     }
 
     // error handler returns a new error
-    static auto eh_return(system::error_code new_ec)
+    static auto eh_return(std::error_code new_ec)
     {
-        return [new_ec](params&, system::error_code) -> route_task
+        return [new_ec](params&, std::error_code) -> route_task
         { co_return new_ec; };
     }
 

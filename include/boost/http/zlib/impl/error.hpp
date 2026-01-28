@@ -15,6 +15,7 @@
 
 #include <boost/system/error_category.hpp>
 #include <boost/system/is_error_code_enum.hpp>
+#include <system_error>
 
 namespace boost {
 
@@ -26,7 +27,16 @@ struct is_error_code_enum<
     static bool const value = true;
 };
 } // system
+} // boost
 
+namespace std {
+template<>
+struct is_error_code_enum<
+    ::boost::http::zlib::error>
+    : std::true_type {};
+} // std
+
+namespace boost {
 namespace http {
 namespace zlib {
 

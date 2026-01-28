@@ -572,15 +572,15 @@ struct request_test
         {
             request req;
             BOOST_TEST(
-                !req.metadata().expect.ec.failed());
+                !req.metadata().expect.ec);
 
             req.set("Expect", "101-dalmations");
             BOOST_TEST(
-                req.metadata().expect.ec.failed());
+                req.metadata().expect.ec);
 
             req.set_expect_100_continue(true);
             BOOST_TEST(
-                !req.metadata().expect.ec.failed());
+                !req.metadata().expect.ec);
             BOOST_TEST(
                 req.metadata().expect.is_100_continue);
         }
@@ -591,13 +591,13 @@ struct request_test
             req.append("Expect", "101-dalmations");
 
             BOOST_TEST(
-                req.metadata().expect.ec.failed());
+                req.metadata().expect.ec);
             BOOST_TEST_EQ(
                 req.count("Expect"), 2);
 
             req.set_expect_100_continue(true);
             BOOST_TEST(
-                !req.metadata().expect.ec.failed());
+                !req.metadata().expect.ec);
             BOOST_TEST(
                 req.metadata().expect.is_100_continue);
             BOOST_TEST_EQ(
@@ -611,13 +611,13 @@ struct request_test
             req.append("Expect", "100-continue");
 
             BOOST_TEST(
-                req.metadata().expect.ec.failed());
+                req.metadata().expect.ec);
             BOOST_TEST_EQ(
                 req.count("Expect"), 2);
 
             req.set_expect_100_continue(true);
             BOOST_TEST(
-                !req.metadata().expect.ec.failed());
+                !req.metadata().expect.ec);
             BOOST_TEST(
                 req.metadata().expect.is_100_continue);
             BOOST_TEST_EQ(
@@ -631,13 +631,13 @@ struct request_test
             req.append("Expect", "101-dalmations");
 
             BOOST_TEST(
-                req.metadata().expect.ec.failed());
+                req.metadata().expect.ec);
             BOOST_TEST_EQ(
                 req.count("Expect"), 2);
 
             req.set_expect_100_continue(true);
             BOOST_TEST(
-                !req.metadata().expect.ec.failed());
+                !req.metadata().expect.ec);
             BOOST_TEST(
                 req.metadata().expect.is_100_continue);
             BOOST_TEST_EQ(
@@ -651,13 +651,13 @@ struct request_test
             req.append("Expect", "100-continue");
 
             BOOST_TEST(
-                req.metadata().expect.ec.failed());
+                req.metadata().expect.ec);
             BOOST_TEST_EQ(
                 req.count("Expect"), 2);
 
             req.set_expect_100_continue(false);
             BOOST_TEST(
-                !req.metadata().expect.ec.failed());
+                !req.metadata().expect.ec);
             BOOST_TEST(
                 !req.metadata().expect.is_100_continue);
             BOOST_TEST_EQ(

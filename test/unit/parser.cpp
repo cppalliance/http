@@ -235,7 +235,7 @@ struct parser_test
             read_some(pr, in, ec);
             if(ec == condition::need_more_input)
                 continue;
-            if(ec.failed())
+            if(ec)
                 return;
         }
         while(! pr.got_header());
@@ -253,7 +253,7 @@ struct parser_test
             read_some(pr, in, ec);
             if(ec == condition::need_more_input)
                 continue;
-            if(ec.failed())
+            if(ec)
                 return;
         }
         while(! pr.is_complete());
@@ -278,7 +278,7 @@ struct parser_test
         pr.parse(ec);
         if( ec == condition::need_more_input)
             ec = {};
-        BOOST_TEST(! ec.failed());
+        BOOST_TEST(! ec);
     }
 
     //--------------------------------------------
@@ -314,13 +314,13 @@ struct parser_test
             pr1.start();
             system::error_code ec;
             read_header(pr1, in, ec);
-            BOOST_TEST_NOT(ec.failed());
+            BOOST_TEST_NOT(ec);
 
             request_parser pr2(std::move(pr1));
 
             BOOST_TEST_EQ(pr2.get().buffer(), header);
             read(pr2, in, ec);
-            BOOST_TEST_NOT(ec.failed());
+            BOOST_TEST_NOT(ec);
             BOOST_TEST_EQ(pr2.body(), body);
         }
 
@@ -466,7 +466,7 @@ struct parser_test
             pr.start();
             pieces in({ s });
             read_header(pr, in, ec);
-            if( ! BOOST_TEST(! ec.failed()) ||
+            if( ! BOOST_TEST(! ec) ||
                 ! BOOST_TEST(pr.got_header()) ||
                 ! BOOST_TEST(! pr.is_complete()))
                 return;
@@ -509,7 +509,7 @@ struct parser_test
             pr.reset();
             pr.start();
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
             parser::mutable_buffers_type dest;
             BOOST_TEST_THROWS(
@@ -601,7 +601,7 @@ struct parser_test
                 "Content-Length: 5\r\n"
                 "\r\n" };
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             pr.parse(ec);
             auto dest = pr.prepare();
             BOOST_TEST_THROWS(
@@ -640,7 +640,7 @@ struct parser_test
             pr.reset();
             pr.start();
             read_header(pr, in, ec);
-            if(ex.failed() && ec == ex)
+            if(ex && ec == ex)
             {
                 BOOST_TEST_EQ(ec, ex);
                 return;
@@ -707,7 +707,7 @@ struct parser_test
                 "Content-Length: 1\r\n"
                 "\r\n" };
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(!pr.is_complete());
             pr.parse(ec);
             BOOST_TEST_EQ(
@@ -728,7 +728,7 @@ struct parser_test
                 "Content-Length: 1\r\n"
                 "\r\n" };
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(!pr.is_complete());
             pr.parse(ec);
             BOOST_TEST_EQ(
@@ -782,7 +782,7 @@ struct parser_test
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n" };
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(! pr.is_complete());
             pr.parse(ec);
             BOOST_TEST_EQ(
@@ -801,7 +801,7 @@ struct parser_test
                 "GET / HTTP/1.1\r\n"
                 "\r\n" };
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
             BOOST_TEST_THROWS(
                 pr.commit_eof(),
@@ -848,7 +848,7 @@ struct parser_test
             pr.reset();
             pr.start();
             read_header(pr, in, ec);
-            if(ex.failed() && ec == ex)
+            if(ex && ec == ex)
             {
                 BOOST_TEST_EQ(ec, ex);
                 return;
@@ -972,7 +972,7 @@ struct parser_test
 
         start();
         read_header(*pr_, in, ec);
-        if(ec.failed())
+        if(ec)
         {
             BOOST_TEST_EQ(ec, ex);
             pr_->reset();
@@ -983,12 +983,12 @@ struct parser_test
             BOOST_TEST(pr_->body() == sb_);
             // this should be a no-op
             read(*pr_, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr_->body() == sb_);
             return;
         }
         read(*pr_, in, ec);
-        if(ec.failed())
+        if(ec)
         {
             BOOST_TEST_EQ(ec, ex);
             pr_->reset();
@@ -999,7 +999,7 @@ struct parser_test
         BOOST_TEST(pr_->body() == sb_);
         // this should be a no-op
         read(*pr_, in, ec);
-        BOOST_TEST(! ec.failed());
+        BOOST_TEST(! ec);
         BOOST_TEST(pr_->body() == sb_);
     }
 
@@ -1237,7 +1237,7 @@ struct parser_test
 
             system::error_code ec;
             read(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
 
             auto str = pr.body();
@@ -1266,12 +1266,12 @@ struct parser_test
 
             system::error_code ec;
             read_header(pr, in1, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             BOOST_TEST(! pr.is_complete());
 
             read(pr, in2, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
             BOOST_TEST(pr.body() == "hello, world!");
         }
@@ -1296,7 +1296,7 @@ struct parser_test
 
             system::error_code ec;
             read_header(pr, in1, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             BOOST_TEST(! pr.is_complete());
 
@@ -1324,7 +1324,7 @@ struct parser_test
 
             system::error_code ec;
             read_header(pr, in1, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             BOOST_TEST(! pr.is_complete());
 
@@ -1389,7 +1389,7 @@ struct parser_test
 
                 system::error_code ec;
                 read_header(pr, in, ec);
-                BOOST_TEST(! ec.failed());
+                BOOST_TEST(! ec);
                 BOOST_TEST(pr.got_header());
 
                 pr.parse(ec);
@@ -1431,7 +1431,7 @@ struct parser_test
 
                 system::error_code ec;
                 read_header(pr, in, ec);
-                BOOST_TEST(! ec.failed());
+                BOOST_TEST(! ec);
                 BOOST_TEST(pr.got_header());
 
                 pr.parse(ec);
@@ -1516,20 +1516,20 @@ struct parser_test
             if(! pr.got_header())
             {
                 pr.parse(ec);
-                BOOST_TEST(! ec.failed());
+                BOOST_TEST(! ec);
                 BOOST_TEST(pr.got_header());
             }
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
 
             // second message
             pr.start();
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
         }
         
@@ -1618,19 +1618,19 @@ struct parser_test
 
             // first message
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
 
             // second message
             pr.start();
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             pr.parse(ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
         }
     }
@@ -1669,7 +1669,7 @@ struct parser_test
             "1234567" };
             system::error_code ec;
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             read(pr, in, ec);
             BOOST_TEST_EQ(
@@ -1689,10 +1689,10 @@ struct parser_test
             "1234567" };
             system::error_code ec;
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             read(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
 
         }
@@ -1713,7 +1713,7 @@ struct parser_test
             "\r\n" };
             system::error_code ec;
             read_header(pr, in, ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
             BOOST_TEST(pr.is_complete());
             BOOST_TEST(pr.body().empty());
@@ -1739,10 +1739,10 @@ struct parser_test
             "bad-chunk-header\r\n" };
         system::error_code ec;
         read_header(pr, in, ec);
-        BOOST_TEST(! ec.failed());
+        BOOST_TEST(! ec);
         BOOST_TEST(pr.got_header());
         read(pr, in, ec);
-        BOOST_TEST(ec.failed());
+        BOOST_TEST(ec);
         BOOST_TEST(pr.got_header());
         BOOST_TEST_EQ(
             pr.get().payload(), payload::chunked);
@@ -1803,7 +1803,7 @@ struct parser_coro_test
             pr.start();
 
             auto [ec] = co_await pr.read_header(rs);
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST(pr.got_header());
@@ -1830,12 +1830,12 @@ struct parser_coro_test
             pr.start();
 
             auto [hdr_ec] = co_await pr.read_header(rs);
-            if(hdr_ec.failed())
+            if(hdr_ec)
                 co_return;
 
             capy::test::write_sink ws(f);
             auto [ec] = co_await pr.read(rs, ws);
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST(pr.is_complete());
@@ -1865,12 +1865,12 @@ struct parser_coro_test
             pr.start();
 
             auto [hdr_ec] = co_await pr.read_header(rs);
-            if(hdr_ec.failed())
+            if(hdr_ec)
                 co_return;
 
             capy::test::write_sink ws(f);
             auto [ec] = co_await pr.read(rs, ws);
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST(pr.is_complete());
@@ -1905,7 +1905,7 @@ struct parser_coro_test
             for(;;)
             {
                 auto [ec, count] = co_await source.pull(arr, 16);
-                if(ec.failed())
+                if(ec)
                     co_return;
                 if(count == 0)
                     break;
@@ -1953,7 +1953,7 @@ struct parser_coro_test
             for(;;)
             {
                 auto [ec, count] = co_await source.pull(arr, 16);
-                if(ec.failed())
+                if(ec)
                     co_return;
                 if(count == 0)
                     break;

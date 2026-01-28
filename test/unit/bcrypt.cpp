@@ -21,14 +21,14 @@ struct bcrypt_test
     {
         // Test error codes can be created
         system::error_code ec1 = bcrypt::make_error_code(bcrypt::error::ok);
-        BOOST_TEST(! ec1.failed());
+        BOOST_TEST(! ec1);
 
         system::error_code ec2 = bcrypt::make_error_code(bcrypt::error::invalid_salt);
-        BOOST_TEST(ec2.failed());
+        BOOST_TEST(ec2);
         BOOST_TEST(ec2.message() == "invalid salt");
 
         system::error_code ec3 = bcrypt::make_error_code(bcrypt::error::invalid_hash);
-        BOOST_TEST(ec3.failed());
+        BOOST_TEST(ec3);
         BOOST_TEST(ec3.message() == "invalid hash");
     }
 
@@ -100,7 +100,7 @@ struct bcrypt_test
         {
             system::error_code ec;
             bcrypt::result h = bcrypt::hash("password", salt.str(), ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(h.size() == 60);
         }
 
@@ -108,11 +108,11 @@ struct bcrypt_test
         {
             system::error_code ec1;
             bcrypt::result hash1 = bcrypt::hash("password", salt.str(), ec1);
-            BOOST_TEST(! ec1.failed());
+            BOOST_TEST(! ec1);
 
             system::error_code ec2;
             bcrypt::result hash2 = bcrypt::hash("password", salt.str(), ec2);
-            BOOST_TEST(! ec2.failed());
+            BOOST_TEST(! ec2);
 
             BOOST_TEST(hash1.str() == hash2.str());
         }
@@ -143,7 +143,7 @@ struct bcrypt_test
         {
             system::error_code ec;
             bool match = bcrypt::compare("correct_password", r.str(), ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(match);
         }
 
@@ -151,7 +151,7 @@ struct bcrypt_test
         {
             system::error_code ec;
             bool match = bcrypt::compare("wrong_password", r.str(), ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(! match);
         }
 
@@ -159,7 +159,7 @@ struct bcrypt_test
         {
             system::error_code ec;
             bool match = bcrypt::compare("", r.str(), ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(! match);
         }
 
@@ -188,7 +188,7 @@ struct bcrypt_test
             system::error_code ec;
             unsigned rounds = bcrypt::get_rounds(
                 "$2b$12$abcdefghijklmnopqrstuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(rounds == 12);
         }
 
@@ -197,7 +197,7 @@ struct bcrypt_test
             system::error_code ec;
             unsigned rounds = bcrypt::get_rounds(
                 "$2a$10$abcdefghijklmnopqrstuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ec);
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
             BOOST_TEST(rounds == 10);
         }
 
@@ -228,7 +228,7 @@ struct bcrypt_test
             system::error_code ec;
             BOOST_TEST(bcrypt::compare("U*U",
                 "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW", ec));
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
         }
 
         // Empty password
@@ -236,7 +236,7 @@ struct bcrypt_test
             system::error_code ec;
             BOOST_TEST(bcrypt::compare("",
                 "$2a$06$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s.", ec));
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
         }
 
         // Test that wrong password fails
@@ -244,7 +244,7 @@ struct bcrypt_test
             system::error_code ec;
             BOOST_TEST(! bcrypt::compare("wrong",
                 "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW", ec));
-            BOOST_TEST(! ec.failed());
+            BOOST_TEST(! ec);
         }
     }
 
@@ -259,11 +259,11 @@ struct bcrypt_test
 
         system::error_code ec1;
         bcrypt::result r1 = bcrypt::hash(long_pw, salt.str(), ec1);
-        BOOST_TEST(! ec1.failed());
+        BOOST_TEST(! ec1);
 
         system::error_code ec2;
         bcrypt::result r2 = bcrypt::hash(truncated_pw, salt.str(), ec2);
-        BOOST_TEST(! ec2.failed());
+        BOOST_TEST(! ec2);
 
         // Both should produce the same hash
         BOOST_TEST(r1.str() == r2.str());

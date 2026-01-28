@@ -98,11 +98,11 @@ struct json_sink_test
             auto [ec, n] = co_await sink.write(
                 capy::make_buffer(data));
 
-            BOOST_TEST(!ec.failed());
+            BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, data.size());
 
             auto [ec2] = co_await sink.write_eof();
-            BOOST_TEST(!ec2.failed());
+            BOOST_TEST(!ec2);
             BOOST_TEST(sink.done());
 
             auto v = sink.release();
@@ -132,7 +132,7 @@ struct json_sink_test
             auto [ec, n] = co_await sink.write(
                 capy::make_buffer(data), true);
 
-            BOOST_TEST(!ec.failed());
+            BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, data.size());
             BOOST_TEST(sink.done());
 
@@ -166,19 +166,19 @@ struct json_sink_test
 
             auto [ec1, n1] = co_await sink.write(
                 capy::make_buffer(part1));
-            BOOST_TEST(!ec1.failed());
+            BOOST_TEST(!ec1);
             BOOST_TEST_EQ(n1, part1.size());
             BOOST_TEST(!sink.done());
 
             auto [ec2, n2] = co_await sink.write(
                 capy::make_buffer(part2));
-            BOOST_TEST(!ec2.failed());
+            BOOST_TEST(!ec2);
             BOOST_TEST_EQ(n2, part2.size());
             BOOST_TEST(!sink.done());
 
             auto [ec3, n3] = co_await sink.write(
                 capy::make_buffer(part3), true);
-            BOOST_TEST(!ec3.failed());
+            BOOST_TEST(!ec3);
             BOOST_TEST_EQ(n3, part3.size());
             BOOST_TEST(sink.done());
 
@@ -210,7 +210,7 @@ struct json_sink_test
             auto [ec, n] = co_await sink.write(
                 capy::make_buffer(data), true);
 
-            BOOST_TEST(!ec.failed());
+            BOOST_TEST(!ec);
             BOOST_TEST(sink.done());
 
             auto v = sink.release();
@@ -242,7 +242,7 @@ struct json_sink_test
             auto [ec, n] = co_await sink.write(
                 capy::const_buffer(nullptr, 0));
 
-            BOOST_TEST(!ec.failed());
+            BOOST_TEST(!ec);
             BOOST_TEST_EQ(n, 0u);
             BOOST_TEST(!sink.done());
         };
@@ -273,7 +273,7 @@ struct json_sink_test
             auto [ec, n] = co_await sink.write(
                 capy::make_buffer(data), true);
 
-            BOOST_TEST(ec.failed());
+            BOOST_TEST(ec);
         };
 
         capy::run_async(ex,
@@ -298,11 +298,11 @@ struct json_sink_test
             std::string_view data = R"({"key":)";
             auto [ec1, n] = co_await sink.write(
                 capy::make_buffer(data));
-            BOOST_TEST(!ec1.failed());
+            BOOST_TEST(!ec1);
 
             // Calling write_eof with incomplete JSON should error
             auto [ec2] = co_await sink.write_eof();
-            BOOST_TEST(ec2.failed());
+            BOOST_TEST(ec2);
         };
 
         capy::run_async(ex,
@@ -339,7 +339,7 @@ struct json_sink_test
             auto [ec, n] = co_await sink.write(
                 capy::make_buffer(data), true);
 
-            BOOST_TEST(!ec.failed());
+            BOOST_TEST(!ec);
             BOOST_TEST(sink.done());
 
             auto v = sink.release();
@@ -373,7 +373,7 @@ struct json_sink_test
             std::string_view data1 = R"({"first": 1})";
             auto [ec1, n1] = co_await sink.write(
                 capy::make_buffer(data1), true);
-            BOOST_TEST(!ec1.failed());
+            BOOST_TEST(!ec1);
             BOOST_TEST(sink.done());
 
             auto v1 = sink.release();
@@ -386,7 +386,7 @@ struct json_sink_test
             std::string_view data2 = R"({"second": 2})";
             auto [ec2, n2] = co_await sink.write(
                 capy::make_buffer(data2), true);
-            BOOST_TEST(!ec2.failed());
+            BOOST_TEST(!ec2);
             BOOST_TEST(sink.done());
 
             auto v2 = sink.release();

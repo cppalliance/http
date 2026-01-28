@@ -511,7 +511,7 @@ read_header(Stream& stream)
         auto [read_ec, n] = co_await stream.read_some(mbs);
         if(read_ec == capy::cond::eof)
             commit_eof();
-        else if(!read_ec.failed())
+        else if(!read_ec)
             commit(n);
         else
             co_return {read_ec};
@@ -559,7 +559,7 @@ read(Stream& stream, MB buffers)
 
             if(read_ec == capy::cond::eof)
                 commit_eof();
-            else if(!read_ec.failed())
+            else if(!read_ec)
                 commit(n);
             else
                 co_return {read_ec, total};
@@ -567,7 +567,7 @@ read(Stream& stream, MB buffers)
             continue;
         }
 
-        if(ec.failed())
+        if(ec)
             co_return {ec, total};
     }
 }
@@ -589,7 +589,7 @@ pull(capy::const_buffer* arr, std::size_t max_count)
     if(!pr_->got_header())
     {
         auto [ec] = co_await pr_->read_header(*stream_);
-        if(ec.failed())
+        if(ec)
             co_return {ec, 0};
     }
 
@@ -617,7 +617,7 @@ pull(capy::const_buffer* arr, std::size_t max_count)
 
             if(read_ec == capy::cond::eof)
                 pr_->commit_eof();
-            else if(!read_ec.failed())
+            else if(!read_ec)
                 pr_->commit(n);
             else
                 co_return {read_ec, 0};
@@ -625,7 +625,7 @@ pull(capy::const_buffer* arr, std::size_t max_count)
             continue;
         }
 
-        if(ec.failed())
+        if(ec)
             co_return {ec, 0};
     }
 }
@@ -654,7 +654,7 @@ read(capy::ReadStream auto& stream, Sink&& sink)
             if(capy::buffer_size(body_data) > 0)
             {
                 auto [write_ec, n] = co_await sink.write(body_data);
-                if(write_ec.failed())
+                if(write_ec)
                     co_return {write_ec};
                 consume_body(n);
             }
@@ -673,7 +673,7 @@ read(capy::ReadStream auto& stream, Sink&& sink)
 
             if(read_ec == capy::cond::eof)
                 commit_eof();
-            else if(!read_ec.failed())
+            else if(!read_ec)
                 commit(n);
             else
                 co_return {read_ec};
@@ -681,7 +681,7 @@ read(capy::ReadStream auto& stream, Sink&& sink)
             continue;
         }
 
-        if(ec.failed())
+        if(ec)
             co_return {ec};
     }
 }

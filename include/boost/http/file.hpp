@@ -151,7 +151,7 @@ public:
     {
         system::error_code ec;
         impl_.close(ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 
@@ -192,7 +192,7 @@ public:
     {
         system::error_code ec;
         impl_.open(path, mode, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 
@@ -219,7 +219,7 @@ public:
     {
         system::error_code ec;
         auto r = impl_.size(ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
         return r;
     }
@@ -247,7 +247,7 @@ public:
     {
         system::error_code ec;
         auto r = impl_.pos(ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
         return r;
     }
@@ -279,7 +279,7 @@ public:
     {
         system::error_code ec;
         impl_.seek(offset, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 
@@ -321,7 +321,7 @@ public:
     {
         system::error_code ec;
         auto r = impl_.read(buffer, n, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
         return r;
     }
@@ -363,7 +363,7 @@ public:
     {
         system::error_code ec;
         auto r = impl_.write(buffer, n, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
         return r;
     }

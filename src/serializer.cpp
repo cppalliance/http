@@ -373,7 +373,7 @@ public:
                     {}, // empty input
                     false);
 
-                if(rs.ec.failed())
+                if(rs.ec)
                 {
                     ws_.clear();
                     state_ = state::reset;
@@ -407,7 +407,7 @@ public:
                         {{ {tmp_}, {} }},
                         more_input_);
 
-                    if(rs.ec.failed())
+                    if(rs.ec)
                     {
                         ws_.clear();
                         state_ = state::reset;
@@ -439,7 +439,7 @@ public:
                     in_.data(),
                     more_input_);
 
-                if(rs.ec.failed())
+                if(rs.ec)
                 {
                     ws_.clear();
                     state_ = state::reset;

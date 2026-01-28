@@ -189,7 +189,7 @@ private:
     Each error handler may return any failing @ref system::error_code,
     which is equivalent to calling:
     @code
-    p.next( ec ); // with ec.failed() == true
+    p.next( ec ); // with ec == true
     @endcode
 
     Returning @ref route::next indicates that control should proceed to

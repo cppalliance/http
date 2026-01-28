@@ -347,7 +347,7 @@ fields_base(
     // VFALCO This is using defaults?
     header_limits lim;
     h_.parse(s.size(), lim, ec);
-    if(ec.failed())
+    if(ec)
         detail::throw_system_error(ec);
 }
 
@@ -1084,7 +1084,7 @@ set(
     system::error_code& ec)
 {
     verify_field_name(name , ec);
-    if(ec.failed())
+    if(ec)
         return;
 
     auto rv = verify_field_value(value);
@@ -1135,7 +1135,7 @@ insert(
 {
     system::error_code ec;
     auto const it = insert(before, id, value, ec);
-    if(ec.failed())
+    if(ec)
         detail::throw_system_error(ec);
     return it;
 }
@@ -1167,7 +1167,7 @@ insert(
 {
     system::error_code ec;
     insert(before, name, value, ec);
-    if(ec.failed())
+    if(ec)
         detail::throw_system_error(ec);
     return before;
 }
@@ -1198,7 +1198,7 @@ set(
 {
     system::error_code ec;
     set(it, value, ec);
-    if(ec.failed())
+    if(ec)
         detail::throw_system_error(ec);
 }
 
@@ -1251,7 +1251,7 @@ insert_impl(
     system::error_code& ec)
 {
     verify_field_name(name, ec);
-    if(ec.failed())
+    if(ec)
         return;
 
     auto rv = verify_field_value(value);

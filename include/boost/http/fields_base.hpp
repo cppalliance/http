@@ -639,7 +639,7 @@ public:
     {
         system::error_code ec;
         append(id, value, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 
@@ -738,7 +738,7 @@ public:
     {
         system::error_code ec;
         append(name, value, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 
@@ -1173,7 +1173,7 @@ public:
     {
         system::error_code ec;
         set(id, value, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 
@@ -1259,7 +1259,7 @@ public:
     {
         system::error_code ec;
         set(name, value, ec);
-        if(ec.failed())
+        if(ec)
             detail::throw_system_error(ec);
     }
 

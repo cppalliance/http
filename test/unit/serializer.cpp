@@ -776,11 +776,11 @@ struct serializer_test
             std::memcpy(arr[0].data(), body.data(), body.size());
 
             auto [ec] = co_await sink.commit(body.size());
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             auto [ec2] = co_await sink.commit_eof();
-            if(ec2.failed())
+            if(ec2)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -813,7 +813,7 @@ struct serializer_test
             std::memcpy(arr[0].data(), body.data(), body.size());
 
             auto [ec] = co_await sink.commit(body.size(), true);
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -838,11 +838,11 @@ struct serializer_test
             sr.start_stream(res);
 
             auto [ec] = co_await sink.commit(0);
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             auto [ec2] = co_await sink.commit_eof();
-            if(ec2.failed())
+            if(ec2)
                 co_return;
         });
         BOOST_TEST(r.success);
@@ -871,7 +871,7 @@ struct serializer_test
             std::string_view part1 = "Hello, ";
             std::memcpy(arr[0].data(), part1.data(), part1.size());
             auto [ec1] = co_await sink.commit(part1.size());
-            if(ec1.failed())
+            if(ec1)
                 co_return;
 
             // Second commit
@@ -882,11 +882,11 @@ struct serializer_test
             std::string_view part2 = "World!";
             std::memcpy(arr[0].data(), part2.data(), part2.size());
             auto [ec2] = co_await sink.commit(part2.size());
-            if(ec2.failed())
+            if(ec2)
                 co_return;
 
             auto [ec3] = co_await sink.commit_eof();
-            if(ec3.failed())
+            if(ec3)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -920,11 +920,11 @@ struct serializer_test
             std::string_view body = "test";
             std::memcpy(arr[0].data(), body.data(), body.size());
             auto [ec1] = co_await sink.commit(body.size());
-            if(ec1.failed())
+            if(ec1)
                 co_return;
 
             auto [ec2] = co_await sink.commit_eof();
-            if(ec2.failed())
+            if(ec2)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -949,7 +949,7 @@ struct serializer_test
             sr.start_stream(res);
 
             auto [ec] = co_await sink.commit_eof();
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -982,11 +982,11 @@ struct serializer_test
             std::string_view body = "hello";
             std::memcpy(arr[0].data(), body.data(), body.size());
             auto [ec] = co_await sink.commit(body.size());
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             auto [ec2] = co_await sink.commit_eof();
-            if(ec2.failed())
+            if(ec2)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -1021,11 +1021,11 @@ struct serializer_test
             std::string_view body = "chunked data";
             std::memcpy(arr[0].data(), body.data(), body.size());
             auto [ec] = co_await sink.commit(body.size());
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             auto [ec2] = co_await sink.commit_eof();
-            if(ec2.failed())
+            if(ec2)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -1060,13 +1060,13 @@ struct serializer_test
             std::string_view body = "Hello, World!";
             auto [ec, n] = co_await abs.write(
                 capy::make_buffer(body));
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST_EQ(n, 13u);
 
             auto [ec2] = co_await abs.write_eof();
-            if(ec2.failed())
+            if(ec2)
                 co_return;
 
             BOOST_TEST(sr.is_done());
@@ -1095,7 +1095,7 @@ struct serializer_test
             std::string_view body = "hello";
             auto [ec, n] = co_await abs.write(
                 capy::make_buffer(body), true);
-            if(ec.failed())
+            if(ec)
                 co_return;
 
             BOOST_TEST_EQ(n, 5u);

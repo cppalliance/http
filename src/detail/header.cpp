@@ -483,7 +483,7 @@ on_insert_connection(
     core::string_view v)
 {
     ++md.connection.count;
-    if(md.connection.ec.failed())
+    if(md.connection.ec)
         return;
     auto rv = grammar::parse(
         v, list_rule(token_rule, 1));
@@ -520,7 +520,7 @@ on_insert_content_length(
         std::uint64_t> num_rule{};
 
     ++md.content_length.count;
-    if(md.content_length.ec.failed())
+    if(md.content_length.ec)
         return;
     auto rv =
         grammar::parse(v, num_rule);
@@ -563,7 +563,7 @@ on_insert_expect(
     ++md.expect.count;
     if(kind != detail::kind::request)
         return;
-    if(md.expect.ec.failed())
+    if(md.expect.ec)
         return;
     // VFALCO Should we allow duplicate
     // Expect fields that have 100-continue?
@@ -586,7 +586,7 @@ on_insert_transfer_encoding(
     core::string_view v)
 {
     ++md.transfer_encoding.count;
-    if(md.transfer_encoding.ec.failed())
+    if(md.transfer_encoding.ec)
         return;
 
     auto rv = grammar::parse(
@@ -629,7 +629,7 @@ on_insert_content_encoding(
     core::string_view v)
 {
     ++md.content_encoding.count;
-    if(md.content_encoding.ec.failed())
+    if(md.content_encoding.ec)
         return;
 
     auto rv = grammar::parse(
@@ -682,7 +682,7 @@ on_insert_upgrade(
     core::string_view v)
 {
     ++md.upgrade.count;
-    if(md.upgrade.ec.failed())
+    if(md.upgrade.ec)
         return;
     if( version !=
         http::version::http_1_1)
@@ -758,7 +758,7 @@ on_erase_content_length()
         update_payload();
         return;
     }
-    if(! md.content_length.ec.failed())
+    if(! md.content_length.ec)
     {
         // removing a duplicate value
         return;
@@ -801,7 +801,7 @@ on_erase_expect()
     // if we want to allow multiple Expect
     // fields with the value 100-continue
     /*
-    if(! md.expect.ec.failed())
+    if(! md.expect.ec)
         return;
     */
     // reset and re-insert
@@ -967,14 +967,14 @@ update_payload() noexcept
     connection. Servers can send a Bad Request
     and avoid reading any payload bytes.
 */
-    if(md.content_length.ec.failed())
+    if(md.content_length.ec)
     {
         // invalid Content-Length
         md.payload = payload::error;
         md.payload_size = 0;
         return;
     }
-    if(md.transfer_encoding.ec.failed())
+    if(md.transfer_encoding.ec)
     {
         // invalid Transfer-Encoding
         md.payload = payload::error;
@@ -1294,7 +1294,7 @@ parse(
     {
         parse_start_line(
             *this, lim, new_size, ec);
-        if(ec.failed())
+        if(ec)
         {
             if( ec == grammar::error::need_more &&
                 new_size == lim.max_fields)
@@ -1309,7 +1309,7 @@ parse(
     {
         parse_field(
             *this, lim, new_size, ec);
-        if(ec.failed())
+        if(ec)
         {
             if( ec == grammar::error::need_more &&
                 new_size == lim.max_size)

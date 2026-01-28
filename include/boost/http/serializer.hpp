@@ -833,7 +833,7 @@ public:
             auto [ec, written] = co_await stream_->write_some(*cbs);
             sr_->consume(written);
 
-            if(ec.failed())
+            if(ec)
                 co_return {ec};
         }
 
@@ -875,7 +875,7 @@ public:
             auto [ec, written] = co_await stream_->write_some(*cbs);
             sr_->consume(written);
 
-            if(ec.failed())
+            if(ec)
                 co_return {ec};
         }
 

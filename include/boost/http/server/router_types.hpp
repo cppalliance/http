@@ -18,6 +18,7 @@
 #include <boost/system/error_code.hpp>
 #include <exception>
 #include <string>
+#include <system_error>
 #include <type_traits>
 
 namespace boost {
@@ -27,11 +28,11 @@ namespace http {
 
     Route handlers use this type to report errors that prevent
     normal processing. A handler must never return a non-failing
-    (i.e. `ec.failed() == false`) value. Returning a default-constructed
-    `system::error_code` is disallowed; handlers that complete
+    (i.e. `(bool)ec == true`) value. Returning a default-constructed
+    `std::error_code` is disallowed; handlers that complete
     successfully must instead return a valid @ref route result.
 */
-using route_result = system::error_code;
+using route_result = std::error_code;
 
 /** Route handler return values
 
@@ -84,6 +85,16 @@ struct is_error_code_enum<
     static bool const value = true;
 };
 } // system
+} // boost
+
+namespace std {
+template<>
+struct is_error_code_enum<
+    ::boost::http::route>
+    : std::true_type {};
+} // std
+
+namespace boost {
 namespace http {
 
 namespace detail {
@@ -125,7 +136,7 @@ struct route_params_base_privates
 
     std::string verb_str_;
     std::string decoded_path_;
-    system::error_code ec_;
+    std::error_code ec_;
     std::exception_ptr ep_;
     std::size_t pos_ = 0;
     std::size_t resume_ = 0;

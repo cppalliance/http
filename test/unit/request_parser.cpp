@@ -80,7 +80,7 @@ struct request_parser_test
             if(ec == condition::need_more_input)
                 continue;
             auto const es = ec.message();
-            return ! ec.failed();
+            return ! ec;
         }
         return false;
     }
@@ -184,7 +184,7 @@ struct request_parser_test
                 b.data(), s.data() + i, n - i);
             pr.commit(n);
             pr.parse(ec);
-            if(ec.failed())
+            if(ec)
                 continue;
             //BOOST_TEST(pr.is_done());
             f(pr);

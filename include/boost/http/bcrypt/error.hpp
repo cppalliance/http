@@ -13,6 +13,7 @@
 #include <boost/http/detail/config.hpp>
 #include <boost/system/error_category.hpp>
 #include <boost/system/is_error_code_enum.hpp>
+#include <system_error>
 
 namespace boost {
 namespace http {
@@ -45,7 +46,16 @@ struct is_error_code_enum<
     static bool const value = true;
 };
 } // system
+} // boost
 
+namespace std {
+template<>
+struct is_error_code_enum<
+    ::boost::http::bcrypt::error>
+    : std::true_type {};
+} // std
+
+namespace boost {
 namespace http {
 namespace bcrypt {
 

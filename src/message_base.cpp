@@ -73,7 +73,7 @@ void
 message_base::
 set_keep_alive(bool value)
 {
-    if(h_.md.connection.ec.failed())
+    if(h_.md.connection.ec)
     {
         // throw? return false?
         return;

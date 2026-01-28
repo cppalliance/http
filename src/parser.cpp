@@ -874,7 +874,7 @@ public:
                     error::incomplete);
                 return;
             }
-            else if(ec.failed())
+            else if(ec)
             {
                 // other error,
                 //
@@ -1361,7 +1361,7 @@ private:
                 goto done;
             }
 
-            if(f_rs.ec.failed())
+            if(f_rs.ec)
             {
                 ec = f_rs.ec;
                 state_ = state::reset;

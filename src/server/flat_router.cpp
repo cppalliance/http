@@ -285,7 +285,7 @@ struct flat_router::impl
             // Handle result
             //
             // Coroutines invert control - handler does the send.
-            // Success = !rv.failed() (handler completed request)
+            // Success = !rv (handler completed request)
             // route::next = continue to next handler
             // route::next_route = skip to next route
             // Failing error_code = enter error mode
@@ -302,12 +302,12 @@ struct flat_router::impl
                 // next_route only valid for end routes, not middleware
                 if(!m.end_)
                     // VFALCO this is a logic error
-                    co_return make_error_code(system::errc::invalid_argument);
+                    co_return std::make_error_code(std::errc::invalid_argument);
                 i = m.skip_;
                 continue;
             }
 
-            if(! rv.failed() || rv == route::close)
+            if(! rv || rv == route::close)
             {
                 // Success - handler completed the request
                 co_return rv;
