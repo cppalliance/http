@@ -13,6 +13,7 @@
 // Full functional tests are in beast2/test/unit/server/router.cpp
 
 #include <boost/http/server/basic_router.hpp>
+#include <boost/http/server/router.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
 #include "test_suite.hpp"
@@ -29,7 +30,7 @@ struct flat_router_test
     {
         auto counter = std::make_shared<int>(0);
         test_router r;
-        r.all("/", [counter](params&) -> capy::task<route_result>
+        r.all("/", [counter](params&) -> route_task
         {
             ++(*counter);
             co_return route_result{};
@@ -52,7 +53,7 @@ struct flat_router_test
     {
         auto counter = std::make_shared<int>(0);
         test_router r;
-        r.all("/", [counter](params&) -> capy::task<route_result>
+        r.all("/", [counter](params&) -> route_task
         {
             ++(*counter);
             co_return route_result{};
@@ -61,7 +62,7 @@ struct flat_router_test
         flat_router fr1(std::move(r));
 
         test_router r2;
-        r2.all("/", [](params&) -> capy::task<route_result>
+        r2.all("/", [](params&) -> route_task
         {
             co_return route_result{};
         });

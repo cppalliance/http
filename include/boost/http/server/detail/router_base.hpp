@@ -15,7 +15,7 @@
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/io_task.hpp>
 #include <boost/assert.hpp>
 #include <exception>
 #include <string_view>
@@ -58,7 +58,7 @@ protected:
         explicit handler(char kind_) noexcept : kind(kind_) {}
         virtual ~handler() = default;
         virtual auto invoke(route_params_base&) const ->
-            capy::task<route_result> = 0;
+            capy::io_task<> = 0;
 
         // Returns the nested router if this handler wraps one, nullptr otherwise.
         // Used by flat_router::flatten() to recurse into nested routers.
@@ -103,7 +103,7 @@ public:
 template<class H, class... Args>
 concept returns_route_task = std::same_as<
     std::invoke_result_t<H, Args...>,
-    capy::task<route_result>>;
+    capy::io_task<>>;
 
 } // detail
 } // http

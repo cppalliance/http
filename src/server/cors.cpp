@@ -173,7 +173,8 @@ operator()(
 
         // Safari and others need this for 204 or may hang
         rp.res.set_status(options_.result);
-        co_return co_await rp.send("");
+        auto [ec] = co_await rp.send("");
+        co_return ec;
     }
 
     // actual response

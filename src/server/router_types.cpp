@@ -85,7 +85,7 @@ is_method(
 
 //------------------------------------------------
 
-route_task
+capy::io_task<>
 route_params::
 send(std::string_view body)
 {
@@ -98,8 +98,7 @@ send(std::string_view body)
         res.erase(field::content_type);
         res.erase(field::content_length);
         res.erase(field::transfer_encoding);
-        co_await res_body.write_eof();
-        co_return {};
+        co_return co_await res_body.write_eof();
     }
 
     // 205 Reset Content: Content-Length=0, no body
@@ -107,8 +106,7 @@ send(std::string_view body)
     {
         res.erase(field::transfer_encoding);
         res.set_payload_size(0);
-        co_await res_body.write_eof();
-        co_return {};
+        co_return co_await res_body.write_eof();
     }
 
     // Set Content-Type if not already set
@@ -137,21 +135,18 @@ send(std::string_view body)
         res.erase(field::content_type);
         res.erase(field::content_length);
         res.erase(field::transfer_encoding);
-        co_await res_body.write_eof();
-        co_return {};
+        co_return co_await res_body.write_eof();
     }
 
     // HEAD: send headers only, skip body
     if(req.method() == method::head)
     {
-        co_await res_body.write_eof();
-        co_return {};
+        co_return co_await res_body.write_eof();
     }
 
     auto [ec, n] = co_await res_body.write(
         capy::make_buffer(body), true);
-    (void)n;
-    co_return ec;
+    co_return {ec};
 }
 
 } // http

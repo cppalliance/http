@@ -123,7 +123,7 @@ operator()(route_params& rp) const
 
         rp.res.set_status(status::method_not_allowed);
         rp.res.set(field::allow, "GET, HEAD");
-        co_return co_await rp.send("");
+        co_return co_await rp.send();
     }
 
     // Get the request path

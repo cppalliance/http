@@ -15,7 +15,7 @@
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/io_task.hpp>
 #include <boost/assert.hpp>
 #include <exception>
 #include <memory>
@@ -66,7 +66,7 @@ public:
         @throws std::invalid_argument If @p verb is
         @ref http::method::unknown.
     */
-    capy::task<route_result>
+    capy::io_task<>
     dispatch(
         http::method verb,
         urls::url_view const& url,
@@ -85,7 +85,7 @@ public:
 
         @throws std::invalid_argument If @p verb is empty.
     */
-    capy::task<route_result>
+    capy::io_task<>
     dispatch(
         std::string_view verb,
         urls::url_view const& url,

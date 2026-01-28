@@ -19,8 +19,7 @@
 #include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/capy/concept/buffer_sink.hpp>
 #include <boost/capy/concept/write_stream.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/io_task.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/result.hpp>
 
@@ -788,7 +787,7 @@ public:
     */
     auto
     commit(std::size_t n)
-        -> capy::task<capy::io_result<>>
+        -> capy::io_task<>
     {
         return commit(n, false);
     }
@@ -806,7 +805,7 @@ public:
     */
     auto
     commit(std::size_t n, bool eof)
-        -> capy::task<capy::io_result<>>
+        -> capy::io_task<>
     {
         sr_->stream_commit(n);
 
@@ -853,7 +852,7 @@ public:
     */
     auto
     commit_eof()
-        -> capy::task<capy::io_result<>>
+        -> capy::io_task<>
     {
         sr_->stream_close();
 

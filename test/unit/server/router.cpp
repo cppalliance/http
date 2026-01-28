@@ -10,6 +10,7 @@
 // Test that header file is self-contained.
 #include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/flat_router.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/http/server/detail/router_base.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
@@ -28,67 +29,67 @@ struct router_test
     //--------------------------------------------
 
     // returns success (non-failing error_code)
-    static auto h_send(params&) -> capy::task<route_result>
+    static auto h_send(params&) -> route_task
     { co_return route_result{}; }
 
     // returns route::next
-    static auto h_next(params&) -> capy::task<route_result>
+    static auto h_next(params&) -> route_task
     { co_return route::next; }
 
     // returns route::next_route
-    static auto h_next_route(params&) -> capy::task<route_result>
+    static auto h_next_route(params&) -> route_task
     { co_return route::next_route; }
 
     // returns specified error
     static auto h_fail(system::error_code ec)
     {
-        return [ec](params&) -> capy::task<route_result>
+        return [ec](params&) -> route_task
         { co_return ec; };
     }
 
     // error handler returns success
     static auto eh_send(system::error_code expect)
     {
-        return [expect](params&, system::error_code ec) -> capy::task<route_result>
+        return [expect](params&, system::error_code ec) -> route_task
         { BOOST_TEST(ec == expect); co_return route_result{}; };
     }
 
     // error handler returns route::next
     static auto eh_next(system::error_code expect)
     {
-        return [expect](params&, system::error_code ec) -> capy::task<route_result>
+        return [expect](params&, system::error_code ec) -> route_task
         { BOOST_TEST(ec == expect); co_return route::next; };
     }
 
     // error handler returns a new error
     static auto eh_return(system::error_code new_ec)
     {
-        return [new_ec](params&, system::error_code) -> capy::task<route_result>
+        return [new_ec](params&, system::error_code) -> route_task
         { co_return new_ec; };
     }
 
     // exception handler returns success - return as lambda for template deduction
     static auto exh_send()
     {
-        return [](params&, std::exception_ptr) -> capy::task<route_result>
+        return [](params&, std::exception_ptr) -> route_task
         { co_return route_result{}; };
     }
 
     // exception handler returns route::next
     static auto exh_next()
     {
-        return [](params&, std::exception_ptr) -> capy::task<route_result>
+        return [](params&, std::exception_ptr) -> route_task
         { co_return route::next; };
     }
 
     // throws exception
-    static auto h_throw(params&) -> capy::task<route_result>
+    static auto h_throw(params&) -> route_task
     { throw std::runtime_error("test"); co_return route::next; }
 
     // checks path then returns success
     static auto h_path(core::string_view base, core::string_view path)
     {
-        return [base, path](params& rp) -> capy::task<route_result>
+        return [base, path](params& rp) -> route_task
         {
             BOOST_TEST_EQ(rp.base_path, base);
             BOOST_TEST_EQ(rp.path, path);

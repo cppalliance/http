@@ -16,7 +16,7 @@
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/io_task.hpp>
 #include <boost/assert.hpp>
 #include <exception>
 #include <string_view>
@@ -295,7 +295,7 @@ class basic_router : public detail::router_base
         }
     
         auto invoke(route_params_base& rp) const ->
-            capy::task<route_result> override
+            capy::io_task<> override
         {
             if constexpr (detail::returns_route_task<H, P&>)
             {

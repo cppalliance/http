@@ -15,7 +15,7 @@
 #include <boost/http/server/router_types.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/io_task.hpp>
 #include <boost/capy/write.hpp>
 #include <boost/capy/io/any_buffer_source.hpp>
 #include <boost/capy/io/any_buffer_sink.hpp>
@@ -80,7 +80,7 @@ namespace http {
 
     @see @ref route_result, @ref route, @ref route_params
 */
-using route_task = capy::task<route_result>;
+using route_task = capy::io_task<>;
 
 //-----------------------------------------------
 
@@ -103,7 +103,7 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     BOOST_HTTP_DECL void reset(); // reset per request
     BOOST_HTTP_DECL route_params& status(http::status code);
 
-    BOOST_HTTP_DECL route_task send(std::string_view body);
+    BOOST_HTTP_DECL capy::io_task<> send(std::string_view body = {});
 };
 
 /** The default router type using @ref route_params.

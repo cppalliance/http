@@ -23,8 +23,7 @@
 #include <boost/capy/concept/write_sink.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/error.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/io_task.hpp>
 #include <boost/core/span.hpp>
 
 #include <cstddef>
@@ -338,7 +337,7 @@ public:
         @see @ref read.
     */
     template<capy::ReadStream Stream>
-    capy::task<capy::io_result<>>
+    capy::io_task<>
     read_header(Stream& stream);
 
     /** Asynchronously read body data into buffers.
@@ -360,7 +359,7 @@ public:
         @see @ref read_header.
     */
     template<capy::ReadStream Stream, capy::MutableBufferSequence MB>
-    capy::task<capy::io_result<std::size_t>>
+    capy::io_task<std::size_t>
     read(Stream& stream, MB buffers);
 
     /** Return a source for reading body data.
@@ -404,7 +403,7 @@ public:
         @see WriteSink.
     */
     template<capy::WriteSink Sink>
-    capy::task<capy::io_result<>>
+    capy::io_task<>
     read(capy::ReadStream auto& stream, Sink&& sink);
 
 private:
@@ -476,7 +475,7 @@ public:
 
         @return An awaitable yielding `(error_code,std::size_t)`.
     */
-    capy::task<capy::io_result<std::size_t>>
+    capy::io_task<std::size_t>
     pull(capy::const_buffer* arr, std::size_t max_count);
 
     /** Consume bytes from pulled body data.
@@ -492,7 +491,7 @@ public:
 };
 
 template<capy::ReadStream Stream>
-capy::task<capy::io_result<>>
+capy::io_task<>
 parser::
 read_header(Stream& stream)
 {
@@ -520,7 +519,7 @@ read_header(Stream& stream)
 }
 
 template<capy::ReadStream Stream, capy::MutableBufferSequence MB>
-capy::task<capy::io_result<std::size_t>>
+capy::io_task<std::size_t>
 parser::
 read(Stream& stream, MB buffers)
 {
@@ -582,7 +581,7 @@ source_for(Stream& stream) noexcept
 }
 
 template<capy::ReadStream Stream>
-capy::task<capy::io_result<std::size_t>>
+capy::io_task<std::size_t>
 parser::source<Stream>::
 pull(capy::const_buffer* arr, std::size_t max_count)
 {
@@ -640,7 +639,7 @@ consume(std::size_t n) noexcept
 }
 
 template<capy::WriteSink Sink>
-capy::task<capy::io_result<>>
+capy::io_task<>
 parser::
 read(capy::ReadStream auto& stream, Sink&& sink)
 {

@@ -14,6 +14,7 @@
 #include <boost/http/method.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/core/detail/string_view.hpp>
+#include <boost/capy/io_result.hpp>
 #include <boost/system/error_code.hpp>
 #include <exception>
 #include <string>
@@ -109,18 +110,6 @@ make_error_code(route ev) noexcept
     return system::error_code{static_cast<
         std::underlying_type<route>::type>(ev),
         detail::route_cat};
-}
-
-/** Return true if `rv` is a route result.
-
-    A @ref route_result can hold any error code,
-    and this function returns `true` only if `rv`
-    holds a value from the @ref route enumeration.
-*/
-inline bool is_route_result(
-    route_result rv) noexcept
-{
-    return &rv.category() == &detail::route_cat;
 }
 
 //------------------------------------------------

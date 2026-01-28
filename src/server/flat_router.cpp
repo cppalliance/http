@@ -144,7 +144,7 @@ struct flat_router::impl
                 p.decoded_path_.size() - 1, 1 };  // soft slash
     }
 
-    capy::task<route_result>
+    capy::io_task<>
     dispatch_loop(route_params_base& p) const
     {
         // All checks happen BEFORE co_await to minimize coroutine launches.
@@ -302,7 +302,7 @@ struct flat_router::impl
                 // next_route only valid for end routes, not middleware
                 if(!m.end_)
                     // VFALCO this is a logic error
-                    co_return make_error_code(std::errc::invalid_argument);
+                    co_return make_error_code(system::errc::invalid_argument);
                 i = m.skip_;
                 continue;
             }
@@ -347,7 +347,7 @@ flat_router(
     impl_->flatten(*src.impl_);
 }
 
-capy::task<route_result>
+capy::io_task<>
 flat_router::
 dispatch(
     http::method verb,
@@ -379,7 +379,7 @@ dispatch(
     return impl_->dispatch_loop(p);
 }
 
-capy::task<route_result>
+capy::io_task<>
 flat_router::
 dispatch(
     std::string_view verb,
