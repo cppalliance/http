@@ -201,7 +201,11 @@ enum class error
 
     /** An unhandled exception occurred while routing a request
     */
-    unhandled_exception
+    unhandled_exception,
+
+    /** A route handler returned an invalid result
+    */
+    invalid_route_result
 };
 
 // VFALCO we need a bad_message condition?

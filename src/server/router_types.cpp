@@ -11,66 +11,122 @@
 #include <boost/http/server/router.hpp>
 #include <boost/http/server/etag.hpp>
 #include <boost/http/server/fresh.hpp>
+#include <boost/http/detail/except.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/assert.hpp>
 #include <cstring>
 
 namespace boost {
+namespace system {
+template<>
+struct is_error_code_enum<
+    ::boost::http::route_what>
+{
+    static bool const value = true;
+};
+} // system
+} // boost
+
+namespace boost {
 namespace http {
 
-namespace detail {
+namespace {
 
-const char*
-route_cat_type::
-name() const noexcept
+struct route_what_cat_type
+    : system::error_category
 {
-    return "boost.http.route";
-}
-
-std::string
-route_cat_type::
-message(int code) const
-{
-    return message(code, nullptr, 0);
-}
-
-char const*
-route_cat_type::
-message(
-    int code,
-    char*,
-    std::size_t) const noexcept
-{
-    switch(static_cast<route>(code))
+    constexpr route_what_cat_type()
+        : error_category(0x7a8b3c4d5e6f1029)
     {
-    case route::next:       return "next";
-    case route::next_route: return "next_route";
-    case route::close:      return "close";
-    default:
-        return "?";
     }
+
+    const char* name() const noexcept override
+    {
+        return "boost.http.route_what";
+    }
+
+    std::string message(int code) const override
+    {
+        return message(code, nullptr, 0);
+    }
+
+    char const* message(
+        int code,
+        char*,
+        std::size_t) const noexcept override
+    {
+        switch(static_cast<route_what>(code))
+        {
+        case route_what::done:          return "done";
+        case route_what::error:         return "error";
+        case route_what::next:          return "next";
+        case route_what::next_route:    return "next_route";
+        case route_what::close:         return "close";
+        default:
+            return "?";
+        }
+    }
+};
+
+route_what_cat_type route_what_cat;
+
+} // (anon)
+
+system::error_code
+make_error_code(
+    route_what w) noexcept
+{
+    return system::error_code{
+        static_cast<int>(w), route_what_cat};
 }
 
-// msvc 14.0 has a bug that warns about inability
-// to use constexpr construction here, even though
-// there's no constexpr construction
-#if defined(_MSC_VER) && _MSC_VER <= 1900
-# pragma warning( push )
-# pragma warning( disable : 4592 )
-#endif
+//----------------------------------------------------------
 
-#if defined(__cpp_constinit) && __cpp_constinit >= 201907L
-constinit route_cat_type route_cat;
-#else
-route_cat_type route_cat;
-#endif
+route_result::
+route_result(
+    system::error_code ec)
+    : ec_(ec)
+{
+    if(! ec.failed())
+        detail::throw_invalid_argument();
+}
 
-#if defined(_MSC_VER) && _MSC_VER <= 1900
-# pragma warning( pop )
-#endif
+void
+route_result::
+set(route_what w)
+{
+    ec_ = make_error_code(w);
+}
 
-} // detail
+auto
+route_result::
+what() const noexcept ->
+    route_what
+{
+    if(! ec_.failed())
+        return route_what::done;    
+    if(&ec_.category() != &route_what_cat)
+        return route_what::error;
+    if( ec_ == route_what::next)
+        return route_what::next;
+    if( ec_ == route_what::next_route)
+        return route_what::next_route;
+    //if( ec_ == route_what::close)
+    return route_what::close;
+}
+
+auto
+route_result::
+error() const noexcept ->
+    system::error_code
+{
+    if(&ec_.category() != &route_what_cat)
+        return ec_;
+    return {};
+}
+
+//------------------------------------------------
 
 bool
 route_params_base::

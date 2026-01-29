@@ -119,11 +119,14 @@ operator()(route_params& rp) const
         rp.req.method() != method::head)
     {
         if(impl_->opts.fallthrough)
-            co_return route::next;
+            co_return route_next;
 
         rp.res.set_status(status::method_not_allowed);
         rp.res.set(field::allow, "GET, HEAD");
-        co_return co_await rp.send();
+        auto [ec] = co_await rp.send();
+        if(ec)
+            co_return route_error(ec);
+        co_return route_done;
     }
 
     // Get the request path
@@ -135,14 +138,24 @@ operator()(route_params& rp) const
         switch(impl_->opts.dotfiles)
         {
         case dotfiles_policy::deny:
+        {
             rp.res.set_status(status::forbidden);
-            co_return co_await rp.send("Forbidden");
+            auto [ec] = co_await rp.send("Forbidden");
+            if(ec)
+                co_return route_error(ec);
+            co_return route_done;
+        }
 
         case dotfiles_policy::ignore:
+        {
             if(impl_->opts.fallthrough)
-                co_return route::next;
+                co_return route_next;
             rp.res.set_status(status::not_found);
-            co_return co_await rp.send("Not Found");
+            auto [ec] = co_await rp.send("Not Found");
+            if(ec)
+                co_return route_error(ec);
+            co_return route_done;
+        }
 
         case dotfiles_policy::allow:
             break;
@@ -154,9 +167,9 @@ operator()(route_params& rp) const
     path_cat(path, impl_->root, req_path);
 
     // Check if it's a directory
-    std::error_code fec;
+    system::error_code fec;
     bool is_dir = std::filesystem::is_directory(path, fec);
-    if(is_dir && ! fec)
+    if(is_dir && ! fec.failed())
     {
         // Check for trailing slash
         if(req_path.empty() || req_path.back() != '/')
@@ -168,7 +181,10 @@ operator()(route_params& rp) const
                 location += '/';
                 rp.res.set_status(status::moved_permanently);
                 rp.res.set(field::location, location);
-                co_return co_await rp.send("");
+                auto [ec] = co_await rp.send("");
+                if(ec)
+                    co_return route_error(ec);
+                co_return route_done;
             }
         }
 
@@ -196,18 +212,33 @@ operator()(route_params& rp) const
     switch(info.result)
     {
     case send_file_result::not_found:
+    {
         if(impl_->opts.fallthrough)
-            co_return route::next;
+            co_return route_next;
         rp.res.set_status(status::not_found);
-        co_return co_await rp.send("Not Found");
+        auto [ec] = co_await rp.send("Not Found");
+        if(ec)
+            co_return route_error(ec);
+        co_return route_done;
+    }
 
     case send_file_result::not_modified:
+    {
         rp.res.set_status(status::not_modified);
-        co_return co_await rp.send("");
+        auto [ec] = co_await rp.send("");
+        if(ec)
+            co_return route_error(ec);
+        co_return route_done;
+    }
 
     case send_file_result::error:
+    {
         // Range error - headers already set by send_file_init
-        co_return co_await rp.send("");
+        auto [ec] = co_await rp.send("");
+        if(ec)
+            co_return route_error(ec);
+        co_return route_done;
+    }
 
     case send_file_result::ok:
         break;
@@ -227,7 +258,12 @@ operator()(route_params& rp) const
 
     // For HEAD requests, don't send body
     if(rp.req.method() == method::head)
-        co_return co_await rp.send("");
+    {
+        auto [ec] = co_await rp.send("");
+        if(ec)
+            co_return route_error(ec);
+        co_return route_done;
+    }
 
     // Open and stream the file
     file f;
@@ -236,19 +272,25 @@ operator()(route_params& rp) const
     if(ec)
     {
         if(impl_->opts.fallthrough)
-            co_return route::next;
+            co_return route_next;
         rp.res.set_status(status::internal_server_error);
-        co_return co_await rp.send("Internal Server Error");
+        auto [ec2] = co_await rp.send("Internal Server Error");
+        if(ec2)
+            co_return route_error(ec2);
+        co_return route_done;
     }
 
     // Seek to range start if needed
     if(info.is_range && info.range_start > 0)
     {
         f.seek(static_cast<std::uint64_t>(info.range_start), ec);
-        if(ec)
+        if(ec.failed())
         {
             rp.res.set_status(status::internal_server_error);
-            co_return co_await rp.send("Internal Server Error");
+            auto [ec2] = co_await rp.send("Internal Server Error");
+            if(ec2)
+                co_return route_error(ec2);
+            co_return route_done;
         }
     }
 
@@ -265,19 +307,21 @@ operator()(route_params& rp) const
             (std::min)(remaining, static_cast<std::int64_t>(buf_size)));
 
         auto const n1 = f.read(buffer, to_read, ec);
-        if(ec || n1 == 0)
+        if(ec.failed() || n1 == 0)
             break;
 
         auto [ec2, n2] = co_await rp.res_body.write(
             capy::const_buffer(buffer, n1));
         (void)n2;
         if(ec2)
-            co_return {ec2};
+            co_return route_error(ec2);
         remaining -= static_cast<std::int64_t>(n1);
     }
 
     auto [ec3] = co_await rp.res_body.write_eof();
-    co_return ec3;
+    if(ec3)
+        co_return route_error(ec3);
+    co_return route_done;
 }
 
 } // http

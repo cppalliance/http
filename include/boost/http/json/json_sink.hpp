@@ -127,15 +127,15 @@ public:
                 buf.size(),
                 ec);
             total += n;
-            if(ec)
-                return capy::ready(std::error_code(ec), total);
+            if(ec.failed())
+                return {ec, total};
         }
 
         if(eof)
         {
             parser_.finish(ec);
-            if(ec)
-                return capy::ready(std::error_code(ec), total);
+            if(ec.failed())
+                return {ec, total};
         }
 
         return capy::ready(total);
@@ -152,9 +152,9 @@ public:
     {
         system::error_code ec;
         parser_.finish(ec);
-        if(ec)
-            return capy::ready(std::error_code(ec));
-        return capy::ready();
+        if(ec.failed())
+            return {ec};
+        return {};
     }
 
     /** Check if parsing is complete.

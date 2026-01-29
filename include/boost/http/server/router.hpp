@@ -32,59 +32,22 @@
 namespace boost {
 namespace http {
 
-/** The coroutine task type returned by route handlers.
+/** Parameters object for HTTP route handlers.
 
-    Route handlers are coroutines that process HTTP requests and
-    must return this type. The underlying @ref route_result
-    (a `system::error_code`) communicates the routing disposition
-    back to the router:
-
-    @li Return @ref route::next to decline handling and allow
-        subsequent handlers in the same route to process the request.
-
-    @li Return @ref route::next_route to skip remaining handlers
-        in the current route and proceed to the next matching route.
-
-    @li Return a non-failing code (one for which
-        `error_code::failed()` returns `false`) to indicate the
-        response is complete. The connection will either close
-        or proceed to the next request.
-
-    @li Return a failing error code to signal an error that
-        prevents normal processing.
+    This structure holds all the context needed for a route
+    handler to process an HTTP request and generate a response.
 
     @par Example
     @code
-    // A handler that serves static files
-    route_task serve_file(route_params& p)
+    route_task my_handler(route_params& p)
     {
-        auto path = find_file(p.path);
-        if(path.empty())
-            co_return route::next;  // Not found, try next handler
-
-        p.res.set_body_file(path);
-        co_return {};  // Success
-    }
-
-    // A handler that requires authentication
-    route_task require_auth(route_params& p)
-    {
-        if(! p.session_data.contains<user_session>())
-        {
-            p.status(http::status::unauthorized);
-            co_return {};
-        }
-        co_return route::next;  // Authenticated, continue chain
+        p.res.set(field::content_type, "text/plain");
+        co_await p.send("Hello, World!");
+        co_return route_done;
     }
     @endcode
 
-    @see @ref route_result, @ref route, @ref route_params
-*/
-using route_task = capy::io_task<>;
-
-//-----------------------------------------------
-
-/** Parameters object for HTTP route handlers
+    @see route_task, route_result
 */
 struct BOOST_HTTP_SYMBOL_VISIBLE
     route_params : route_params_base

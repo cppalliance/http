@@ -16,7 +16,6 @@
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
-#include <boost/capy/io_task.hpp>
 #include <boost/assert.hpp>
 #include <exception>
 #include <string_view>
@@ -153,7 +152,7 @@ private:
         {
             p.res.status( status::ok );
             p.res.set_body( "Hello, world!" );
-            return route::send;
+            return route_done;
         } );
     @endcode
 
@@ -192,11 +191,11 @@ private:
     p.next( ec ); // with ec == true
     @endcode
 
-    Returning @ref route::next indicates that control should proceed to
+    Returning @ref route_next indicates that control should proceed to
     the next matching error handler. Returning a different failing code
     replaces the current error and continues dispatch in error mode using
     that new code. Error handlers are invoked until one returns a result
-    other than @ref route::next.
+    other than @ref route_next.
 
     Exception handlers have this equivalent signature:
     @code
@@ -295,7 +294,7 @@ class basic_router : public detail::router_base
         }
     
         auto invoke(route_params_base& rp) const ->
-            capy::io_task<> override
+            route_task override
         {
             if constexpr (detail::returns_route_task<H, P&>)
             {
@@ -446,7 +445,7 @@ public:
         routing and error-dispatch process for requests whose path begins
         with the specified prefix, as described in the @ref basic_router
         class documentation. Handlers execute in the order they are added
-        and may return @ref route::next to transfer control to the
+        and may return @ref route_next to transfer control to the
         subsequent handler in the chain.
 
         @par Example
@@ -458,14 +457,14 @@ public:
                 {
                     p.res.status( 401 );
                     p.res.set_body( "Unauthorized" );
-                    return route::send;
+                    return route_done;
                 }
-                return route::next;
+                return route_next;
             },
             []( route_params& p )
             {
                 p.res.set_header( "X-Powered-By", "MyServer" );
-                return route::next;
+                return route_next;
             } );
         @endcode
 
@@ -501,7 +500,7 @@ public:
         Each handler registered with this function participates in the
         routing and error-dispatch process as described in the
         @ref basic_router class documentation. Handlers execute in the
-        order they are added and may return @ref route::next to transfer
+        order they are added and may return @ref route_next to transfer
         control to the next handler in the chain.
 
         This is equivalent to writing:
@@ -515,7 +514,7 @@ public:
             []( Params& p )
             {
                 p.res.erase( "X-Powered-By" );
-                return route::next;
+                return route_next;
             } );
         @endcode
 
@@ -557,7 +556,7 @@ public:
             []( route_params& p, std::exception const& ex )
             {
                 p.res.set_status( 500 );
-                return route::send;
+                return route_done;
             } );
         @endcode
 
@@ -595,7 +594,7 @@ public:
             []( route_params& p, std::exception const& ex )
             {
                 p.res.set_status( 500 );
-                return route::send;
+                return route_done;
             } );
         @endcode
 
@@ -753,7 +752,7 @@ public:
         the route's pattern, regardless of HTTP method. Handlers are
         appended to the route's handler sequence and are invoked in
         registration order whenever a preceding handler returns
-        @ref route::next. Error handlers and routers cannot be passed here.
+        @ref route_next. Error handlers and routers cannot be passed here.
 
         This function returns a @ref fluent_route, allowing additional
         method registrations to be chained. For example:
@@ -789,7 +788,7 @@ public:
         current route, participating in dispatch as described in the
         @ref basic_router class documentation. Handlers are appended
         to the route's handler sequence and invoked in registration
-        order whenever a preceding handler returns @ref route::next.
+        order whenever a preceding handler returns @ref route_next.
         Error handlers and routers cannot be passed here.
 
         @param verb The HTTP method to match.
@@ -821,7 +820,7 @@ public:
         intended for methods not represented by @ref http::method.
         Handlers are appended to the route's handler sequence and invoked
         in registration order whenever a preceding handler returns
-        @ref route::next. Error handlers and routers cannot be passed here.
+        @ref route_next. Error handlers and routers cannot be passed here.
 
         @param verb The HTTP method string to match.
 

@@ -18,33 +18,22 @@ namespace http {
 
 struct router_types_test
 {
-    template<typename Error>
-    void
-    check(
-        char const* name,
-        Error ev)
-    {
-        auto const ec = make_error_code(ev);
-        BOOST_TEST(std::string(ec.category().name()) == name);
-        BOOST_TEST(! ec.message().empty());
-        BOOST_TEST(
-            std::addressof(ec.category()) ==
-            std::addressof(make_error_code(ev).category()));
-        BOOST_TEST(ec.category().equivalent(
-            static_cast<typename std::underlying_type<Error>::type>(ev),
-                ec.category().default_error_condition(
-                    static_cast<typename std::underlying_type<Error>::type>(ev))));
-        BOOST_TEST(ec.category().equivalent(ec,
-            static_cast<typename std::underlying_type<Error>::type>(ev)));
-    }
-
     void
     run()
     {
+        // Test route_result construction and accessors
         {
-            char const* const n = "boost.http.route";
-            check(n, route::next);
-            check(n, route::next_route);
+            route_result r1(route_done);
+            BOOST_TEST(r1.what() == route_what::done);
+
+            route_result r2(route_next);
+            BOOST_TEST(r2.what() == route_what::next);
+
+            route_result r3(route_next_route);
+            BOOST_TEST(r3.what() == route_what::next_route);
+
+            route_result r4(route_close);
+            BOOST_TEST(r4.what() == route_what::close);
         }
     }
 };

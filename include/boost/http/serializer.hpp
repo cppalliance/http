@@ -837,7 +837,7 @@ public:
                 co_return {ec};
         }
 
-        co_return {{}};
+        co_return {};
     }
 
     /** Signal end-of-stream.
@@ -879,7 +879,7 @@ public:
                 co_return {ec};
         }
 
-        co_return {{}};
+        co_return {};
     }
 };
 

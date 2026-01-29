@@ -32,40 +32,40 @@ struct router_test
     static auto h_send(params&) -> route_task
     { co_return route_result{}; }
 
-    // returns route::next
+    // returns route_next
     static auto h_next(params&) -> route_task
-    { co_return route::next; }
+    { co_return route_next; }
 
-    // returns route::next_route
+    // returns route_next_route
     static auto h_next_route(params&) -> route_task
-    { co_return route::next_route; }
+    { co_return route_next_route; }
 
     // returns specified error
-    static auto h_fail(std::error_code ec)
+    static auto h_fail(system::error_code ec)
     {
         return [ec](params&) -> route_task
-        { co_return ec; };
+        { co_return route_error(ec); };
     }
 
     // error handler returns success
-    static auto eh_send(std::error_code expect)
+    static auto eh_send(system::error_code expect)
     {
-        return [expect](params&, std::error_code ec) -> route_task
+        return [expect](params&, system::error_code ec) -> route_task
         { BOOST_TEST(ec == expect); co_return route_result{}; };
     }
 
-    // error handler returns route::next
-    static auto eh_next(std::error_code expect)
+    // error handler returns route_next
+    static auto eh_next(system::error_code expect)
     {
-        return [expect](params&, std::error_code ec) -> route_task
-        { BOOST_TEST(ec == expect); co_return route::next; };
+        return [expect](params&, system::error_code ec) -> route_task
+        { BOOST_TEST(ec == expect); co_return route_next; };
     }
 
     // error handler returns a new error
-    static auto eh_return(std::error_code new_ec)
+    static auto eh_return(system::error_code new_ec)
     {
-        return [new_ec](params&, std::error_code) -> route_task
-        { co_return new_ec; };
+        return [new_ec](params&, system::error_code) -> route_task
+        { co_return route_error(new_ec); };
     }
 
     // exception handler returns success - return as lambda for template deduction
@@ -75,16 +75,16 @@ struct router_test
         { co_return route_result{}; };
     }
 
-    // exception handler returns route::next
+    // exception handler returns route_next
     static auto exh_next()
     {
         return [](params&, std::exception_ptr) -> route_task
-        { co_return route::next; };
+        { co_return route_next; };
     }
 
     // throws exception
     static auto h_throw(params&) -> route_task
-    { throw std::runtime_error("test"); co_return route::next; }
+    { throw std::runtime_error("test"); co_return route_next; }
 
     // checks path then returns success
     static auto h_path(core::string_view base, core::string_view path)
@@ -104,42 +104,42 @@ struct router_test
     static void check(
         test_router& r,
         core::string_view url,
-        route_result rv0 = route_result{})
+        route_result rv0 = route_done)
     {
         flat_router fr(std::move(r));
         params req;
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             fr.dispatch(http::method::get, urls::url_view(url), req));
-        BOOST_TEST_EQ(rv.message(), rv0.message());
+        BOOST_TEST(rv.what() == rv0.what());
     }
 
     static void check(
         test_router& r,
         http::method verb,
         core::string_view url,
-        route_result rv0 = route_result{})
+        route_result rv0 = route_done)
     {
         flat_router fr(std::move(r));
         params req;
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             fr.dispatch(verb, urls::url_view(url), req));
-        BOOST_TEST_EQ(rv.message(), rv0.message());
+        BOOST_TEST(rv.what() == rv0.what());
     }
 
     static void check(
         test_router& r,
         core::string_view verb,
         core::string_view url,
-        route_result rv0 = route_result{})
+        route_result rv0 = route_done)
     {
         flat_router fr(std::move(r));
         params req;
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             fr.dispatch(verb, urls::url_view(url), req));
-        BOOST_TEST_EQ(rv.message(), rv0.message());
+        BOOST_TEST(rv.what() == rv0.what());
     }
 
     //--------------------------------------------
@@ -154,7 +154,7 @@ struct router_test
         { test_router r; r.use(h_next); r.use(h_send); check(r, "/"); }
 
         // path prefix matching
-        { test_router r; r.use("/api", h_next); check(r, "/", route::next); }
+        { test_router r; r.use("/api", h_next); check(r, "/", route_next); }
         { test_router r; r.use("/api", h_send); check(r, "/api"); }
         { test_router r; r.use("/api", h_send); check(r, "/api/"); }
         { test_router r; r.use("/api", h_send); check(r, "/api/v1"); }
@@ -177,16 +177,16 @@ struct router_test
 
         // basic routing
         { test_router r; r.add(GET, "/", h_send); check(r, GET, "/"); }
-        { test_router r; r.add(GET, "/", h_next); check(r, POST, "/", route::next); }
+        { test_router r; r.add(GET, "/", h_next); check(r, POST, "/", route_next); }
         { test_router r; r.add(POST, "/", h_send); check(r, POST, "/"); }
 
         // verb matching - case sensitive
         { test_router r; r.add(GET, "/", h_send); check(r, "GET", "/"); }
-        { test_router r; r.add(GET, "/", h_next); check(r, "get", "/", route::next); }
+        { test_router r; r.add(GET, "/", h_next); check(r, "get", "/", route_next); }
 
         // custom verb
         { test_router r; r.add("CUSTOM", "/", h_send); check(r, "CUSTOM", "/"); }
-        { test_router r; r.add("CUSTOM", "/", h_next); check(r, "custom", "/", route::next); }
+        { test_router r; r.add("CUSTOM", "/", h_next); check(r, "custom", "/", route_next); }
 
         // path matching
         { test_router r; r.add(GET, "/x", h_next); r.add(GET, "/y", h_send); check(r, GET, "/y"); }
@@ -200,7 +200,7 @@ struct router_test
         { test_router r; r.all("/", h_send); check(r, POST, "/"); }
         { test_router r; r.all("/", h_send); check(r, "CUSTOM", "/"); }
 
-        // route::next_route skips to next route
+        // route_next_route skips to next route
         { test_router r; r.route("/").add(GET, h_next_route).add(GET, h_next); r.route("/").add(GET, h_send); check(r, GET, "/"); }
 
         // multiple handlers on same route
@@ -213,7 +213,7 @@ struct router_test
         system::error_code const er2 = http::error::bad_expect;
 
         // error from handler
-        { test_router r; r.use(h_fail(er)); check(r, "/", er); }
+        { test_router r; r.use(h_fail(er)); check(r, "/", route_error(er)); }
 
         // error handler catches
         { test_router r; r.use(h_fail(er), eh_send(er)); check(r, "/"); }
@@ -238,7 +238,7 @@ struct router_test
     {
 #ifndef BOOST_NO_EXCEPTIONS
         // unhandled exception
-        { test_router r; r.use(h_throw); check(r, "/", error::unhandled_exception); }
+        { test_router r; r.use(h_throw); check(r, "/", route_error(error::unhandled_exception)); }
 
         // exception handler catches
         { test_router r; r.use(h_throw); r.except(exh_send()); check(r, "/"); }
@@ -379,7 +379,7 @@ struct router_test
         {
             test_router r(router_options().case_sensitive(true));
             r.use("/api", h_next);
-            check(r, "/API", route::next);
+            check(r, "/API", route_next);
         }
 
         // nested inherits options
@@ -390,7 +390,7 @@ struct router_test
                 r2.use("/v1", h_next);
                 return r2;
             }());
-            check(r, "/api/V1", route::next);
+            check(r, "/api/V1", route_next);
         }
 
         // nested can override options
@@ -441,7 +441,7 @@ struct router_test
         { test_router r; r.add(GET, "/%61", h_send); check(r, GET, "/a"); }
 
         // encoded slash doesn't match path separator
-        { test_router r; r.add(GET, "/auth/login", h_next); check(r, GET, "/auth%2flogin", route::next); }
+        { test_router r; r.add(GET, "/auth/login", h_next); check(r, GET, "/auth%2flogin", route_next); }
     }
 
     void run()

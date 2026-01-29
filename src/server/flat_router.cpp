@@ -15,8 +15,6 @@
 #include "src/server/detail/pct_decode.hpp"
 #include "src/server/detail/route_match.hpp"
 
-#include <system_error>
-
 namespace boost {
 namespace http {
 
@@ -144,7 +142,7 @@ struct flat_router::impl
                 p.decoded_path_.size() - 1, 1 };  // soft slash
     }
 
-    capy::io_task<>
+    route_task
     dispatch_loop(route_params_base& p) const
     {
         // All checks happen BEFORE co_await to minimize coroutine launches.
@@ -285,36 +283,38 @@ struct flat_router::impl
             // Handle result
             //
             // Coroutines invert control - handler does the send.
-            // Success = !rv (handler completed request)
-            // route::next = continue to next handler
-            // route::next_route = skip to next route
-            // Failing error_code = enter error mode
+            // route_what::done = handler completed request
+            // route_what::next = continue to next handler
+            // route_what::next_route = skip to next route
+            // route_what::close = close connection
+            // route_what::error = enter error mode
             //--------------------------------------------------
 
-            if(rv == route::next)
+            if(rv.what() == route_what::next)
             {
                 ++i;
                 continue;
             }
 
-            if(rv == route::next_route)
+            if(rv.what() == route_what::next_route)
             {
                 // next_route only valid for end routes, not middleware
                 if(!m.end_)
                     // VFALCO this is a logic error
-                    co_return std::make_error_code(std::errc::invalid_argument);
+                    co_return route_error(error::invalid_route_result);
                 i = m.skip_;
                 continue;
             }
 
-            if(! rv || rv == route::close)
+            if(rv.what() == route_what::done ||
+               rv.what() == route_what::close)
             {
-                // Success - handler completed the request
+                // Handler completed or requested close
                 co_return rv;
             }
 
-            // Failing error_code - transition to error mode
-            p.ec_ = rv;
+            // Error - transition to error mode
+            p.ec_ = rv.error();
             p.kind_ = detail::router_base::is_error;
 
             if(m.end_)
@@ -329,11 +329,11 @@ struct flat_router::impl
 
         // Final state
         if(p.kind_ == detail::router_base::is_exception)
-            co_return error::unhandled_exception;
+            co_return route_error(error::unhandled_exception);
         if(p.kind_ == detail::router_base::is_error)
-            co_return p.ec_;
+            co_return route_error(p.ec_);
 
-        co_return route::next;  // no handler matched
+        co_return route_next;  // no handler matched
     }
 };
 
@@ -347,7 +347,7 @@ flat_router(
     impl_->flatten(*src.impl_);
 }
 
-capy::io_task<>
+route_task
 flat_router::
 dispatch(
     http::method verb,
@@ -379,7 +379,7 @@ dispatch(
     return impl_->dispatch_loop(p);
 }
 
-capy::io_task<>
+route_task
 flat_router::
 dispatch(
     std::string_view verb,

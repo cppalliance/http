@@ -169,19 +169,21 @@ operator()(
         setExposeHeaders(v, options_);
 
         if(options_.preFlightContinue)
-            co_return route::next;
+            co_return route_next;
 
         // Safari and others need this for 204 or may hang
         rp.res.set_status(options_.result);
         auto [ec] = co_await rp.send("");
-        co_return ec;
+        if(ec)
+            co_return route_error(ec);
+        co_return route_done;
     }
 
     // actual response
     setOrigin(v, rp, options_);
     setCredentials(v, options_);
     setExposeHeaders(v, options_);
-    co_return route::next;
+    co_return route_next;
 }
 
 } // http

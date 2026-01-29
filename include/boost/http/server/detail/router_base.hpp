@@ -58,7 +58,7 @@ protected:
         explicit handler(char kind_) noexcept : kind(kind_) {}
         virtual ~handler() = default;
         virtual auto invoke(route_params_base&) const ->
-            capy::io_task<> = 0;
+            route_task = 0;
 
         // Returns the nested router if this handler wraps one, nullptr otherwise.
         // Used by flat_router::flatten() to recurse into nested routers.
@@ -102,8 +102,7 @@ public:
 
 template<class H, class... Args>
 concept returns_route_task = std::same_as<
-    std::invoke_result_t<H, Args...>,
-    capy::io_task<>>;
+    std::invoke_result_t<H, Args...>, route_task>;
 
 } // detail
 } // http

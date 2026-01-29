@@ -113,7 +113,7 @@ struct send_file_info
         }
 
         if( info.result != send_file_result::ok )
-            co_return route::next;
+            co_return route_next;
 
         // Stream file content...
     }
