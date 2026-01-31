@@ -20,10 +20,8 @@
 #include <boost/capy/io/any_buffer_source.hpp>
 #include <boost/capy/io/any_buffer_sink.hpp>
 #include <boost/http/datastore.hpp>
-#include <boost/http/request.hpp>           // VFALCO forward declare?
-#include <boost/http/request_parser.hpp>    // VFALCO forward declare?
-#include <boost/http/response.hpp>          // VFALCO forward declare?
-#include <boost/http/serializer.hpp>        // VFALCO forward declare?
+#include <boost/http/request.hpp>
+#include <boost/http/response.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/system/error_code.hpp>
 #include <memory>
@@ -57,8 +55,6 @@ struct BOOST_HTTP_SYMBOL_VISIBLE
     http::response res;
     capy::any_buffer_source req_body;
     capy::any_buffer_sink res_body;
-    http::request_parser parser;
-    http::serializer serializer;
     http::datastore route_data; // arbitrary data
     http::datastore session_data;
 
