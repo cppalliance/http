@@ -159,6 +159,15 @@ public:
     error() const noexcept ->
         system::error_code;
 
+    /** Return true if the result indicates an error.
+
+        @return `true` if @ref what() equals `route_what::error`.
+    */
+    bool failed() const noexcept
+    {
+        return what() == route_what::error;
+    }
+
     static constexpr route_result::what_t<route_what::done> route_done{};
     static constexpr route_result::what_t<route_what::next> route_next{};
     static constexpr route_result::what_t<route_what::next_route> route_next_route{};
