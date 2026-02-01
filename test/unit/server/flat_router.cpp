@@ -80,10 +80,31 @@ struct flat_router_test
         BOOST_TEST_EQ(*counter, 2);
     }
 
+    void testDefaultConstruction()
+    {
+        auto counter = std::make_shared<int>(0);
+        test_router r;
+        r.all("/", [counter](params&) -> route_task
+        {
+            ++(*counter);
+            co_return route_result{};
+        });
+
+        flat_router fr1;  // default construct
+        flat_router fr2(std::move(r));
+        fr1 = fr2;  // assign to default-constructed
+
+        params req;
+        capy::test::run_blocking()(fr1.dispatch(
+            http::method::get, urls::url_view("/"), req));
+        BOOST_TEST_EQ(*counter, 1);
+    }
+
     void run()
     {
         testCopyConstruction();
         testCopyAssignment();
+        testDefaultConstruction();
     }
 };
 

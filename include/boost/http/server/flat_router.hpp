@@ -47,6 +47,14 @@ class BOOST_HTTP_DECL
     std::shared_ptr<impl> impl_;
 
 public:
+    /** Default constructor.
+
+        Creates a flat_router in an empty state. The only valid
+        operations on a default-constructed router are assignment
+        and destruction.
+    */
+    flat_router() = default;
+
     flat_router(
         detail::router_base&&);
 
