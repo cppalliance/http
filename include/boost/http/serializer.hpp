@@ -347,8 +347,8 @@ public:
         sr.start_stream(response);
 
         capy::mutable_buffer arr[16];
-        std::size_t count = sink.prepare(arr, 16);
-        std::memcpy(arr[0].data(), "Hello", 5);
+        auto bufs = sink.prepare(arr);
+        std::memcpy(bufs[0].data(), "Hello", 5);
         co_await sink.commit(5, true);
         @endcode
 
@@ -438,8 +438,8 @@ public:
         sr.start_stream();  // Configure for streaming
 
         capy::mutable_buffer arr[16];
-        std::size_t count = sink.prepare(arr, 16);
-        std::memcpy(arr[0].data(), "Hello", 5);
+        auto bufs = sink.prepare(arr);
+        std::memcpy(bufs[0].data(), "Hello", 5);
         co_await sink.commit(5, true);
         @endcode
 
@@ -714,8 +714,8 @@ private:
 
         // Zero-copy write using BufferSink interface
         capy::mutable_buffer arr[16];
-        std::size_t count = sink.prepare(arr, 16);
-        std::memcpy(arr[0].data(), "Hello", 5);
+        auto bufs = sink.prepare(arr);
+        std::memcpy(bufs[0].data(), "Hello", 5);
         co_await sink.commit(5, true);
     }
     @endcode
@@ -750,29 +750,26 @@ public:
 
     /** Prepare writable buffers.
 
-        Fills the provided array with mutable buffer descriptors
+        Fills the provided span with mutable buffer descriptors
         pointing to the serializer's internal storage. This
         operation is synchronous.
 
-        @param arr Pointer to array of mutable_buffer to fill.
-        @param max_count Maximum number of buffers to fill.
+        @param dest Span of mutable_buffer to fill.
 
-        @return The number of buffers filled.
+        @return A span of filled buffers.
     */
-    std::size_t
-    prepare(
-        capy::mutable_buffer* arr,
-        std::size_t max_count)
+    std::span<capy::mutable_buffer>
+    prepare(std::span<capy::mutable_buffer> dest)
     {
         auto bufs = sr_->stream_prepare();
         std::size_t count = 0;
         for(auto const& b : bufs)
         {
-            if(count >= max_count || b.size() == 0)
+            if(count >= dest.size() || b.size() == 0)
                 break;
-            arr[count++] = b;
+            dest[count++] = b;
         }
-        return count;
+        return dest.first(count);
     }
 
     /** Commit bytes written to the prepared buffers.

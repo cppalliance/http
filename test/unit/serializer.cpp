@@ -768,12 +768,12 @@ struct serializer_test
             sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
-            std::size_t count = sink.prepare(arr, 16);
-            if(count == 0)
+            auto bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view body = "Hello, World!";
-            std::memcpy(arr[0].data(), body.data(), body.size());
+            std::memcpy(bufs[0].data(), body.data(), body.size());
 
             auto [ec] = co_await sink.commit(body.size());
             if(ec)
@@ -805,12 +805,12 @@ struct serializer_test
             sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
-            std::size_t count = sink.prepare(arr, 16);
-            if(count == 0)
+            auto bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view body = "hello";
-            std::memcpy(arr[0].data(), body.data(), body.size());
+            std::memcpy(bufs[0].data(), body.data(), body.size());
 
             auto [ec] = co_await sink.commit(body.size(), true);
             if(ec)
@@ -864,23 +864,23 @@ struct serializer_test
 
             // First commit
             capy::mutable_buffer arr[16];
-            std::size_t count = sink.prepare(arr, 16);
-            if(count == 0)
+            auto bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view part1 = "Hello, ";
-            std::memcpy(arr[0].data(), part1.data(), part1.size());
+            std::memcpy(bufs[0].data(), part1.data(), part1.size());
             auto [ec1] = co_await sink.commit(part1.size());
             if(ec1)
                 co_return;
 
             // Second commit
-            count = sink.prepare(arr, 16);
-            if(count == 0)
+            bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view part2 = "World!";
-            std::memcpy(arr[0].data(), part2.data(), part2.size());
+            std::memcpy(bufs[0].data(), part2.data(), part2.size());
             auto [ec2] = co_await sink.commit(part2.size());
             if(ec2)
                 co_return;
@@ -913,12 +913,12 @@ struct serializer_test
             sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
-            std::size_t count = sink.prepare(arr, 16);
-            if(count == 0)
+            auto bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view body = "test";
-            std::memcpy(arr[0].data(), body.data(), body.size());
+            std::memcpy(bufs[0].data(), body.data(), body.size());
             auto [ec1] = co_await sink.commit(body.size());
             if(ec1)
                 co_return;
@@ -975,12 +975,12 @@ struct serializer_test
             sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
-            std::size_t count = sink.prepare(arr, 16);
-            if(count == 0)
+            auto bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view body = "hello";
-            std::memcpy(arr[0].data(), body.data(), body.size());
+            std::memcpy(bufs[0].data(), body.data(), body.size());
             auto [ec] = co_await sink.commit(body.size());
             if(ec)
                 co_return;
@@ -1014,12 +1014,12 @@ struct serializer_test
             sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
-            std::size_t count = sink.prepare(arr, 16);
-            if(count == 0)
+            auto bufs = sink.prepare(arr);
+            if(bufs.empty())
                 co_return;
 
             std::string_view body = "chunked data";
-            std::memcpy(arr[0].data(), body.data(), body.size());
+            std::memcpy(bufs[0].data(), body.data(), body.size());
             auto [ec] = co_await sink.commit(body.size());
             if(ec)
                 co_return;

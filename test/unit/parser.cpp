@@ -1904,18 +1904,18 @@ struct parser_coro_test
 
             for(;;)
             {
-                auto [ec, count] = co_await source.pull(arr, 16);
+                auto [ec, bufs] = co_await source.pull(arr);
                 if(ec)
                     co_return;
-                if(count == 0)
+                if(bufs.empty())
                     break;
                 std::size_t n = 0;
-                for(std::size_t i = 0; i < count; ++i)
+                for(auto const& buf : bufs)
                 {
                     body.append(
-                        static_cast<char const*>(arr[i].data()),
-                        arr[i].size());
-                    n += arr[i].size();
+                        static_cast<char const*>(buf.data()),
+                        buf.size());
+                    n += buf.size();
                 }
                 source.consume(n);
             }
@@ -1952,18 +1952,18 @@ struct parser_coro_test
 
             for(;;)
             {
-                auto [ec, count] = co_await source.pull(arr, 16);
+                auto [ec, bufs] = co_await source.pull(arr);
                 if(ec)
                     co_return;
-                if(count == 0)
+                if(bufs.empty())
                     break;
                 std::size_t n = 0;
-                for(std::size_t i = 0; i < count; ++i)
+                for(auto const& buf : bufs)
                 {
                     body.append(
-                        static_cast<char const*>(arr[i].data()),
-                        arr[i].size());
-                    n += arr[i].size();
+                        static_cast<char const*>(buf.data()),
+                        buf.size());
+                    n += buf.size();
                 }
                 source.consume(n);
             }

@@ -375,8 +375,8 @@ public:
         auto body = pr.source_for( socket );
 
         capy::const_buffer arr[16];
-        auto [ec, count] = co_await body.pull( arr, 16 );
-        body.consume( total_bytes );
+        auto [ec, bufs] = co_await body.pull( arr );
+        body.consume( buffer_size( bufs ) );
         @endcode
 
         @param stream The stream to read from.
@@ -468,15 +468,14 @@ public:
 
         On first invocation, reads headers if not yet parsed.
         Returns buffer descriptors pointing to internal parser
-        memory. When the body is complete, returns count=0.
+        memory. When the body is complete, returns an empty span.
 
-        @param arr Pointer to array of const_buffer to fill.
-        @param max_count Maximum number of buffers to fill.
+        @param dest Span of const_buffer to fill.
 
-        @return An awaitable yielding `(error_code,std::size_t)`.
+        @return An awaitable yielding `(error_code,std::span<const_buffer>)`.
     */
-    capy::io_task<std::size_t>
-    pull(capy::const_buffer* arr, std::size_t max_count);
+    capy::io_task<std::span<capy::const_buffer>>
+    pull(std::span<capy::const_buffer> dest);
 
     /** Consume bytes from pulled body data.
 
@@ -581,16 +580,16 @@ source_for(Stream& stream) noexcept
 }
 
 template<capy::ReadStream Stream>
-capy::io_task<std::size_t>
+capy::io_task<std::span<capy::const_buffer>>
 parser::source<Stream>::
-pull(capy::const_buffer* arr, std::size_t max_count)
+pull(std::span<capy::const_buffer> dest)
 {
     // Read headers if not yet parsed
     if(!pr_->got_header())
     {
         auto [ec] = co_await pr_->read_header(*stream_);
         if(ec)
-            co_return {ec, 0};
+            co_return {ec, {}};
     }
 
     for(;;)
@@ -601,14 +600,14 @@ pull(capy::const_buffer* arr, std::size_t max_count)
         auto body_data = pr_->pull_body();
         if(capy::buffer_size(body_data) > 0)
         {
-            std::size_t count = (std::min)(body_data.size(), max_count);
+            std::size_t count = (std::min)(body_data.size(), dest.size());
             for(std::size_t i = 0; i < count; ++i)
-                arr[i] = body_data[i];
-            co_return {{}, count};
+                dest[i] = body_data[i];
+            co_return {{}, dest.first(count)};
         }
 
         if(pr_->is_complete())
-            co_return {{}, 0};
+            co_return {{}, {}};
 
         if(ec == condition::need_more_input)
         {
@@ -620,13 +619,13 @@ pull(capy::const_buffer* arr, std::size_t max_count)
             else if(!read_ec)
                 pr_->commit(n);
             else
-                co_return {read_ec, 0};
+                co_return {read_ec, {}};
 
             continue;
         }
 
         if(ec)
-            co_return {ec, 0};
+            co_return {ec, {}};
     }
 }
 
