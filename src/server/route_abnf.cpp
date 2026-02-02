@@ -435,15 +435,20 @@ public:
         return true;
     }
 
-    // Match param token - capture until '/' or end
-    bool match_param(std::string const& name)
+    // Match param token - capture until stop_char, '/' or end
+    bool match_param(std::string const& name, char stop_char = '\0')
     {
         if(at_end())
             return false;
 
         auto start = pos_;
         while(pos_ < path_.size() && path_[pos_] != '/')
+        {
+            // Stop at delimiter if specified
+            if(stop_char != '\0' && path_[pos_] == stop_char)
+                break;
             ++pos_;
+        }
 
         // Param must capture at least one character
         if(pos_ == start)
@@ -474,19 +479,36 @@ public:
         return true;
     }
 
+    // Get the first character of the next meaningful token
+    // Returns '\0' if none exists or next token is not text
+    static char
+    get_stop_char(
+        std::vector<route_token> const& tokens,
+        std::size_t next_idx)
+    {
+        if(next_idx >= tokens.size())
+            return '\0';
+
+        auto const& next = tokens[next_idx];
+        if(next.type == route_token_type::text && !next.value.empty())
+            return next.value[0];
+
+        return '\0';
+    }
+
     // Match a sequence of tokens
     bool match_tokens(std::vector<route_token> const& tokens)
     {
-        for(auto const& token : tokens)
+        for(std::size_t i = 0; i < tokens.size(); ++i)
         {
-            if(!match_token(token))
+            if(!match_token(tokens[i], get_stop_char(tokens, i + 1)))
                 return false;
         }
         return true;
     }
 
     // Match a single token
-    bool match_token(route_token const& token)
+    bool match_token(route_token const& token, char stop_char = '\0')
     {
         switch(token.type)
         {
@@ -494,7 +516,7 @@ public:
             return match_text(token.value);
 
         case route_token_type::param:
-            return match_param(token.value);
+            return match_param(token.value, stop_char);
 
         case route_token_type::wildcard:
             return match_wildcard(token.value);

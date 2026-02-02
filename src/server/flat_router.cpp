@@ -348,6 +348,13 @@ struct flat_router::impl
                     break;
                 }
 
+                // Copy captured params to route_params_base
+                if(!mr.params_.empty())
+                {
+                    for(auto& param : mr.params_)
+                        p.params.push_back(std::move(param));
+                }
+
                 // Mark this depth as matched
                 if(cm.depth_ < detail::router_base::max_path_depth)
                     matched_at_depth[cm.depth_] = check_idx;
@@ -510,10 +517,9 @@ dispatch(
     p.verb_str_.clear();
     p.ec_.clear();
     p.ep_ = nullptr;
+    p.params.clear();
     p.decoded_path_ = detail::pct_decode_path(url.encoded_path());
-    p.base_path = { p.decoded_path_.data(), 0 };
-    p.path = p.decoded_path_;
-    if(p.decoded_path_.back() != '/')
+    if(p.decoded_path_.empty() || p.decoded_path_.back() != '/')
     {
         p.decoded_path_.push_back('/');
         p.addedSlash_ = true;
@@ -522,6 +528,11 @@ dispatch(
     {
         p.addedSlash_ = false;
     }
+    // Set path views after potential reallocation from push_back
+    // Exclude added trailing slash from visible path, but keep "/" if empty
+    p.base_path = { p.decoded_path_.data(), 0 };
+    auto const subtract = (p.addedSlash_ && p.decoded_path_.size() > 1) ? 1 : 0;
+    p.path = { p.decoded_path_.data(), p.decoded_path_.size() - subtract };
 
     return impl_->dispatch_loop(p, verb == http::method::options);
 }
@@ -559,10 +570,9 @@ dispatch(
         p.verb_str_.clear();
     p.ec_.clear();
     p.ep_ = nullptr;
+    p.params.clear();
     p.decoded_path_ = detail::pct_decode_path(url.encoded_path());
-    p.base_path = { p.decoded_path_.data(), 0 };
-    p.path = p.decoded_path_;
-    if(p.decoded_path_.back() != '/')
+    if(p.decoded_path_.empty() || p.decoded_path_.back() != '/')
     {
         p.decoded_path_.push_back('/');
         p.addedSlash_ = true;
@@ -571,6 +581,11 @@ dispatch(
     {
         p.addedSlash_ = false;
     }
+    // Set path views after potential reallocation from push_back
+    // Exclude added trailing slash from visible path, but keep "/" if empty
+    p.base_path = { p.decoded_path_.data(), 0 };
+    auto const subtract = (p.addedSlash_ && p.decoded_path_.size() > 1) ? 1 : 0;
+    p.path = { p.decoded_path_.data(), p.decoded_path_.size() - subtract };
 
     return impl_->dispatch_loop(p, is_options);
 }

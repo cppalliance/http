@@ -12,7 +12,7 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/basic_router.hpp>
-#include "src/server/detail/route_rule.hpp"
+#include "src/server/route_abnf.hpp"
 #include "src/server/detail/stable_string.hpp"
 #include <cstdint>
 #include <string>
@@ -35,9 +35,13 @@ struct router_base::matcher
         route_params_base& p,
         match_result& mr) const;
 
+    // Returns error from pattern parsing, or empty if valid
+    system::error_code error() const noexcept { return ec_; }
+
 private:
+    system::error_code ec_;
     std::string allow_header_;
-    path_rule_t::value_type pv_;
+    route_pattern pattern_;
     std::vector<std::string> custom_verbs_;
 
     // 16 bytes (pointer + size)

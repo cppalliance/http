@@ -21,6 +21,8 @@
 #include <exception>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace boost {
 namespace http {
@@ -373,6 +375,13 @@ public:
     */
     core::string_view path;
 
+    /** Captured route parameters
+
+        Contains name-value pairs extracted from the path
+        by matching :param and *wildcard tokens.
+    */
+    std::vector<std::pair<std::string, std::string>> params;
+
    struct match_result;
 
 private:
@@ -387,6 +396,8 @@ private:
 struct route_params_base::
     match_result
 {
+    std::vector<std::pair<std::string, std::string>> params_;
+
     void adjust_path(
         route_params_base& p,
         std::size_t n)

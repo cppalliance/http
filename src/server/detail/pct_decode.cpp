@@ -93,7 +93,8 @@ invalid:
 #endif
 }
 
-// decode all percent escapes except slashes '/' and '\'
+// decode all percent escapes except forward slash '/'
+// (backslash is decoded since it's not a path separator in URLs)
 std::string
 pct_decode_path(
     urls::pct_string_view s)
@@ -132,8 +133,7 @@ pct_decode_path(
             goto invalid;
 #endif
         char c = d0 * 16 + d1;
-        if( c != '/' &&
-            c != '\\')
+        if(c != '/')
         {
             result.push_back(c);
             continue;

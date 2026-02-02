@@ -135,10 +135,13 @@ Route paths support named parameters and wildcards:
 |`/users/42/posts/7`
 |Multiple parameters
 
-|`/files/*`
+|`/files/*path`
 |`/files/docs/readme.txt`
 |Wildcard captures remainder
 |===
+
+For the complete pattern syntax including optional groups, escaping, and
+quoted names, see xref:server/route-patterns.adoc[Route Patterns].
 
 Access captured parameters in handlers:
 

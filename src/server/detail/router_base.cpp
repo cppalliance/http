@@ -15,7 +15,6 @@
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>
 #include "src/server/detail/route_match.hpp"
-#include "src/server/detail/route_rule.hpp"
 
 /*
 

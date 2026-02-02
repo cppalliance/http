@@ -32,8 +32,13 @@ matcher(
     , slash_(pat == "/")
 {
     if(! slash_)
-        pv_ = grammar::parse(
-            decoded_pat_, detail::path_rule).value();
+    {
+        auto rv = parse_route_pattern(decoded_pat_);
+        if(rv.has_error())
+            ec_ = rv.error();
+        else
+            pattern_ = std::move(rv.value());
+    }
 }
 
 bool
@@ -44,53 +49,28 @@ operator()(
     match_result& mr) const
 {
     BOOST_ASSERT(! p.path.empty());
-    if( slash_ && (
-        ! end_ ||
-        p.path == "/"))
+
+    // Root pattern special case
+    if(slash_ && (!end_ || p.path == "/"))
     {
-        // params = {};
         mr.adjust_path(p, 0);
         return true;
     }
-    auto it = p.path.data();
-    auto pit = pv_.segs.begin();
-    auto const path_end = it + p.path.size();
-    auto const pend = pv_.segs.end();
-    while(it != path_end && pit != pend)
-    {
-        // prefix has to match
-        auto s = core::string_view(it, path_end);
-        if(! p.case_sensitive)
-        {
-            if(pit->prefix.size() > s.size())
-                return false;
-            s = s.substr(0, pit->prefix.size());
-            //if(! grammar::ci_is_equal(s, pit->prefix))
-            if(! ci_is_equal(s, pit->prefix))
-                return false;
-        }
-        else
-        {
-            if(! s.starts_with(pit->prefix))
-                return false;
-        }
-        it += pit->prefix.size();
-        ++pit;
-    }
-    if(end_)
-    {
-        // require full match
-        if( it != path_end ||
-            pit != pend)
-            return false;
-    }
-    else if(pit != pend)
-    {
+
+    // Convert bitflags to match_options
+    match_options opts{
+        p.case_sensitive,
+        p.strict,
+        end_
+    };
+
+    auto rv = match_route(p.path, pattern_, opts);
+    if(rv.has_error())
         return false;
-    }
-    // number of matching characters
-    auto const n = it - p.path.data();
+
+    auto const n = rv->matched_length;
     mr.adjust_path(p, n);
+    mr.params_ = std::move(rv->params);
     return true;
 }
 

@@ -161,6 +161,43 @@ private:
     assignment do not create new instances; they all refer to the same
     underlying data.
 
+    @par Path Pattern Syntax
+
+    Route patterns define which request paths match a route. Patterns
+    support literal text, named parameters, wildcards, and optional
+    groups. The syntax is inspired by Express.js path-to-regexp.
+
+    @code
+    path       = *token
+    token      = text / param / wildcard / group
+    text       = 1*( char / escaped )     ; literal characters
+    param      = ":" name                 ; captures segment until '/'
+    wildcard   = "*" name                 ; captures everything to end
+    group      = "{" *token "}"           ; optional section
+    name       = identifier / quoted      ; plain or quoted name
+    identifier = ( "$" / "_" / ALPHA ) *( "$" / "_" / ALNUM )
+    quoted     = DQUOTE 1*qchar DQUOTE    ; allows spaces, punctuation
+    escaped    = "\" CHAR                 ; literal special character
+    @endcode
+
+    Named parameters capture path segments. A parameter matches any
+    characters except `/` and must capture at least one character:
+
+    - `/users/:id` matches `/users/42`, capturing `id = "42"`
+    - `/users/:userId/posts/:postId` matches `/users/5/posts/99`
+    - `/:from-:to` matches `/LAX-JFK`, capturing `from = "LAX"`, `to = "JFK"`
+
+    Wildcards capture everything from their position to the end of
+    the path, including `/` characters. Optional groups match
+    all-or-nothing:
+
+    - `/api{/v:version}` matches both `/api` and `/api/v2`
+    - `/file{.:ext}` matches `/file` and `/file.json`
+
+    Reserved characters `( ) [ ] + ? !` are not allowed in patterns.
+    For wildcards, escaping, and quoted names, see the Route Patterns
+    documentation.
+
     @par Handlers
 
     Regular handlers are invoked for matching routes and have this

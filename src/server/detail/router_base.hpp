@@ -11,6 +11,7 @@
 #define BOOST_HTTP_SRC_SERVER_DETAIL_ROUTER_BASE_HPP
 
 #include <boost/http/server/detail/router_base.hpp>
+#include <boost/http/detail/except.hpp>
 #include "src/server/detail/route_match.hpp"
 
 namespace boost {
@@ -94,6 +95,8 @@ struct router_base::layer
         handlers hn)
         : match(pat, false)
     {
+        if(match.error())
+            throw_invalid_argument();
         entries.reserve(hn.n);
         for(std::size_t i = 0; i < hn.n; ++i)
             entries.emplace_back(std::move(hn.p[i]));
@@ -104,6 +107,8 @@ struct router_base::layer
         std::string_view pat)
         : match(pat, true)
     {
+        if(match.error())
+            throw_invalid_argument();
     }
 };
 
