@@ -14,6 +14,9 @@
 #include <boost/http/server/basic_router.hpp>
 #include "src/server/detail/route_rule.hpp"
 #include "src/server/detail/stable_string.hpp"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 namespace boost {
 namespace http {
@@ -33,8 +36,9 @@ struct router_base::matcher
         match_result& mr) const;
 
 private:
-    // 24 bytes (vector)
+    std::string allow_header_;
     path_rule_t::value_type pv_;
+    std::vector<std::string> custom_verbs_;
 
     // 16 bytes (pointer + size)
     stable_string decoded_pat_;
@@ -42,6 +46,7 @@ private:
     // 8 bytes each
     std::size_t first_entry_ = 0;   // flat_router: first entry using this matcher
     std::size_t skip_ = 0;          // flat_router: entry index to jump to on failure
+    std::uint64_t allowed_methods_ = 0;     // flat_router: bitmask of allowed methods
 
     // 4 bytes each
     opt_flags effective_opts_ = 0;  // flat_router: computed opts for this scope

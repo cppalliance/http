@@ -334,6 +334,25 @@ class basic_router : public detail::router_base
         return std::make_unique<handler_impl<H>>(std::forward<H>(h));
     }
 
+    template<class H>
+    struct options_handler_impl : options_handler
+    {
+        std::decay_t<H> h;
+
+        template<class H_>
+        explicit options_handler_impl(H_&& h_)
+            : h(std::forward<H_>(h_))
+        {
+        }
+
+        route_task invoke(
+            route_params_base& rp,
+            std::string_view allow) const override
+        {
+            return h(static_cast<P&>(rp), allow);
+        }
+    };
+
     template<std::size_t N>
     struct handlers_impl : handlers
     {
@@ -736,6 +755,26 @@ public:
         std::string_view pattern) -> fluent_route
     {
         return fluent_route(*this, pattern);
+    }
+
+    /** Set the handler for automatic OPTIONS responses.
+
+        When an OPTIONS request matches a route but no explicit OPTIONS
+        handler is registered, this handler is invoked with the pre-built
+        Allow header value. This follows Express.js semantics where
+        explicit OPTIONS handlers take priority.
+
+        @param h A callable with signature `route_task(P&, std::string_view)`
+        where the string_view contains the pre-built Allow header value.
+    */
+    template<class H>
+    void set_options_handler(H&& h)
+    {
+        static_assert(
+            std::is_invocable_r_v<route_task, const std::decay_t<H>&, P&, std::string_view>,
+            "Handler must have signature: route_task(P&, std::string_view)");
+        this->options_handler_ = std::make_unique<options_handler_impl<H>>(
+            std::forward<H>(h));
     }
 };
 

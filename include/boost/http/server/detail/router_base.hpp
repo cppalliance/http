@@ -18,6 +18,7 @@
 #include <boost/capy/io_task.hpp>
 #include <boost/assert.hpp>
 #include <exception>
+#include <memory>
 #include <string_view>
 #include <type_traits>
 
@@ -73,6 +74,18 @@ protected:
         handler_ptr* p;
     };
 
+    // Handler for automatic OPTIONS responses
+    struct BOOST_HTTP_DECL
+        options_handler
+    {
+        virtual ~options_handler() = default;
+        virtual route_task invoke(
+            route_params_base&,
+            std::string_view allow) const = 0;
+    };
+
+    using options_handler_ptr = std::unique_ptr<options_handler>;
+
 protected:
     using match_result = route_params_base::match_result;
     struct matcher;
@@ -90,6 +103,7 @@ protected:
     void add_impl(layer&, http::method, handlers);
     void add_impl(layer&, std::string_view, handlers);
     void set_nested_depth(std::size_t parent_depth);
+    options_handler_ptr options_handler_;
 
 public:
     /** Maximum nesting depth for routers.

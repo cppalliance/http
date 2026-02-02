@@ -27,6 +27,8 @@ namespace http {
 */
 enum class method : char
 {
+    // Values must remain sequential starting at 0 - used as bit shift amounts
+
     /** An unknown method.
 
         This value indicates that the request method string is not

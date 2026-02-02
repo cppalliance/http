@@ -100,11 +100,139 @@ struct flat_router_test
         BOOST_TEST_EQ(*counter, 1);
     }
 
+    void testOptionsHandler()
+    {
+        std::string captured_allow;
+        test_router r;
+        r.add(http::method::get, "/api/users", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        r.add(http::method::post, "/api/users", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        r.set_options_handler(
+            [&captured_allow](params&, std::string_view allow) -> route_task
+            {
+                captured_allow = allow;
+                co_return route_done;
+            });
+
+        flat_router fr(std::move(r));
+
+        params req;
+        capy::test::run_blocking()(fr.dispatch(
+            http::method::options, urls::url_view("/api/users"), req));
+        BOOST_TEST(captured_allow.find("GET") != std::string::npos);
+        BOOST_TEST(captured_allow.find("POST") != std::string::npos);
+    }
+
+    void testExplicitOptionsPriority()
+    {
+        bool explicit_called = false;
+        bool fallback_called = false;
+
+        test_router r;
+        r.add(http::method::get, "/test", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        // Explicit OPTIONS handler
+        r.add(http::method::options, "/test",
+            [&explicit_called](params&) -> route_task
+            {
+                explicit_called = true;
+                co_return route_done;
+            });
+        // Fallback handler
+        r.set_options_handler(
+            [&fallback_called](params&, std::string_view) -> route_task
+            {
+                fallback_called = true;
+                co_return route_done;
+            });
+
+        flat_router fr(std::move(r));
+
+        params req;
+        capy::test::run_blocking()(fr.dispatch(
+            http::method::options, urls::url_view("/test"), req));
+        BOOST_TEST(explicit_called);
+        BOOST_TEST(!fallback_called);
+    }
+
+    void testAllMethodsHandler()
+    {
+        std::string captured_allow;
+        test_router r;
+        // Use route().all() but have handler return route_next
+        // so OPTIONS fallback can run
+        r.route("/wildcard").all([](params&) -> route_task
+        {
+            co_return route_next;
+        });
+        r.set_options_handler(
+            [&captured_allow](params&, std::string_view allow) -> route_task
+            {
+                captured_allow = allow;
+                co_return route_done;
+            });
+
+        flat_router fr(std::move(r));
+
+        params req;
+        capy::test::run_blocking()(fr.dispatch(
+            http::method::options, urls::url_view("/wildcard"), req));
+        // .all() should produce a full Allow header
+        BOOST_TEST(captured_allow.find("GET") != std::string::npos);
+        BOOST_TEST(captured_allow.find("POST") != std::string::npos);
+        BOOST_TEST(captured_allow.find("DELETE") != std::string::npos);
+    }
+
+    void testOptionsStarGlobal()
+    {
+        std::string captured_allow;
+        test_router r;
+        r.add(http::method::get, "/a", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        r.add(http::method::post, "/b", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        r.add(http::method::put, "/c", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        r.set_options_handler(
+            [&captured_allow](params&, std::string_view allow) -> route_task
+            {
+                captured_allow = allow;
+                co_return route_done;
+            });
+
+        flat_router fr(std::move(r));
+
+        params req;
+        capy::test::run_blocking()(fr.dispatch(
+            http::method::options, urls::url_view("*"), req));
+        // Should contain all registered methods
+        BOOST_TEST(captured_allow.find("GET") != std::string::npos);
+        BOOST_TEST(captured_allow.find("POST") != std::string::npos);
+        BOOST_TEST(captured_allow.find("PUT") != std::string::npos);
+    }
+
     void run()
     {
         testCopyConstruction();
         testCopyAssignment();
         testDefaultConstruction();
+        testOptionsHandler();
+        testExplicitOptionsPriority();
+        testAllMethodsHandler();
+        testOptionsStarGlobal();
     }
 };
 

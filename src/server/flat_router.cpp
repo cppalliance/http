@@ -15,6 +15,8 @@
 #include "src/server/detail/pct_decode.hpp"
 #include "src/server/detail/route_match.hpp"
 
+#include <algorithm>
+
 namespace boost {
 namespace http {
 
@@ -28,10 +30,16 @@ struct flat_router::impl
     using matcher = detail::router_base::matcher;
     using opt_flags = detail::router_base::opt_flags;
     using handler_ptr = detail::router_base::handler_ptr;
+    using options_handler_ptr = detail::router_base::options_handler_ptr;
     using match_result = route_params_base::match_result;
 
     std::vector<entry> entries;
     std::vector<matcher> matchers;
+
+    std::uint64_t global_methods_ = 0;
+    std::vector<std::string> global_custom_verbs_;
+    std::string global_allow_header_;
+    options_handler_ptr options_handler_;
 
     // RAII scope tracker sets matcher's skip_ when scope ends
     struct scope_tracker
@@ -55,6 +63,71 @@ struct flat_router::impl
             matchers_[matcher_idx_].skip_ = entries_.size();
         }
     };
+
+    // Build Allow header string from bitmask and custom verbs
+    static std::string
+    build_allow_header(
+        std::uint64_t methods,
+        std::vector<std::string> const& custom)
+    {
+        if(methods == ~0ULL)
+            return "DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT";
+
+        std::string result;
+        // Methods in alphabetical order
+        static constexpr std::pair<http::method, char const*> known[] = {
+            {http::method::acl, "ACL"},
+            {http::method::bind, "BIND"},
+            {http::method::checkout, "CHECKOUT"},
+            {http::method::connect, "CONNECT"},
+            {http::method::copy, "COPY"},
+            {http::method::delete_, "DELETE"},
+            {http::method::get, "GET"},
+            {http::method::head, "HEAD"},
+            {http::method::link, "LINK"},
+            {http::method::lock, "LOCK"},
+            {http::method::merge, "MERGE"},
+            {http::method::mkactivity, "MKACTIVITY"},
+            {http::method::mkcalendar, "MKCALENDAR"},
+            {http::method::mkcol, "MKCOL"},
+            {http::method::move, "MOVE"},
+            {http::method::msearch, "M-SEARCH"},
+            {http::method::notify, "NOTIFY"},
+            {http::method::options, "OPTIONS"},
+            {http::method::patch, "PATCH"},
+            {http::method::post, "POST"},
+            {http::method::propfind, "PROPFIND"},
+            {http::method::proppatch, "PROPPATCH"},
+            {http::method::purge, "PURGE"},
+            {http::method::put, "PUT"},
+            {http::method::rebind, "REBIND"},
+            {http::method::report, "REPORT"},
+            {http::method::search, "SEARCH"},
+            {http::method::subscribe, "SUBSCRIBE"},
+            {http::method::trace, "TRACE"},
+            {http::method::unbind, "UNBIND"},
+            {http::method::unlink, "UNLINK"},
+            {http::method::unlock, "UNLOCK"},
+            {http::method::unsubscribe, "UNSUBSCRIBE"},
+        };
+        for(auto const& [m, name] : known)
+        {
+            if(methods & (1ULL << static_cast<unsigned>(m)))
+            {
+                if(!result.empty())
+                    result += ", ";
+                result += name;
+            }
+        }
+        // Append custom verbs
+        for(auto const& v : custom)
+        {
+            if(!result.empty())
+                result += ", ";
+            result += v;
+        }
+        return result;
+    }
 
     static opt_flags
     compute_effective_opts(
@@ -82,6 +155,27 @@ struct flat_router::impl
     flatten(detail::router_base::impl& src)
     {
         flatten_recursive(src, opt_flags{}, 0);
+        build_allow_headers();
+    }
+
+    void
+    build_allow_headers()
+    {
+        // Build per-matcher Allow header strings
+        for(auto& m : matchers)
+        {
+            if(m.end_)
+                m.allow_header_ = build_allow_header(
+                    m.allowed_methods_, m.custom_verbs_);
+        }
+
+        // Deduplicate global custom verbs and build global Allow header
+        std::sort(global_custom_verbs_.begin(), global_custom_verbs_.end());
+        global_custom_verbs_.erase(
+            std::unique(global_custom_verbs_.begin(), global_custom_verbs_.end()),
+            global_custom_verbs_.end());
+        global_allow_header_ = build_allow_header(
+            global_methods_, global_custom_verbs_);
     }
 
     void
@@ -116,6 +210,26 @@ struct flat_router::impl
                 }
                 else
                 {
+                    // Collect methods for OPTIONS (only for end routes)
+                    if(m.end_)
+                    {
+                        // Per-matcher collection
+                        if(e.all)
+                            m.allowed_methods_ = ~0ULL;
+                        else if(e.verb != http::method::unknown)
+                            m.allowed_methods_ |= (1ULL << static_cast<unsigned>(e.verb));
+                        else if(!e.verb_str.empty())
+                            m.custom_verbs_.push_back(e.verb_str);
+
+                        // Global collection (for OPTIONS *)
+                        if(e.all)
+                            global_methods_ = ~0ULL;
+                        else if(e.verb != http::method::unknown)
+                            global_methods_ |= (1ULL << static_cast<unsigned>(e.verb));
+                        else if(!e.verb_str.empty())
+                            global_custom_verbs_.push_back(e.verb_str);
+                    }
+
                     // Set matcher_idx, then move entire entry
                     e.matcher_idx = matcher_idx;
                     entries.emplace_back(std::move(e));
@@ -143,13 +257,17 @@ struct flat_router::impl
     }
 
     route_task
-    dispatch_loop(route_params_base& p) const
+    dispatch_loop(route_params_base& p, bool is_options) const
     {
         // All checks happen BEFORE co_await to minimize coroutine launches.
         // Avoid touching p.ep_ (expensive atomic on Windows) - use p.kind_ for mode checks.
 
         std::size_t last_matched = SIZE_MAX;
         std::uint32_t current_depth = 0;
+        
+        // Collect methods from all matching end-route matchers for OPTIONS
+        std::uint64_t options_methods = 0;
+        std::vector<std::string> options_custom_verbs;
 
         // Stack of base_path lengths at each depth level.
         // path_stack[d] = base_path.size() before any matcher at depth d was tried.
@@ -245,6 +363,14 @@ struct flat_router::impl
             if(!ancestors_ok)
                 continue;
 
+            // Collect methods from matching end-route matchers for OPTIONS
+            if(is_options && m.end_)
+            {
+                options_methods |= m.allowed_methods_;
+                for(auto const& v : m.custom_verbs_)
+                    options_custom_verbs.push_back(v);
+            }
+
             // Check method match (only for end routes)
             if(m.end_ && !e.match_method(
                 const_cast<route_params_base&>(p)))
@@ -333,6 +459,14 @@ struct flat_router::impl
         if(p.kind_ == detail::router_base::is_error)
             co_return route_error(p.ec_);
 
+        // OPTIONS fallback: path matched but no explicit OPTIONS handler
+        if(is_options && options_methods != 0 && options_handler_)
+        {
+            // Build Allow header from collected methods
+            std::string allow = build_allow_header(options_methods, options_custom_verbs);
+            co_return co_await options_handler_->invoke(p, allow);
+        }
+
         co_return route_next;  // no handler matched
     }
 };
@@ -345,6 +479,7 @@ flat_router(
     : impl_(std::make_shared<impl>())
 {
     impl_->flatten(*src.impl_);
+    impl_->options_handler_ = std::move(src.options_handler_);
 }
 
 route_task
@@ -356,6 +491,18 @@ dispatch(
 {
     if(verb == http::method::unknown)
         detail::throw_invalid_argument();
+
+    // Handle OPTIONS * before normal dispatch
+    if(verb == http::method::options &&
+       url.encoded_path() == "*")
+    {
+        if(impl_->options_handler_)
+        {
+            return impl_->options_handler_->invoke(
+                p, impl_->global_allow_header_);
+        }
+        // No handler, let it fall through to 404
+    }
 
     // Initialize params
     p.kind_ = detail::router_base::is_plain;
@@ -376,7 +523,7 @@ dispatch(
         p.addedSlash_ = false;
     }
 
-    return impl_->dispatch_loop(p);
+    return impl_->dispatch_loop(p, verb == http::method::options);
 }
 
 route_task
@@ -389,9 +536,23 @@ dispatch(
     if(verb.empty())
         detail::throw_invalid_argument();
 
+    auto const method = http::string_to_method(verb);
+    bool const is_options = (method == http::method::options);
+
+    // Handle OPTIONS * before normal dispatch
+    if(is_options && url.encoded_path() == "*")
+    {
+        if(impl_->options_handler_)
+        {
+            return impl_->options_handler_->invoke(
+                p, impl_->global_allow_header_);
+        }
+        // No handler, let it fall through to 404
+    }
+
     // Initialize params
     p.kind_ = detail::router_base::is_plain;
-    p.verb_ = http::string_to_method(verb);
+    p.verb_ = method;
     if(p.verb_ == http::method::unknown)
         p.verb_str_ = verb;
     else
@@ -411,7 +572,7 @@ dispatch(
         p.addedSlash_ = false;
     }
 
-    return impl_->dispatch_loop(p);
+    return impl_->dispatch_loop(p, is_options);
 }
 
 } // http
