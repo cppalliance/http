@@ -352,6 +352,197 @@ public:
     }
 };
 
+//------------------------------------------------
+// Case-insensitive comparison
+//------------------------------------------------
+
+bool
+ci_equal(char a, char b) noexcept
+{
+    if(a >= 'A' && a <= 'Z')
+        a = static_cast<char>(a + 32);
+    if(b >= 'A' && b <= 'Z')
+        b = static_cast<char>(b + 32);
+    return a == b;
+}
+
+bool
+ci_starts_with(
+    core::string_view str,
+    core::string_view prefix) noexcept
+{
+    if(prefix.size() > str.size())
+        return false;
+    for(std::size_t i = 0; i < prefix.size(); ++i)
+    {
+        if(!ci_equal(str[i], prefix[i]))
+            return false;
+    }
+    return true;
+}
+
+//------------------------------------------------
+// Route matcher
+//------------------------------------------------
+
+class route_matcher
+{
+    core::string_view path_;
+    match_options const& opts_;
+    std::vector<std::pair<std::string, std::string>> params_;
+    std::size_t pos_ = 0;
+
+public:
+    route_matcher(
+        core::string_view path,
+        match_options const& opts)
+        : path_(path)
+        , opts_(opts)
+    {
+    }
+
+    bool at_end() const noexcept
+    {
+        return pos_ >= path_.size();
+    }
+
+    std::size_t pos() const noexcept
+    {
+        return pos_;
+    }
+
+    std::vector<std::pair<std::string, std::string>> const&
+    params() const noexcept
+    {
+        return params_;
+    }
+
+    // Match text token
+    bool match_text(core::string_view text)
+    {
+        auto remaining = path_.substr(pos_);
+        if(opts_.case_sensitive)
+        {
+            if(!remaining.starts_with(text))
+                return false;
+        }
+        else
+        {
+            if(!ci_starts_with(remaining, text))
+                return false;
+        }
+        pos_ += text.size();
+        return true;
+    }
+
+    // Match param token - capture until '/' or end
+    bool match_param(std::string const& name)
+    {
+        if(at_end())
+            return false;
+
+        auto start = pos_;
+        while(pos_ < path_.size() && path_[pos_] != '/')
+            ++pos_;
+
+        // Param must capture at least one character
+        if(pos_ == start)
+            return false;
+
+        params_.emplace_back(
+            name,
+            std::string(path_.substr(start, pos_ - start)));
+        return true;
+    }
+
+    // Match wildcard token - capture everything to end
+    bool match_wildcard(std::string const& name)
+    {
+        if(at_end())
+            return false;
+
+        auto start = pos_;
+        pos_ = path_.size();
+
+        // Wildcard must capture at least one character
+        if(pos_ == start)
+            return false;
+
+        params_.emplace_back(
+            name,
+            std::string(path_.substr(start)));
+        return true;
+    }
+
+    // Match a sequence of tokens
+    bool match_tokens(std::vector<route_token> const& tokens)
+    {
+        for(auto const& token : tokens)
+        {
+            if(!match_token(token))
+                return false;
+        }
+        return true;
+    }
+
+    // Match a single token
+    bool match_token(route_token const& token)
+    {
+        switch(token.type)
+        {
+        case route_token_type::text:
+            return match_text(token.value);
+
+        case route_token_type::param:
+            return match_param(token.value);
+
+        case route_token_type::wildcard:
+            return match_wildcard(token.value);
+
+        case route_token_type::group:
+            return match_group(token.children);
+
+        default:
+            return false;
+        }
+    }
+
+    // Match group - try with contents, then without
+    bool match_group(std::vector<route_token> const& children)
+    {
+        // Save state before trying group
+        auto saved_pos = pos_;
+        auto saved_params_size = params_.size();
+
+        // Try matching with group contents
+        if(match_tokens(children))
+            return true;
+
+        // Restore state and try without group
+        pos_ = saved_pos;
+        params_.resize(saved_params_size);
+        return true;  // Group is optional, always succeeds if skipped
+    }
+
+    // Check if match is complete based on options
+    bool is_complete() const
+    {
+        if(!opts_.end)
+            return true;  // Prefix match always succeeds
+
+        if(opts_.strict)
+            return at_end();
+
+        // Non-strict: allow trailing slash
+        if(at_end())
+            return true;
+        if(pos_ == path_.size() - 1 && path_[pos_] == '/')
+            return true;
+
+        return false;
+    }
+};
+
 } // anonymous namespace
 
 //------------------------------------------------
@@ -367,6 +558,28 @@ parse_route_pattern(core::string_view pattern)
     route_pattern result;
     result.tokens = std::move(rv.value());
     result.original = std::string(pattern);
+    return result;
+}
+
+//------------------------------------------------
+
+system::result<match_params>
+match_route(
+    core::string_view path,
+    route_pattern const& pattern,
+    match_options const& opts)
+{
+    route_matcher m(path, opts);
+
+    if(!m.match_tokens(pattern.tokens))
+        return grammar::error::mismatch;
+
+    if(!m.is_complete())
+        return grammar::error::mismatch;
+
+    match_params result;
+    result.params = m.params();
+    result.matched_length = m.pos();
     return result;
 }
 

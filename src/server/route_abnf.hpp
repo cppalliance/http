@@ -88,6 +88,47 @@ struct route_pattern
 system::result<route_pattern>
 parse_route_pattern(core::string_view pattern);
 
+//------------------------------------------------
+
+/** Options for route matching
+*/
+struct match_options
+{
+    bool case_sensitive;  ///< Text comparison mode
+    bool strict;          ///< Trailing slash matters
+    bool end;             ///< true = full match, false = prefix match
+};
+
+//------------------------------------------------
+
+/** Result of matching a path against a pattern
+*/
+struct match_params
+{
+    std::vector<std::pair<std::string, std::string>> params;  ///< Captured parameters
+    std::size_t matched_length;  ///< Characters consumed from path
+};
+
+//------------------------------------------------
+
+/** Match a decoded path against a route pattern
+
+    Attempts to match the given path against the pattern,
+    extracting any captured parameters.
+
+    @param path The decoded path to match (not URL-encoded)
+    @param pattern The parsed route pattern
+    @param opts Matching options
+
+    @return The captured parameters and match length if successful,
+    or an error if the path doesn't match
+*/
+system::result<match_params>
+match_route(
+    core::string_view path,
+    route_pattern const& pattern,
+    match_options const& opts);
+
 } // detail
 } // http
 } // boost
