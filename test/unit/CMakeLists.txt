@@ -7,8 +7,8 @@
 # Official repository: https://github.com/cppalliance/http
 #
 
-if (NOT TARGET boost_url_test_suite)
-    add_subdirectory(../../../url/extra/test_suite test_suite)
+if (NOT TARGET boost_capy_test_suite)
+    add_subdirectory(../../../capy/extra/test_suite test_suite)
 endif()
 
 file(GLOB_RECURSE PFILES CONFIGURE_DEPENDS *.cpp *.hpp)
@@ -22,7 +22,7 @@ add_executable(boost_http_tests ${PFILES})
 target_include_directories(boost_http_tests PRIVATE . ../../)
 target_link_libraries(
     boost_http_tests PRIVATE
-    boost_url_test_suite_with_main
+    boost_capy_test_suite_main
     Boost::http
     Boost::filesystem)
 
@@ -35,7 +35,7 @@ if (TARGET Boost::http_brotli)
 endif ()
 
 # Register individual tests with CTest
-boost_url_test_suite_discover_tests(boost_http_tests)
+boost_capy_test_suite_discover_tests(boost_http_tests)
 
 # Add the main test target to Boost's test suite
 add_dependencies(tests boost_http_tests)
