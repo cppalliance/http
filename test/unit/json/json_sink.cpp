@@ -13,6 +13,7 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/concept/write_sink.hpp>
+#include <boost/capy/coro.hpp>
 #include <boost/capy/ex/execution_context.hpp>
 #include <boost/capy/ex/run_async.hpp>
 #include <boost/capy/io_result.hpp>
@@ -32,39 +33,77 @@ namespace {
 // Test executor
 //----------------------------------------------------------
 
+class test_io_context;
+
+inline test_io_context&
+default_test_io_context() noexcept;
+
 struct test_executor
 {
-    int& dispatch_count_;
+    int* dispatch_count_ = nullptr;
+    test_io_context* ctx_ = nullptr;
 
-    explicit test_executor(int& count) noexcept
-        : dispatch_count_(count)
+    test_executor() = default;
+
+    explicit
+    test_executor(test_io_context& ctx) noexcept
+        : ctx_(&ctx)
+    {
+    }
+
+    explicit
+    test_executor(int& count) noexcept
+        : dispatch_count_(&count)
     {
     }
 
     bool operator==(test_executor const& other) const noexcept
     {
-        return &dispatch_count_ == &other.dispatch_count_;
+        return dispatch_count_ == other.dispatch_count_ &&
+               ctx_ == other.ctx_;
     }
 
-    struct test_context : capy::execution_context {};
-
-    capy::execution_context& context() const noexcept
-    {
-        static test_context ctx;
-        return ctx;
-    }
+    test_io_context& context() const noexcept;
 
     void on_work_started() const noexcept {}
     void on_work_finished() const noexcept {}
 
-    capy::coro dispatch(capy::coro h) const noexcept
+    void dispatch(capy::coro h) const
     {
-        ++dispatch_count_;
-        return h;
+        if(dispatch_count_)
+            ++(*dispatch_count_);
+        h.resume();
     }
 
-    void post(capy::coro) const noexcept {}
+    void post(capy::coro h) const
+    {
+        h.resume();
+    }
 };
+
+class test_io_context : public capy::execution_context
+{
+public:
+    using executor_type = test_executor;
+
+    executor_type get_executor() noexcept
+    {
+        return test_executor(*this);
+    }
+};
+
+inline test_io_context&
+default_test_io_context() noexcept
+{
+    static test_io_context ctx;
+    return ctx;
+}
+
+inline test_io_context&
+test_executor::context() const noexcept
+{
+    return ctx_ ? *ctx_ : default_test_io_context();
+}
 
 static_assert(capy::Executor<test_executor>);
 
