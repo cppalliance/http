@@ -1,21 +1,14 @@
-* xref:1.primer.adoc[]
-* xref:2.messages.adoc[]
 * xref:sans_io_philosophy.adoc[]
-* xref:http_protocol_basics.adoc[]
 // * xref:header_containers.adoc[]
-* xref:message_bodies.adoc[]
 * Serializing
 * Parsing
-* xref:Message.adoc[]
 * Server
 ** xref:server/servers-intro.adoc[Servers]
 ** xref:server/route-handlers.adoc[Route Handlers]
-** xref:server/router.adoc[Router]
 ** xref:server/routers.adoc[Routers Deep Dive]
 ** xref:server/route-patterns.adoc[Route Patterns]
 ** xref:server/serve-static.adoc[Serving Static Files]
 ** xref:server/serve-index.adoc[Directory Listings]
-** xref:server/bcrypt.adoc[BCrypt Password Hashing]
 // ** xref:server/middleware.adoc[Middleware]
 // ** xref:server/errors.adoc[Error Handling]
 // ** xref:server/params.adoc[Route Parameters]
