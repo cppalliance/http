@@ -21,6 +21,24 @@ struct router_test
     using params = route_params;
     using test_router = router<params>;
 
+    struct derived_params : params {};
+
+    struct my_transform
+    {
+        template<class T>
+        T operator()(T&& t) const
+        { return std::forward<T>(t); }
+    };
+
+    struct base_ht
+    {
+        template<class T>
+        T operator()(T&& t) const
+        { return std::forward<T>(t); }
+    };
+
+    struct derived_ht : base_ht {};
+
     //--------------------------------------------
     // Simple handlers - no destructor verification
     //--------------------------------------------
@@ -435,6 +453,51 @@ struct router_test
         { test_router r; r.add(GET, "/auth/login", h_next); check(r, GET, "/auth%2flogin", route_next); }
     }
 
+    void testCrossTypeConstruction()
+    {
+        // HT constructible from OtherHT (identity -> identity)
+        {
+            router<params> r1;
+            r1.use(h_send);
+            router<params> r2(std::move(r1));
+            check(r2, "/");
+        }
+
+        // different P, same default HT
+        {
+            router<derived_params> r1;
+            r1.use([](derived_params&) -> route_task
+                { co_return route_result{}; });
+            router<params> r2(std::move(r1));
+            (void)r2;
+        }
+
+        // HT not constructible from OtherHT, but default constructible
+        {
+            router<params> r1;
+            r1.use(h_send);
+            router<params, my_transform> r2(std::move(r1));
+            (void)r2;
+        }
+
+        // HT constructible from OtherHT (derived -> base)
+        {
+            router<params, derived_ht> r1;
+            r1.use(h_send);
+            router<params, base_ht> r2(std::move(r1));
+            (void)r2;
+        }
+
+        // both P and HT differ
+        {
+            router<derived_params> r1;
+            r1.use([](derived_params&) -> route_task
+                { co_return route_result{}; });
+            router<params, my_transform> r2(std::move(r1));
+            (void)r2;
+        }
+    }
+
     void run()
     {
         testUse();
@@ -445,6 +508,7 @@ struct router_test
         testOptions();
         testDispatch();
         testPathDecoding();
+        testCrossTypeConstruction();
     }
 };
 

@@ -391,6 +391,8 @@ struct identity
 template<class P = route_params, class HT = identity>
 class router : public detail::router_base
 {
+    template<class, class> friend class router;
+
     HT ht_{};
 
     static_assert(std::derived_from<P, route_params>);
@@ -601,25 +603,43 @@ public:
     /** Construct a router from another router with compatible types.
 
         This constructs a router that shares the same underlying routing
-        state as another router whose params type is a base class of `Params`.
+        state as another router whose params and handler transform types
+        may differ.
 
-        The resulting router participates in shared ownership of the
-        implementation; copying the router does not duplicate routes or
-        handlers, and changes visible through one router are visible
-        through all routers that share the same underlying state.
+        The handler transform is initialized as follows:
+        - If `HT` is constructible from `OtherHT`, the transform is
+          move-constructed from the source router's transform.
+        - Otherwise, if `HT` is default-constructible, the transform
+          is value-initialized.
 
         @par Constraints
 
-        `Params` must be derived from `OtherParams`.
+        `OtherParams` must be derived from `Params`, and `HT` must be
+        either constructible from `OtherHT` or default-constructible.
 
         @param other The router to construct from.
 
         @tparam OtherParams The params type of the source router.
+
+        @tparam OtherHT The handler transform type of the source router.
     */
-    template<class OtherP>
-        requires std::derived_from<OtherP, P>
+    template<class OtherP, class OtherHT>
+        requires std::derived_from<OtherP, P> &&
+            std::constructible_from<HT, OtherHT>
     router(
-        router<OtherP>&& other) noexcept
+        router<OtherP, OtherHT>&& other) noexcept
+        : detail::router_base(std::move(other))
+        , ht_(std::move(other.ht_))
+    {
+    }
+
+    /// @copydoc router(router<OtherP,OtherHT>&&)
+    template<class OtherP, class OtherHT>
+        requires std::derived_from<OtherP, P> &&
+            (!std::constructible_from<HT, OtherHT>) &&
+            std::default_initializable<HT>
+    router(
+        router<OtherP, OtherHT>&& other) noexcept
         : detail::router_base(std::move(other))
     {
     }
