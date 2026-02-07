@@ -56,6 +56,33 @@ class json_sink
 {
     json::stream_parser parser_;
 
+    template<capy::ConstBufferSequence CB>
+    capy::immediate<capy::io_result<std::size_t>>
+    write_impl(CB const& buffers, bool eof)
+    {
+        system::error_code ec;
+        std::size_t total = 0;
+        auto const end = capy::end(buffers);
+        for(auto it = capy::begin(buffers); it != end; ++it)
+        {
+            capy::const_buffer buf(*it);
+            auto n = parser_.write(
+                static_cast<char const*>(buf.data()),
+                buf.size(),
+                ec);
+            total += n;
+            if(ec.failed())
+                return {ec, total};
+        }
+        if(eof)
+        {
+            parser_.finish(ec);
+            if(ec.failed())
+                return {ec, total};
+        }
+        return capy::ready(total);
+    }
+
 public:
     /** Default constructor.
 
@@ -85,6 +112,22 @@ public:
     {
     }
 
+    /** Write some data to the JSON parser.
+
+        Writes bytes from the buffer sequence to the stream parser.
+
+        @param buffers Buffer sequence containing JSON data.
+
+        @return An awaitable yielding `(error_code,std::size_t)`.
+            On success, returns the total bytes written.
+    */
+    template<capy::ConstBufferSequence CB>
+    capy::immediate<capy::io_result<std::size_t>>
+    write_some(CB const& buffers)
+    {
+        return write_impl(buffers, false);
+    }
+
     /** Write data to the JSON parser.
 
         Writes all bytes from the buffer sequence to the stream parser.
@@ -98,7 +141,7 @@ public:
     capy::immediate<capy::io_result<std::size_t>>
     write(CB const& buffers)
     {
-        return write(buffers, false);
+        return write_impl(buffers, false);
     }
 
     /** Write data with optional end-of-stream.
@@ -116,29 +159,24 @@ public:
     capy::immediate<capy::io_result<std::size_t>>
     write(CB const& buffers, bool eof)
     {
-        system::error_code ec;
-        std::size_t total = 0;
-        auto const end = capy::end(buffers);
-        for(auto it = capy::begin(buffers); it != end; ++it)
-        {
-            capy::const_buffer buf(*it);
-            auto n = parser_.write(
-                static_cast<char const*>(buf.data()),
-                buf.size(),
-                ec);
-            total += n;
-            if(ec.failed())
-                return {ec, total};
-        }
+        return write_impl(buffers, eof);
+    }
 
-        if(eof)
-        {
-            parser_.finish(ec);
-            if(ec.failed())
-                return {ec, total};
-        }
+    /** Write final data and signal end of JSON data.
 
-        return capy::ready(total);
+        Writes all bytes from the buffer sequence to the stream
+        parser, then finishes parsing.
+
+        @param buffers Buffer sequence containing JSON data.
+
+        @return An awaitable yielding `(error_code,std::size_t)`.
+            On success, returns the total bytes written.
+    */
+    template<capy::ConstBufferSequence CB>
+    capy::immediate<capy::io_result<std::size_t>>
+    write_eof(CB const& buffers)
+    {
+        return write_impl(buffers, true);
     }
 
     /** Signal end of JSON data.

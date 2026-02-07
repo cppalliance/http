@@ -607,7 +607,7 @@ pull(std::span<capy::const_buffer> dest)
         }
 
         if(pr_->is_complete())
-            co_return {{}, {}};
+            co_return {capy::error::eof, {}};
 
         if(ec == condition::need_more_input)
         {

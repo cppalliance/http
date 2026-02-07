@@ -779,7 +779,7 @@ struct serializer_test
             if(ec)
                 co_return;
 
-            auto [ec2] = co_await sink.commit_eof();
+            auto [ec2] = co_await sink.commit_eof(0);
             if(ec2)
                 co_return;
 
@@ -812,7 +812,7 @@ struct serializer_test
             std::string_view body = "hello";
             std::memcpy(bufs[0].data(), body.data(), body.size());
 
-            auto [ec] = co_await sink.commit(body.size(), true);
+            auto [ec] = co_await sink.commit_eof(body.size());
             if(ec)
                 co_return;
 
@@ -841,7 +841,7 @@ struct serializer_test
             if(ec)
                 co_return;
 
-            auto [ec2] = co_await sink.commit_eof();
+            auto [ec2] = co_await sink.commit_eof(0);
             if(ec2)
                 co_return;
         });
@@ -885,7 +885,7 @@ struct serializer_test
             if(ec2)
                 co_return;
 
-            auto [ec3] = co_await sink.commit_eof();
+            auto [ec3] = co_await sink.commit_eof(0);
             if(ec3)
                 co_return;
 
@@ -923,7 +923,7 @@ struct serializer_test
             if(ec1)
                 co_return;
 
-            auto [ec2] = co_await sink.commit_eof();
+            auto [ec2] = co_await sink.commit_eof(0);
             if(ec2)
                 co_return;
 
@@ -948,7 +948,7 @@ struct serializer_test
             auto sink = sr.sink_for(ws);
             sr.start_stream(res);
 
-            auto [ec] = co_await sink.commit_eof();
+            auto [ec] = co_await sink.commit_eof(0);
             if(ec)
                 co_return;
 
@@ -985,7 +985,7 @@ struct serializer_test
             if(ec)
                 co_return;
 
-            auto [ec2] = co_await sink.commit_eof();
+            auto [ec2] = co_await sink.commit_eof(0);
             if(ec2)
                 co_return;
 
@@ -1024,7 +1024,7 @@ struct serializer_test
             if(ec)
                 co_return;
 
-            auto [ec2] = co_await sink.commit_eof();
+            auto [ec2] = co_await sink.commit_eof(0);
             if(ec2)
                 co_return;
 
@@ -1093,8 +1093,8 @@ struct serializer_test
             capy::any_buffer_sink abs(sink);
 
             std::string_view body = "hello";
-            auto [ec, n] = co_await abs.write(
-                capy::make_buffer(body), true);
+            auto [ec, n] = co_await abs.write_eof(
+                capy::make_buffer(body));
             if(ec)
                 co_return;
 

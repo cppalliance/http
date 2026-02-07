@@ -349,7 +349,7 @@ public:
         capy::mutable_buffer arr[16];
         auto bufs = sink.prepare(arr);
         std::memcpy(bufs[0].data(), "Hello", 5);
-        co_await sink.commit(5, true);
+        co_await sink.commit_eof(5);
         @endcode
 
         @par Preconditions
@@ -440,7 +440,7 @@ public:
         capy::mutable_buffer arr[16];
         auto bufs = sink.prepare(arr);
         std::memcpy(bufs[0].data(), "Hello", 5);
-        co_await sink.commit(5, true);
+        co_await sink.commit_eof(5);
         @endcode
 
         @tparam Stream The output stream type satisfying
@@ -716,7 +716,7 @@ private:
         capy::mutable_buffer arr[16];
         auto bufs = sink.prepare(arr);
         std::memcpy(bufs[0].data(), "Hello", 5);
-        co_await sink.commit(5, true);
+        co_await sink.commit_eof(5);
     }
     @endcode
 
@@ -786,38 +786,15 @@ public:
     commit(std::size_t n)
         -> capy::io_task<>
     {
-        return commit(n, false);
-    }
-
-    /** Commit bytes written with optional end-of-stream.
-
-        Commits `n` bytes written to the buffers returned by the
-        most recent call to @ref prepare. If `eof` is true, also
-        signals end-of-stream.
-
-        @param n The number of bytes to commit.
-        @param eof If true, signals end-of-stream after committing.
-
-        @return An awaitable yielding `(error_code)`.
-    */
-    auto
-    commit(std::size_t n, bool eof)
-        -> capy::io_task<>
-    {
         sr_->stream_commit(n);
-
-        if(eof)
-            sr_->stream_close();
 
         while(!sr_->is_done())
         {
             auto cbs = sr_->prepare();
             if(cbs.has_error())
             {
-                if(cbs.error() == error::need_data && !eof)
-                    break;
                 if(cbs.error() == error::need_data)
-                    continue;
+                    break;
                 co_return {cbs.error()};
             }
 
@@ -837,20 +814,25 @@ public:
         co_return {};
     }
 
-    /** Signal end-of-stream.
+    /** Commit final bytes and signal end-of-stream.
 
-        Closes the body stream and flushes any remaining serializer
-        output to the underlying stream. For chunked encoding, this
-        writes the final zero-length chunk.
+        Commits `n` bytes written to the buffers returned by the
+        most recent call to @ref prepare and closes the body stream,
+        flushing any remaining serializer output to the underlying
+        stream. For chunked encoding, this writes the final
+        zero-length chunk.
+
+        @param n The number of bytes to commit.
 
         @return An awaitable yielding `(error_code)`.
 
         @post The serializer's `is_done()` returns `true` on success.
     */
     auto
-    commit_eof()
+    commit_eof(std::size_t n)
         -> capy::io_task<>
     {
+        sr_->stream_commit(n);
         sr_->stream_close();
 
         while(!sr_->is_done())

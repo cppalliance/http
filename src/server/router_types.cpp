@@ -200,8 +200,8 @@ send(std::string_view body)
         co_return co_await res_body.write_eof();
     }
 
-    auto [ec, n] = co_await res_body.write(
-        capy::make_buffer(body), true);
+    auto [ec, n] = co_await res_body.write_eof(
+        capy::make_buffer(body));
     co_return {ec};
 }
 

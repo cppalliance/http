@@ -1905,10 +1905,10 @@ struct parser_coro_test
             for(;;)
             {
                 auto [ec, bufs] = co_await source.pull(arr);
+                if(ec == capy::cond::eof)
+                    break;
                 if(ec)
                     co_return;
-                if(bufs.empty())
-                    break;
                 std::size_t n = 0;
                 for(auto const& buf : bufs)
                 {
@@ -1953,10 +1953,10 @@ struct parser_coro_test
             for(;;)
             {
                 auto [ec, bufs] = co_await source.pull(arr);
+                if(ec == capy::cond::eof)
+                    break;
                 if(ec)
                     co_return;
-                if(bufs.empty())
-                    break;
                 std::size_t n = 0;
                 for(auto const& buf : bufs)
                 {
