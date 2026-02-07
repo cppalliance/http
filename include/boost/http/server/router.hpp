@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2025 Vinnie Falco (vinnie dot falco at gmail dot com)
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -131,6 +131,12 @@ private:
 
 //-----------------------------------------------
 
+/** The default handler transform.
+
+    Passes each handler through unchanged. This is the
+    default value of the `HT` template parameter on
+    @ref router.
+*/
 struct identity
 {
     template< class T >
@@ -260,6 +266,107 @@ struct identity
     those routes. This is analogous to `app.use( path, ... )` in
     Express.js.
 
+    @par Handler Transforms
+
+    The second template parameter `HT` is a <em>handler transform</em>.
+    A handler transform is a callable object that the router applies to
+    each plain handler at registration time, producing a new callable
+    with the canonical signature `route_task(Params&)`.
+
+    When a handler is registered that does not directly satisfy
+    `route_task(Params&)`, the router applies `ht(handler)` to adapt
+    it. The transform is invoked <em>once</em> at registration time;
+    the returned callable is stored and invoked each time the route
+    matches at dispatch time.
+
+    Error handlers and exception handlers are never transformed.
+    Only plain route handlers pass through the transform.
+
+    The default transform is @ref identity, which passes handlers
+    through unchanged.
+
+    A transform `HT` must satisfy the following contract: for any
+    handler `h` passed to the router, the expression `ht(h)` must
+    return a callable `g` such that `g(Params&)` returns
+    @ref route_task.
+
+    @par Example: Logging Transform
+    @code
+    struct log_transform
+    {
+        template<class Handler>
+        auto operator()(Handler h) const
+        {
+            struct wrapper
+            {
+                Handler h_;
+
+                route_task operator()(route_params& p) const
+                {
+                    auto t0 = steady_clock::now();
+                    auto rv = co_await h_(p);
+                    log_elapsed(steady_clock::now() - t0);
+                    co_return rv;
+                }
+            };
+            return wrapper{ std::move(h) };
+        }
+    };
+
+    router<route_params> base;
+    auto r = base.with_transform( log_transform{} );
+
+    // The lambda is wrapped by log_transform at registration.
+    // At dispatch, log_transform::wrapper::operator() runs,
+    // which invokes the original lambda and logs elapsed time.
+    r.get( "/hello", []( route_params& p ) -> route_task {
+        co_return route_done;
+    });
+    @endcode
+
+    @par Example: Dependency Injection Transform
+
+    A transform can adapt handlers whose parameters are not
+    `Params&` at all. The transform resolves each parameter
+    from a service container at dispatch time:
+
+    @code
+    struct inject_transform
+    {
+        template<class Handler>
+        auto operator()(Handler h) const
+        {
+            struct wrapper
+            {
+                Handler h_;
+
+                route_task operator()(route_params& p) const
+                {
+                    // Look up each of h_'s parameter types
+                    // in p.route_data. Return route_next if
+                    // any are missing.
+                    co_return dynamic_invoke(p.route_data, h_);
+                }
+            };
+            return wrapper{ std::move(h) };
+        }
+    };
+
+    router<route_params> base;
+    auto r = base.with_transform( inject_transform{} );
+
+    // Parameters are resolved from p.route_data automatically.
+    // If UserService or Config are not in route_data, the
+    // handler is skipped and route_next is returned.
+    r.get( "/users", [](
+        UserService& svc,
+        Config const& cfg) -> route_result
+    {
+        // use svc and cfg...
+        return route_done;
+    });
+    @endcode
+
     @par Thread Safety
 
     Member functions marked `const` such as @ref dispatch
@@ -302,8 +409,14 @@ class router : public detail::router_base
             {
                 return is_exception;
             }
-            else if constexpr (detail::returns_route_task<
-                decltype(std::declval<HT const&>()(std::declval<T>())), P&>)
+            else if constexpr (detail::returns_route_task<T, P&>)
+            {
+                return is_plain;
+            }
+            else if constexpr (
+                std::is_invocable_v<HT const&, T> &&
+                detail::returns_route_task<
+                    std::invoke_result_t<HT const&, T>, P&>)
             {
                 return is_plain;
             }
@@ -529,13 +642,60 @@ public:
 
     /** Return a router that applies a transform to plain handlers.
 
-        The returned router shares the same routing state but applies
-        @p f to each plain handler before installation. Error and
-        exception handlers are not affected.
+        Creates a new router that shares the same underlying routing
+        table but applies @p f to each plain handler before it is
+        stored. Error and exception handlers are not affected by
+        the transform.
 
-        @param f A callable that takes a handler and returns a
-        callable which, when invoked with `P&`, returns a
-        @ref route_task.
+        The transform is invoked once at handler registration time.
+        For each plain handler `h` passed to the returned router,
+        `f(h)` must produce a callable `g` such that `g(Params&)`
+        returns @ref route_task. The callable `g` is what gets
+        stored and invoked at dispatch time.
+
+        @par Shared State
+
+        The returned router shares the same routing table as
+        `*this`. Routes added through either router are visible
+        during dispatch from both. The transform only controls
+        how new handlers are wrapped when they are registered
+        through the returned router.
+
+        @par Example: Simple Transform
+        @code
+        // A transform that logs before each handler runs
+        auto r = base.with_transform(
+            []( auto handler )
+            {
+                struct wrapper
+                {
+                    decltype(handler) h_;
+                    route_task operator()(route_params& p) const
+                    {
+                        std::cout << "dispatching\n";
+                        co_return co_await h_(p);
+                    }
+                };
+                return wrapper{ std::move(handler) };
+            });
+        @endcode
+
+        @par Example: Chaining Transforms
+        @code
+        auto r1 = base.with_transform( first_transform{} );
+        auto r2 = base.with_transform( second_transform{} );
+
+        // r1 applies first_transform to its handlers
+        // r2 applies second_transform to its handlers
+        // Both share the same routing table
+        @endcode
+
+        @par Constraints
+
+        `f(handler)` must return a callable `g` where
+        `g(Params&)` returns @ref route_task.
+
+        @param f The handler transform to apply.
 
         @return A router with the transform applied.
     */
