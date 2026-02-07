@@ -478,16 +478,6 @@ public:
         to indicate that additional input is required
         to produce output.
 
-        If a @ref source object is in use and a
-        call to @ref source::read returns an
-        error, the serializer enters a faulted
-        state and propagates the error to the
-        caller. This faulted state can only be
-        cleared by calling @ref reset. This
-        ensures the caller is explicitly aware
-        that the previous message was truncated
-        and that the stream must be terminated.
-
         @par Preconditions
         @code
         this->is_done() == false
@@ -496,7 +486,6 @@ public:
 
         @par Exception Safety
         Strong guarantee.
-        Calls to @ref source::read may throw if in use.
 
         @throw std::logic_error
         `this->is_done() == true`.

@@ -171,7 +171,7 @@ struct serializer_config
     */
     std::size_t payload_buffer = 8192;
 
-    /** Reserved space for type-erasure storage.
+    /** Reserved space for type-erased buffer sequence storage.
     */
     std::size_t max_type_erase = 1024;
 };

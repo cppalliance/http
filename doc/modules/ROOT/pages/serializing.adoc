@@ -68,7 +68,7 @@ cfg.brotli_comp_window = 18;         // 10-24
 
 // Buffer settings
 cfg.payload_buffer = 8192;           // Internal buffer size
-cfg.max_type_erase = 1024;           // Space for source storage
+cfg.max_type_erase = 1024;           // Space for buffer sequence storage
 
 install_serializer_service(cfg);
 ----
@@ -113,29 +113,6 @@ std::array<capy::const_buffer, 2> buffers = {
 };
 
 sr.start(res, buffers);
-----
-
-=== Source Body
-
-For large or dynamic bodies, use a source:
-
-[source,cpp]
-----
-// From file
-capy::file f("large_file.bin", capy::file_mode::scan);
-res.set_payload_size(f.size());
-sr.start<file_source>(res, std::move(f));
-
-// Pull output
-while (!sr.is_done())
-{
-    auto result = sr.prepare();
-    if (!result)
-        throw system::system_error(result.error());
-    
-    socket.write(*result);
-    sr.consume(capy::buffer_size(*result));
-}
 ----
 
 === Stream Body
@@ -248,7 +225,7 @@ The serializer handles the 100-continue handshake:
 ----
 response res(status::ok);
 // ... set headers ...
-sr.start(res, body_source);
+sr.start(res, capy::buffer(body));
 
 while (!sr.is_done())
 {
@@ -297,65 +274,10 @@ if (!result)
     }
     else
     {
-        // Real error (e.g., source read failure)
+        // Real error
         std::cerr << "Serialization error: " << ec.message() << "\n";
     }
 }
-----
-
-== Custom Sources
-
-Implement the `source` interface for custom body generation:
-
-[source,cpp]
-----
-class my_source : public source
-{
-    std::function<std::string()> generator_;
-    std::string current_;
-    std::size_t pos_ = 0;
-    bool done_ = false;
-    
-public:
-    explicit my_source(std::function<std::string()> gen)
-        : generator_(std::move(gen))
-    {
-    }
-
-protected:
-    results on_read(capy::mutable_buffer b) override
-    {
-        results rv;
-        
-        while (b.size() > 0 && !done_)
-        {
-            // Refill current buffer if empty
-            if (pos_ >= current_.size())
-            {
-                current_ = generator_();
-                pos_ = 0;
-                if (current_.empty())
-                {
-                    done_ = true;
-                    rv.finished = true;
-                    break;
-                }
-            }
-            
-            // Copy to output
-            auto avail = current_.size() - pos_;
-            auto n = std::min(b.size(), avail);
-            std::memcpy(b.data(), current_.data() + pos_, n);
-            pos_ += n;
-            rv.bytes += n;
-            b = capy::mutable_buffer(
-                static_cast<char*>(b.data()) + n,
-                b.size() - n);
-        }
-        
-        return rv;
-    }
-};
 ----
 
 == Multiple Messages
