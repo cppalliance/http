@@ -8,6 +8,7 @@
 //
 
 #include <boost/http/server/serve_index.hpp>
+#include <boost/http/server/accepts.hpp>
 #include <boost/http/server/escape_html.hpp>
 #include <boost/http/server/encode_url.hpp>
 #include <boost/http/field.hpp>
@@ -129,29 +130,6 @@ format_time(std::uint64_t epoch)
     return buf;
 }
 
-enum class response_type
-{
-    html,
-    json,
-    plain
-};
-
-// Simple Accept header content negotiation
-response_type
-negotiate(core::string_view accept)
-{
-    if(accept.empty())
-        return response_type::html;
-    if(accept.find("text/html") != core::string_view::npos)
-        return response_type::html;
-    if(accept.find("application/json") != core::string_view::npos)
-        return response_type::json;
-    if(accept.find("text/plain") != core::string_view::npos)
-        return response_type::plain;
-    if(accept.find("*/*") != core::string_view::npos)
-        return response_type::html;
-    return response_type::html;
-}
 
 std::string
 render_html(
@@ -432,27 +410,25 @@ operator()(route_params& rp) const
         dir_canonical != root_canonical;
 
     // Content negotiation
-    auto accept = rp.req.value_or(field::accept, "");
-    auto type = negotiate(accept);
+    accepts ac( rp.req );
+    auto type = ac.type({ "html", "json", "text" });
 
     std::string body;
-    core::string_view content_type;
-    switch(type)
+    std::string_view content_type;
+    if( type == "json" )
     {
-    case response_type::html:
-        body = render_html(req_path, entries, show_up);
-        content_type = "text/html; charset=utf-8";
-        break;
-
-    case response_type::json:
         body = render_json(entries);
         content_type = "application/json; charset=utf-8";
-        break;
-
-    case response_type::plain:
+    }
+    else if( type == "text" )
+    {
         body = render_plain(entries);
         content_type = "text/plain; charset=utf-8";
-        break;
+    }
+    else
+    {
+        body = render_html(req_path, entries, show_up);
+        content_type = "text/html; charset=utf-8";
     }
 
     rp.res.set(field::content_type, content_type);
