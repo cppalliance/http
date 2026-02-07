@@ -7,7 +7,6 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http/server/router_types.hpp>
 #include <boost/http/server/router.hpp>
 #include <boost/http/server/etag.hpp>
 #include <boost/http/server/fresh.hpp>
@@ -129,14 +128,14 @@ error() const noexcept ->
 //------------------------------------------------
 
 bool
-route_params_base::
+route_params::
 is_method(
     core::string_view s) const noexcept
 {
     auto m = http::string_to_method(s);
     if(m != http::method::unknown)
-        return verb_ == m;
-    return s == verb_str_;
+        return priv_.verb_ == m;
+    return s == priv_.verb_str_;
 }
 
 //------------------------------------------------

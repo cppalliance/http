@@ -44,7 +44,7 @@ bool
 any_router::
 matcher::
 operator()(
-    route_params_base& p,
+    route_params& p,
     match_result& mr) const
 {
     BOOST_ASSERT(! p.path.empty());
@@ -57,9 +57,10 @@ operator()(
     }
 
     // Convert bitflags to match_options
+    auto& pv = *detail::route_params_access{p};
     detail::match_options opts{
-        p.case_sensitive,
-        p.strict,
+        pv.case_sensitive,
+        pv.strict,
         end_
     };
 

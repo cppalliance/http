@@ -29,7 +29,7 @@ struct any_router::matcher
 
     // true if match
     bool operator()(
-        route_params_base& p,
+        route_params& p,
         match_result& mr) const;
 
     // Returns error from pattern parsing, or empty if valid

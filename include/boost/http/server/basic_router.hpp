@@ -12,7 +12,7 @@
 
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/any_router.hpp>
-#include <boost/http/server/router_types.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
@@ -269,14 +269,14 @@ private:
 
     @par Constraints
 
-    `Params` must be publicly derived from @ref route_params_base.
+    `Params` must be publicly derived from @ref route_params.
 
     @tparam Params The type of the parameters object passed to handlers.
 */
 template<class P>
 class basic_router : public any_router
 {
-    static_assert(std::derived_from<P, route_params_base>);
+    static_assert(std::derived_from<P, route_params>);
 
     template<class T>
     static inline constexpr char handler_kind =
@@ -338,7 +338,7 @@ class basic_router : public any_router
         {
         }
     
-        auto invoke(route_params_base& rp) const ->
+        auto invoke(route_params& rp) const ->
             route_task override
         {
             if constexpr (detail::returns_route_task<H, P&>)
@@ -348,12 +348,12 @@ class basic_router : public any_router
             else if constexpr (detail::returns_route_task<
                 H, P&, system::error_code>)
             {
-                return h(static_cast<P&>(rp), rp.ec_);
+                return h(static_cast<P&>(rp), rp.priv_.ec_);
             }
             else if constexpr (detail::returns_route_task<
                 H, P&, std::exception_ptr>)
             {
-                return h(static_cast<P&>(rp), rp.ep_);
+                return h(static_cast<P&>(rp), rp.priv_.ep_);
             }
             else
             {
@@ -380,7 +380,7 @@ class basic_router : public any_router
         }
 
         route_task invoke(
-            route_params_base& rp,
+            route_params& rp,
             std::string_view allow) const override
         {
             return h(static_cast<P&>(rp), allow);

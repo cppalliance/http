@@ -115,17 +115,18 @@ compute_effective_opts(
 void
 any_router::impl::
 restore_path(
-    route_params_base& p,
+    route_params& p,
     std::size_t base_len)
 {
-    p.base_path = { p.decoded_path_.data(), base_len };
-    auto const path_len = p.decoded_path_.size() - (p.addedSlash_ ? 1 : 0);
+    auto& pv = *detail::route_params_access{p};
+    p.base_path = { pv.decoded_path_.data(), base_len };
+    auto const path_len = pv.decoded_path_.size() - (pv.addedSlash_ ? 1 : 0);
     if(base_len < path_len)
-        p.path = { p.decoded_path_.data() + base_len,
+        p.path = { pv.decoded_path_.data() + base_len,
             path_len - base_len };
     else
-        p.path = { p.decoded_path_.data() +
-            p.decoded_path_.size() - 1, 1 };  // soft slash
+        p.path = { pv.decoded_path_.data() +
+            pv.decoded_path_.size() - 1, 1 };  // soft slash
 }
 
 void
@@ -197,8 +198,10 @@ finalize_pending()
 
 route_task
 any_router::impl::
-dispatch_loop(route_params_base& p, bool is_options) const
+dispatch_loop(route_params& p, bool is_options) const
 {
+    auto& pv = *detail::route_params_access{p};
+
     std::size_t last_matched = SIZE_MAX;
     std::uint32_t current_depth = 0;
 
@@ -240,15 +243,15 @@ dispatch_loop(route_params_base& p, bool is_options) const
                 restore_path(p, path_stack[cm.depth_]);
             }
 
-            if(cm.end_ && p.kind_ != any_router::is_plain)
+            if(cm.end_ && pv.kind_ != any_router::is_plain)
             {
                 i = cm.skip_;
                 ancestors_ok = false;
                 break;
             }
 
-            p.case_sensitive = (cm.effective_opts_ & 2) != 0;
-            p.strict = (cm.effective_opts_ & 8) != 0;
+            pv.case_sensitive = (cm.effective_opts_ & 2) != 0;
+            pv.strict = (cm.effective_opts_ & 8) != 0;
 
             if(cm.depth_ < any_router::max_path_depth)
                 path_stack[cm.depth_] = p.base_path.size();
@@ -291,13 +294,13 @@ dispatch_loop(route_params_base& p, bool is_options) const
         }
 
         if(m.end_ && !e.match_method(
-            const_cast<route_params_base&>(p)))
+            const_cast<route_params&>(p)))
         {
             ++i;
             continue;
         }
 
-        if(e.h->kind != p.kind_)
+        if(e.h->kind != pv.kind_)
         {
             ++i;
             continue;
@@ -311,12 +314,12 @@ dispatch_loop(route_params_base& p, bool is_options) const
         try
         {
             rv = co_await e.h->invoke(
-                const_cast<route_params_base&>(p));
+                const_cast<route_params&>(p));
         }
         catch(...)
         {
-            p.ep_ = std::current_exception();
-            p.kind_ = any_router::is_exception;
+            pv.ep_ = std::current_exception();
+            pv.kind_ = any_router::is_exception;
             ++i;
             continue;
         }
@@ -342,8 +345,8 @@ dispatch_loop(route_params_base& p, bool is_options) const
         }
 
         // Error - transition to error mode
-        p.ec_ = rv.error();
-        p.kind_ = any_router::is_error;
+        pv.ec_ = rv.error();
+        pv.kind_ = any_router::is_error;
 
         if(m.end_)
         {
@@ -354,10 +357,10 @@ dispatch_loop(route_params_base& p, bool is_options) const
         ++i;
     }
 
-    if(p.kind_ == any_router::is_exception)
+    if(pv.kind_ == any_router::is_exception)
         co_return route_error(error::unhandled_exception);
-    if(p.kind_ == any_router::is_error)
-        co_return route_error(p.ec_);
+    if(pv.kind_ == any_router::is_error)
+        co_return route_error(pv.ec_);
 
     // OPTIONS fallback
     if(is_options && options_methods != 0 && options_handler_)
@@ -600,7 +603,7 @@ any_router::
 dispatch(
     http::method verb,
     urls::url_view const& url,
-    route_params_base& p) const
+    route_params& p) const
 {
     if(verb == http::method::unknown)
         detail::throw_invalid_argument();
@@ -619,25 +622,26 @@ dispatch(
     }
 
     // Initialize params
-    p.kind_ = is_plain;
-    p.verb_ = verb;
-    p.verb_str_.clear();
-    p.ec_.clear();
-    p.ep_ = nullptr;
+    auto& pv = *detail::route_params_access{p};
+    pv.kind_ = is_plain;
+    pv.verb_ = verb;
+    pv.verb_str_.clear();
+    pv.ec_.clear();
+    pv.ep_ = nullptr;
     p.params.clear();
-    p.decoded_path_ = detail::pct_decode_path(url.encoded_path());
-    if(p.decoded_path_.empty() || p.decoded_path_.back() != '/')
+    pv.decoded_path_ = detail::pct_decode_path(url.encoded_path());
+    if(pv.decoded_path_.empty() || pv.decoded_path_.back() != '/')
     {
-        p.decoded_path_.push_back('/');
-        p.addedSlash_ = true;
+        pv.decoded_path_.push_back('/');
+        pv.addedSlash_ = true;
     }
     else
     {
-        p.addedSlash_ = false;
+        pv.addedSlash_ = false;
     }
-    p.base_path = { p.decoded_path_.data(), 0 };
-    auto const subtract = (p.addedSlash_ && p.decoded_path_.size() > 1) ? 1 : 0;
-    p.path = { p.decoded_path_.data(), p.decoded_path_.size() - subtract };
+    p.base_path = { pv.decoded_path_.data(), 0 };
+    auto const subtract = (pv.addedSlash_ && pv.decoded_path_.size() > 1) ? 1 : 0;
+    p.path = { pv.decoded_path_.data(), pv.decoded_path_.size() - subtract };
 
     return impl_->dispatch_loop(p, verb == http::method::options);
 }
@@ -647,7 +651,7 @@ any_router::
 dispatch(
     std::string_view verb,
     urls::url_view const& url,
-    route_params_base& p) const
+    route_params& p) const
 {
     if(verb.empty())
         detail::throw_invalid_argument();
@@ -668,28 +672,29 @@ dispatch(
     }
 
     // Initialize params
-    p.kind_ = is_plain;
-    p.verb_ = method;
-    if(p.verb_ == http::method::unknown)
-        p.verb_str_ = verb;
+    auto& pv = *detail::route_params_access{p};
+    pv.kind_ = is_plain;
+    pv.verb_ = method;
+    if(pv.verb_ == http::method::unknown)
+        pv.verb_str_ = verb;
     else
-        p.verb_str_.clear();
-    p.ec_.clear();
-    p.ep_ = nullptr;
+        pv.verb_str_.clear();
+    pv.ec_.clear();
+    pv.ep_ = nullptr;
     p.params.clear();
-    p.decoded_path_ = detail::pct_decode_path(url.encoded_path());
-    if(p.decoded_path_.empty() || p.decoded_path_.back() != '/')
+    pv.decoded_path_ = detail::pct_decode_path(url.encoded_path());
+    if(pv.decoded_path_.empty() || pv.decoded_path_.back() != '/')
     {
-        p.decoded_path_.push_back('/');
-        p.addedSlash_ = true;
+        pv.decoded_path_.push_back('/');
+        pv.addedSlash_ = true;
     }
     else
     {
-        p.addedSlash_ = false;
+        pv.addedSlash_ = false;
     }
-    p.base_path = { p.decoded_path_.data(), 0 };
-    auto const subtract = (p.addedSlash_ && p.decoded_path_.size() > 1) ? 1 : 0;
-    p.path = { p.decoded_path_.data(), p.decoded_path_.size() - subtract };
+    p.base_path = { pv.decoded_path_.data(), 0 };
+    auto const subtract = (pv.addedSlash_ && pv.decoded_path_.size() > 1) ? 1 : 0;
+    p.path = { pv.decoded_path_.data(), pv.decoded_path_.size() - subtract };
 
     return impl_->dispatch_loop(p, is_options);
 }

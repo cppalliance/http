@@ -396,7 +396,7 @@ The standard `route_params` type contains everything handlers need:
 
 [source,cpp]
 ----
-struct route_params : route_params_base
+class route_params
 {
     urls::url_view url;          // Parsed request target
     http::request req;           // Request headers

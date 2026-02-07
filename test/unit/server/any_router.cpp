@@ -23,7 +23,7 @@ namespace http {
 
 struct any_router_test
 {
-    using params = route_params_base;
+    using params = route_params;
     using test_router = basic_router<params>;
 
     void testCopyConstruction()

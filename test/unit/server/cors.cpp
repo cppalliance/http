@@ -9,6 +9,7 @@
 
 // Test that header file is self-contained.
 #include <boost/http/server/cors.hpp>
+#include <boost/http/server/basic_router.hpp>
 #include "src/rfc/detail/rules.hpp"
 
 #include <boost/http/server/http_worker.hpp>

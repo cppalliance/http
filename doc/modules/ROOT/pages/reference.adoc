@@ -181,8 +181,6 @@ cpp:boost::http::range_result_type[range_result_type]
 
 cpp:boost::http::route_params[route_params]
 
-cpp:boost::http::route_params_base[route_params_base]
-
 cpp:boost::http::route_result[route_result]
 
 cpp:boost::http::route_task[route_task]

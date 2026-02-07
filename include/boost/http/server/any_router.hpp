@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SERVER_ANY_ROUTER_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/server/router_types.hpp>
+#include <boost/http/server/router.hpp>
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
@@ -71,7 +71,7 @@ protected:
         char const kind;
         explicit handler(char kind_) noexcept : kind(kind_) {}
         virtual ~handler() = default;
-        virtual auto invoke(route_params_base&) const ->
+        virtual auto invoke(route_params&) const ->
             route_task = 0;
     };
 
@@ -88,14 +88,14 @@ protected:
     {
         virtual ~options_handler() = default;
         virtual route_task invoke(
-            route_params_base&,
+            route_params&,
             std::string_view allow) const = 0;
     };
 
     using options_handler_ptr = std::unique_ptr<options_handler>;
 
 protected:
-    using match_result = route_params_base::match_result;
+    using match_result = route_params::match_result;
     struct matcher;
     struct entry;
 
@@ -145,7 +145,7 @@ public:
     dispatch(
         http::method verb,
         urls::url_view const& url,
-        route_params_base& p) const;
+        route_params& p) const;
 
     /** Dispatch a request using a method string.
 
@@ -164,7 +164,7 @@ public:
     dispatch(
         std::string_view verb,
         urls::url_view const& url,
-        route_params_base& p) const;
+        route_params& p) const;
 
     /** Maximum nesting depth for routers.
 

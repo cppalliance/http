@@ -67,7 +67,7 @@ struct any_router::entry
     }
 
     bool match_method(
-        route_params_base& rp) const noexcept
+        route_params& rp) const noexcept
     {
         detail::route_params_access RP{rp};
         if(all)
@@ -120,7 +120,7 @@ struct any_router::impl
 
     route_task
     dispatch_loop(
-        route_params_base& p,
+        route_params& p,
         bool is_options) const;
 
     static std::string
@@ -135,7 +135,7 @@ struct any_router::impl
 
     static void
     restore_path(
-        route_params_base& p,
+        route_params& p,
         std::size_t base_len);
 };
 
