@@ -7,7 +7,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http/bcrypt/error.hpp>
+#include <boost/http/bcrypt.hpp>
 
 namespace boost {
 namespace http {

@@ -10,7 +10,7 @@
 #ifndef BOOST_HTTP_SRC_BCRYPT_CRYPT_HPP
 #define BOOST_HTTP_SRC_BCRYPT_CRYPT_HPP
 
-#include <boost/http/bcrypt/version.hpp>
+#include <boost/http/bcrypt.hpp>
 #include <boost/core/detail/string_view.hpp>
 #include <cstdint>
 

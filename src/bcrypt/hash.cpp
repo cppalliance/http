@@ -7,7 +7,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include <boost/http/bcrypt/hash.hpp>
+#include <boost/http/bcrypt.hpp>
 #include <boost/http/detail/except.hpp>
 #include "base64.hpp"
 #include "crypt.hpp"

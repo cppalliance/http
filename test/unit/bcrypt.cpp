@@ -9,10 +9,86 @@
 
 #include <boost/http/bcrypt.hpp>
 
+#include <boost/capy/coro.hpp>
+#include <boost/capy/ex/execution_context.hpp>
+#include <boost/capy/ex/run_async.hpp>
+#include <boost/capy/ex/system_context.hpp>
+#include <boost/capy/task.hpp>
+
 #include "test_helpers.hpp"
+
+#include <semaphore>
 
 namespace boost {
 namespace http {
+
+namespace {
+
+class test_io_context;
+
+inline test_io_context&
+default_test_io_context() noexcept;
+
+struct test_executor
+{
+    test_io_context* ctx_ = nullptr;
+
+    test_executor() = default;
+
+    explicit
+    test_executor(test_io_context& ctx) noexcept
+        : ctx_(&ctx)
+    {
+    }
+
+    bool operator==(test_executor const& other) const noexcept
+    {
+        return ctx_ == other.ctx_;
+    }
+
+    test_io_context& context() const noexcept;
+
+    void on_work_started() const noexcept {}
+    void on_work_finished() const noexcept {}
+
+    void dispatch(capy::coro h) const
+    {
+        h.resume();
+    }
+
+    void post(capy::coro h) const
+    {
+        h.resume();
+    }
+};
+
+class test_io_context : public capy::execution_context
+{
+public:
+    using executor_type = test_executor;
+
+    executor_type get_executor() noexcept
+    {
+        return test_executor(*this);
+    }
+};
+
+inline test_io_context&
+default_test_io_context() noexcept
+{
+    static test_io_context ctx;
+    return ctx;
+}
+
+inline test_io_context&
+test_executor::context() const noexcept
+{
+    return ctx_ ? *ctx_ : default_test_io_context();
+}
+
+static_assert(capy::Executor<test_executor>);
+
+} // namespace
 
 struct bcrypt_test
 {
@@ -269,6 +345,203 @@ struct bcrypt_test
         BOOST_TEST(r1.str() == r2.str());
     }
 
+    //------------------------------------------------
+    // Tier 2 -- task API
+    //------------------------------------------------
+
+    void
+    test_hash_task()
+    {
+        test_io_context ctx;
+        auto ex = ctx.get_executor();
+
+        // hash_task produces valid 60-char result
+        {
+            bool completed = false;
+            capy::run_async(ex,
+                [&](bcrypt::result r)
+                {
+                    BOOST_TEST(r.size() == 60);
+                    BOOST_TEST(r.str().substr(0, 7) == "$2b$04$");
+                    completed = true;
+                },
+                [](std::exception_ptr) {}
+            )(bcrypt::hash_task("password", 4));
+            BOOST_TEST(completed);
+        }
+
+        // Different passwords yield different hashes
+        {
+            bcrypt::result r1, r2;
+            bool done1 = false, done2 = false;
+
+            capy::run_async(ex,
+                [&](bcrypt::result r) { r1 = r; done1 = true; },
+                [](std::exception_ptr) {}
+            )(bcrypt::hash_task("password1", 4));
+
+            capy::run_async(ex,
+                [&](bcrypt::result r) { r2 = r; done2 = true; },
+                [](std::exception_ptr) {}
+            )(bcrypt::hash_task("password2", 4));
+
+            BOOST_TEST(done1);
+            BOOST_TEST(done2);
+            BOOST_TEST(r1.str() != r2.str());
+        }
+    }
+
+    void
+    test_compare_task()
+    {
+        test_io_context ctx;
+        auto ex = ctx.get_executor();
+        bcrypt::result hashed = bcrypt::hash("correct", 4);
+
+        // Correct password matches
+        {
+            bool completed = false;
+            capy::run_async(ex,
+                [&](bool ok)
+                {
+                    BOOST_TEST(ok);
+                    completed = true;
+                },
+                [](std::exception_ptr) {}
+            )(bcrypt::compare_task("correct", hashed.str()));
+            BOOST_TEST(completed);
+        }
+
+        // Wrong password does not match
+        {
+            bool completed = false;
+            capy::run_async(ex,
+                [&](bool ok)
+                {
+                    BOOST_TEST(! ok);
+                    completed = true;
+                },
+                [](std::exception_ptr) {}
+            )(bcrypt::compare_task("wrong", hashed.str()));
+            BOOST_TEST(completed);
+        }
+
+        // Malformed hash throws
+        {
+            bool got_exception = false;
+            capy::run_async(ex,
+                [](bool) {},
+                [&](std::exception_ptr ep)
+                {
+                    got_exception = (ep != nullptr);
+                }
+            )(bcrypt::compare_task("pw", "invalid"));
+            BOOST_TEST(got_exception);
+        }
+    }
+
+    //------------------------------------------------
+    // Tier 3 -- friendly async API
+    //------------------------------------------------
+
+    void
+    test_hash_async()
+    {
+        test_io_context ctx;
+        auto ex = ctx.get_executor();
+
+        // hash_async offloads to system pool and produces valid result
+        {
+            std::binary_semaphore done(0);
+            bool pass = false;
+            auto do_test = []() -> capy::task<>
+            {
+                bcrypt::result r =
+                    co_await bcrypt::hash_async("password", 4);
+                BOOST_TEST(r.size() == 60);
+                BOOST_TEST(r.str().substr(0, 7) == "$2b$04$");
+            };
+
+            capy::run_async(ex,
+                [&]() { pass = true; done.release(); },
+                [&](std::exception_ptr) { done.release(); }
+            )(do_test());
+            done.acquire();
+            BOOST_TEST(pass);
+        }
+    }
+
+    void
+    test_compare_async()
+    {
+        test_io_context ctx;
+        auto ex = ctx.get_executor();
+        bcrypt::result hashed = bcrypt::hash("secret", 4);
+        std::string stored(hashed.str());
+
+        // Correct password
+        {
+            std::binary_semaphore done(0);
+            bool pass = false;
+            auto do_test = [](
+                std::string stored_hash) -> capy::task<>
+            {
+                bool ok = co_await bcrypt::compare_async(
+                    "secret", stored_hash);
+                BOOST_TEST(ok);
+            };
+
+            capy::run_async(ex,
+                [&]() { pass = true; done.release(); },
+                [&](std::exception_ptr) { done.release(); }
+            )(do_test(stored));
+            done.acquire();
+            BOOST_TEST(pass);
+        }
+
+        // Wrong password
+        {
+            std::binary_semaphore done(0);
+            bool pass = false;
+            auto do_test = [](
+                std::string stored_hash) -> capy::task<>
+            {
+                bool ok = co_await bcrypt::compare_async(
+                    "wrong", stored_hash);
+                BOOST_TEST(! ok);
+            };
+
+            capy::run_async(ex,
+                [&]() { pass = true; done.release(); },
+                [&](std::exception_ptr) { done.release(); }
+            )(do_test(stored));
+            done.acquire();
+            BOOST_TEST(pass);
+        }
+
+        // Malformed hash throws
+        {
+            std::binary_semaphore done(0);
+            bool got_exception = false;
+            auto do_test = []() -> capy::task<>
+            {
+                co_await bcrypt::compare_async(
+                    "password", "invalid");
+            };
+
+            capy::run_async(ex,
+                [&]() { done.release(); },
+                [&](std::exception_ptr ep)
+                {
+                    got_exception = (ep != nullptr);
+                    done.release();
+                }
+            )(do_test());
+            done.acquire();
+            BOOST_TEST(got_exception);
+        }
+    }
+
     void
     run()
     {
@@ -281,6 +554,10 @@ struct bcrypt_test
         test_get_rounds();
         test_known_vectors();
         test_password_truncation();
+        test_hash_task();
+        test_compare_task();
+        test_hash_async();
+        test_compare_async();
     }
 };
 
