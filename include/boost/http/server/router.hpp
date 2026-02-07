@@ -24,7 +24,7 @@
 namespace boost {
 namespace http {
 
-template<class> class router;
+template<class, class> class router;
 
 /** Configuration options for HTTP routers.
 */
@@ -125,11 +125,20 @@ struct router_options
     }
 
 private:
-    template<class> friend class router;
+    template<class, class> friend class router;
     unsigned int v_ = 0;
 };
 
 //-----------------------------------------------
+
+struct identity
+{
+    template< class T >
+    T operator()( T&& t ) const
+    {
+        return std::forward<T>(t);
+    }
+};
 
 /** A container for HTTP route handlers.
 
@@ -272,35 +281,31 @@ private:
 
     @tparam Params The type of the parameters object passed to handlers.
 */
-template<class P = route_params>
+template<class P = route_params, class HT = identity>
 class router : public detail::router_base
 {
+    HT ht_{};
+
     static_assert(std::derived_from<P, route_params>);
 
     template<class T>
     static inline constexpr char handler_kind =
         []() -> char
         {
-            if constexpr (detail::returns_route_task<T, P&>)
-            {
-                return is_plain;
-            }
-            else if constexpr (detail::returns_route_task<
+            if constexpr (detail::returns_route_task<
                 T, P&, system::error_code>)
             {
                 return is_error;
-            }
-            else if constexpr(
-                std::is_base_of_v<detail::router_base, T> &&
-                std::is_convertible_v<T const volatile*,
-                    detail::router_base const volatile*>)
-            {
-                return is_invalid;
             }
             else if constexpr (detail::returns_route_task<
                 T, P&, std::exception_ptr>)
             {
                 return is_exception;
+            }
+            else if constexpr (detail::returns_route_task<
+                decltype(std::declval<HT const&>()(std::declval<T>())), P&>)
+            {
+                return is_plain;
             }
             else
             {
@@ -385,13 +390,15 @@ class router : public detail::router_base
         }
     };
 
-    template<std::size_t N>
+    template<class T, std::size_t N>
     struct handlers_impl : handlers
     {
+        T const& ht;
         handler_ptr v[N];
 
         template<class... HN>
-        explicit handlers_impl(HN&&... hn)
+        explicit handlers_impl(T const& ht_, HN&&... hn)
+            : ht(ht_)
         {
             p = v;
             n = sizeof...(HN);
@@ -402,7 +409,19 @@ class router : public detail::router_base
         template<std::size_t I, class H1, class... HN>
         void assign(H1&& h1, HN&&... hn)
         {
-            v[I] = make_handler(std::forward<H1>(h1));
+            if constexpr (
+                detail::returns_route_task<
+                    H1, P&, system::error_code> ||
+                detail::returns_route_task<
+                    H1, P&, std::exception_ptr>)
+            {
+                v[I] = make_handler(std::forward<H1>(h1));
+            }
+            else if constexpr (detail::returns_route_task<
+                decltype(std::declval<T const&>()(std::declval<H1>())), P&>)
+            {
+                v[I] = make_handler(ht(std::forward<H1>(h1)));
+            }
             assign<I+1>(std::forward<HN>(hn)...);
         }
 
@@ -412,10 +431,10 @@ class router : public detail::router_base
         }
     };
 
-    template<class... HN>
-    static auto make_handlers(HN&&... hn)
+    template<class T, class... HN>
+    static auto make_handlers(T const& ht, HN&&... hn)
     {
-        return handlers_impl<sizeof...(HN)>(
+        return handlers_impl<T, sizeof...(HN)>(ht,
             std::forward<HN>(hn)...);
     }
 
@@ -490,6 +509,42 @@ public:
         router<OtherP>&& other) noexcept
         : detail::router_base(std::move(other))
     {
+    }
+
+    /** Construct a router with a handler transform.
+
+        Creates a router that shares the routing state of @p other
+        but applies @p ht to each plain handler before installation.
+
+        @param other The router whose routing state to share.
+
+        @param ht The handler transform to apply.
+    */
+    template<class OtherHT>
+    router(router<P, OtherHT> const& other, HT ht)
+        : detail::router_base(other)
+        , ht_(std::move(ht))
+    {
+    }
+
+    /** Return a router that applies a transform to plain handlers.
+
+        The returned router shares the same routing state but applies
+        @p f to each plain handler before installation. Error and
+        exception handlers are not affected.
+
+        @param f A callable that takes a handler and returns a
+        callable which, when invoked with `P&`, returns a
+        @ref route_task.
+
+        @return A router with the transform applied.
+    */
+    template<class F>
+    auto with_transform(F&& f) const ->
+        router<P, std::decay_t<F>>
+    {
+        return router<P, std::decay_t<F>>(
+            *this, std::forward<F>(f));
     }
 
     /** Dispatch a request using a known HTTP method.
@@ -602,7 +657,7 @@ public:
                 "cannot use exception handlers here");
             static_assert(handler_check<3, H1, HN...>,
                 "invalid handler signature");
-            this->add_middleware(pattern, make_handlers(
+            this->add_middleware(pattern, make_handlers(ht_,
                 std::forward<H1>(h1), std::forward<HN>(hn)...));
         }
     }
@@ -682,7 +737,7 @@ public:
             "pass handlers by value or std::move()");
         static_assert(handler_check<8, H1, HN...>,
             "only exception handlers are allowed here");
-        this->add_middleware(pattern, make_handlers(
+        this->add_middleware(pattern, make_handlers(ht_,
             std::forward<H1>(h1), std::forward<HN>(hn)...));
     }
 
@@ -866,8 +921,8 @@ public:
     }
 };
 
-template<class P>
-class router<P>::
+template<class P, class HT>
+class router<P, HT>::
     fluent_route
 {
 public:
@@ -904,7 +959,7 @@ public:
     {
         static_assert(handler_check<1, H1, HN...>);
         owner_.add_to_route(route_idx_, std::string_view{},
-            owner_.make_handlers(
+            owner_.make_handlers(owner_.ht_,
                 std::forward<H1>(h1), std::forward<HN>(hn)...));
         return *this;
     }
@@ -935,7 +990,7 @@ public:
     {
         static_assert(handler_check<1, H1, HN...>);
         owner_.add_to_route(route_idx_, verb,
-            owner_.make_handlers(
+            owner_.make_handlers(owner_.ht_,
                 std::forward<H1>(h1), std::forward<HN>(hn)...));
         return *this;
     }
@@ -967,7 +1022,7 @@ public:
     {
         static_assert(handler_check<1, H1, HN...>);
         owner_.add_to_route(route_idx_, verb,
-            owner_.make_handlers(
+            owner_.make_handlers(owner_.ht_,
                 std::forward<H1>(h1), std::forward<HN>(hn)...));
         return *this;
     }

@@ -52,7 +52,7 @@ class BOOST_HTTP_DECL
     struct impl;
     std::shared_ptr<impl> impl_;
 
-    template<class> friend class http::router;
+    template<class, class> friend class http::router;
 
 protected:
     using opt_flags = unsigned int;

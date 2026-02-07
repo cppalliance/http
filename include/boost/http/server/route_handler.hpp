@@ -330,7 +330,7 @@ using route_task = capy::task<route_result>;
 
 //------------------------------------------------
 
-template<class> class router;
+template<class, class> class router;
 
 namespace detail {
 
@@ -446,7 +446,7 @@ public:
     BOOST_HTTP_DECL capy::io_task<> send(std::string_view body = {});
 
 private:
-    template<class>
+    template<class, class>
     friend class router;
     friend class detail::router_base;
     friend struct detail::route_params_access;
