@@ -22,6 +22,7 @@ project
       <include>../..
       <include>../../../url/extra/test_suite
       <library>/boost//capy
+      <library>/boost/json//boost_json/<warnings-as-errors>off
       <library>/boost//url
     ;
 

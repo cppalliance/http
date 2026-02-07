@@ -10,6 +10,7 @@
 // Test that header file is self-contained.
 #include <boost/http/server/router.hpp>
 
+#include <boost/http/server/detail/dynamic_invoke.hpp>
 #include <boost/capy/test/run_blocking.hpp>
 #include "test_suite.hpp"
 
@@ -38,6 +39,8 @@ struct router_test
     };
 
     struct derived_ht : base_ht {};
+
+    struct A { int value = 0; };
 
     //--------------------------------------------
     // Simple handlers - no destructor verification
@@ -498,6 +501,63 @@ struct router_test
         }
     }
 
+    void testDynamicTransform()
+    {
+        // A&& parameter with A present
+        {
+            test_router base;
+            auto r = base.with_transform(
+                detail::dynamic_transform{});
+            r.use([](params& p) -> route_result
+            {
+                p.route_data.insert(A{42});
+                return route_next;
+            });
+            r.use([](params&) -> route_result
+            {
+                return route_next;
+            });
+            r.use([](params&, A&& a) -> route_result
+            {
+                BOOST_TEST_EQ(a.value, 42);
+                return route_done;
+            });
+            check(base, "/");
+        }
+
+        // A* parameter with A present
+        {
+            test_router base;
+            auto r = base.with_transform(
+                detail::dynamic_transform{});
+            r.use([](params& p) -> route_result
+            {
+                p.route_data.insert(A{99});
+                return route_next;
+            });
+            r.use([](params&, A* a) -> route_result
+            {
+                BOOST_TEST(a != nullptr);
+                BOOST_TEST_EQ(a->value, 99);
+                return route_done;
+            });
+            check(base, "/");
+        }
+
+        // A* parameter with A absent
+        {
+            test_router base;
+            auto r = base.with_transform(
+                detail::dynamic_transform{});
+            r.use([](params&, A* a) -> route_result
+            {
+                BOOST_TEST(a == nullptr);
+                return route_done;
+            });
+            check(base, "/");
+        }
+    }
+
     void run()
     {
         testUse();
@@ -509,6 +569,7 @@ struct router_test
         testDispatch();
         testPathDecoding();
         testCrossTypeConstruction();
+        testDynamicTransform();
     }
 };
 
