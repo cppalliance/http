@@ -11,531 +11,980 @@
 #define BOOST_HTTP_SERVER_ROUTER_HPP
 
 #include <boost/http/detail/config.hpp>
+#include <boost/http/server/route_handler.hpp>
+#include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/method.hpp>
-#include <boost/http/detail/except.hpp>
-#include <boost/http/datastore.hpp>
-#include <boost/http/request.hpp>
-#include <boost/http/response.hpp>
-#include <boost/core/detail/string_view.hpp>
-#include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/io_task.hpp>
-#include <boost/capy/task.hpp>
-#include <boost/capy/write.hpp>
-#include <boost/capy/io/any_buffer_source.hpp>
-#include <boost/capy/io/any_buffer_sink.hpp>
 #include <boost/url/url_view.hpp>
-#include <boost/system/error_category.hpp>
-#include <boost/system/error_code.hpp>
-#include <concepts>
+#include <boost/mp11/algorithm.hpp>
+#include <boost/assert.hpp>
 #include <exception>
-#include <memory>
-#include <span>
-#include <string>
+#include <string_view>
 #include <type_traits>
-#include <utility>
-#include <vector>
 
 namespace boost {
 namespace http {
 
-/** Directive values for route handler results.
+template<class> class router;
 
-    These values indicate how the router should proceed
-    after a handler completes. Handlers return one of
-    the predefined constants (@ref route_done, @ref route_next,
-    @ref route_next_route, @ref route_close) or an error code.
-
-    @see route_result, route_task
+/** Configuration options for HTTP routers.
 */
-enum class route_what
+struct router_options
 {
-    /// Handler completed successfully, response was sent
-    done,
+    /** Constructor.
 
-    /// Handler declined, try next handler in the route
-    next,
-
-    /// Handler declined, skip to next matching route
-    next_route,
-
-    /// Handler requests connection closure
-    close,
-
-    /// Handler encountered an error
-    error
-};
-
-//------------------------------------------------
-
-/** The result type returned by route handlers.
-
-    This class represents the outcome of a route handler.
-    Handlers return this type to indicate how the router
-    should proceed. Construct from a directive constant
-    or an error code:
-
-    @code
-    route_task my_handler(route_params& p)
-    {
-        if(! authorized(p))
-            co_return route_next;        // try next handler
-
-        if(auto ec = process(p); ec)
-            co_return ec;                // return error
-
-        co_return route_done;            // success
-    }
-    @endcode
-
-    @par Checking Results
-
-    Use @ref what() to determine the directive, and
-    @ref error() to retrieve any error code:
-
-    @code
-    route_result rv = co_await handler(p);
-    if(rv.what() == route_what::error)
-        handle_error(rv.error());
-    @endcode
-
-    @see route_task, route_what, route_done, route_next
-*/
-class BOOST_HTTP_DECL
-    route_result
-{
-    system::error_code ec_;
-
-    template<route_what T>
-    struct what_t {};
-
-    route_result(system::error_code ec);
-    void set(route_what w);
-
-public:
-    route_result() = default;
-
-    /** Construct from a directive constant.
-
-        This constructor allows implicit conversion from
-        the predefined constants (@ref route_done, @ref route_next,
-        @ref route_next_route, @ref route_close).
-
-        @code
-        route_task handler(route_params& p)
-        {
-            co_return route_done;  // implicitly converts
-        }
-        @endcode
+        Routers constructed with default options inherit the values of
+        @ref case_sensitive and @ref strict from the parent router.
+        If there is no parent, both default to `false`.
+        The value of @ref merge_params always defaults to `false`
+        and is never inherited.
     */
-    template<route_what W>
-    route_result(what_t<W>)
-    {
-        static_assert(W != route_what::error);
-        set(W);
-    }
+    router_options() = default;
 
-    /** Return the directive for this result.
+    /** Set whether to merge parameters from parent routers.
 
-        Call this to determine how the router should proceed:
+        This setting controls whether route parameters defined on parent
+        routers are made available in nested routers. It is not inherited
+        and always defaults to `false`.
 
+        @par Example
         @code
-        route_result rv = co_await handler(p);
-        switch(rv.what())
-        {
-        case route_what::done:
-            // response sent, done with request
-            break;
-        case route_what::next:
-            // try next handler
-            break;
-        case route_what::error:
-            log_error(rv.error());
-            break;
-        }
+        router r( router_options()
+            .merge_params( true )
+            .case_sensitive( true )
+            .strict( false ) );
         @endcode
 
-        @return The directive value.
+        @param value `true` to merge parameters from parent routers.
+
+        @return A reference to `*this` for chaining.
     */
-    auto
-    what() const noexcept ->
-        route_what;
-
-    /** Return the error code, if any.
-
-        If @ref what() returns `route_what::error`, this
-        returns the underlying error code. Otherwise returns
-        a default-constructed (non-failing) error code.
-
-        @return The error code, or a non-failing code.
-    */
-    auto
-    error() const noexcept ->
-        system::error_code;
-
-    /** Return true if the result indicates an error.
-
-        @return `true` if @ref what() equals `route_what::error`.
-    */
-    bool failed() const noexcept
+    router_options&
+    merge_params(
+        bool value) noexcept
     {
-        return what() == route_what::error;
+        v_ = (v_ & ~1) | (value ? 1 : 0);
+        return *this;
     }
 
-    static constexpr route_result::what_t<route_what::done> route_done{};
-    static constexpr route_result::what_t<route_what::next> route_next{};
-    static constexpr route_result::what_t<route_what::next_route> route_next_route{};
-    static constexpr route_result::what_t<route_what::close> route_close{};
-    friend route_result route_error(system::error_code ec) noexcept;
+    /** Set whether pattern matching is case-sensitive.
 
-    template<class E>
-    friend auto route_error(E e) noexcept ->
-        std::enable_if_t<
-            system::is_error_code_enum<E>::value,
-            route_result>;
+        When this option is not set explicitly, the value is inherited
+        from the parent router or defaults to `false` if there is no parent.
+
+        @par Example
+        @code
+        router r( router_options()
+            .case_sensitive( true )
+            .strict( true ) );
+        @endcode
+
+        @param value `true` to perform case-sensitive path matching.
+
+        @return A reference to `*this` for chaining.
+    */
+    router_options&
+    case_sensitive(
+        bool value) noexcept
+    {
+        if(value)
+            v_ = (v_ & ~6) | 2;
+        else
+            v_ = (v_ & ~6) | 4;
+        return *this;
+    }
+
+    /** Set whether pattern matching is strict.
+
+        When this option is not set explicitly, the value is inherited
+        from the parent router or defaults to `false` if there is no parent.
+        Strict matching treats a trailing slash as significant:
+        the pattern `"/api"` matches `"/api"` but not `"/api/"`.
+        When strict matching is disabled, these paths are treated
+        as equivalent.
+
+        @par Example
+        @code
+        router r( router_options()
+            .strict( true )
+            .case_sensitive( false ) );
+        @endcode
+
+        @param value `true` to enable strict path matching.
+
+        @return A reference to `*this` for chaining.
+    */
+    router_options&
+    strict(
+        bool value) noexcept
+    {
+        if(value)
+            v_ = (v_ & ~24) | 8;
+        else
+            v_ = (v_ & ~24) | 16;
+        return *this;
+    }
+
+private:
+    template<class> friend class router;
+    unsigned int v_ = 0;
 };
 
-//------------------------------------------------
+//-----------------------------------------------
 
-/** Handler completed successfully.
+/** A container for HTTP route handlers.
 
-    Return this from a handler to indicate the response
-    was sent and the request is complete:
+    `router` objects store and dispatch route handlers based on the
+    HTTP method and path of an incoming request. Routes are added with a
+    path pattern, method, and an associated handler, and the router is then
+    used to dispatch the appropriate handler.
 
-    @code
-    route_task handler(route_params& p)
-    {
-        p.res.set(field::content_type, "text/plain");
-        co_await p.send("Hello, World!");
-        co_return route_done;
-    }
-    @endcode
-*/
-inline constexpr decltype(auto) route_done = route_result::route_done;
+    Routes are flattened into contiguous arrays as they are added, so
+    dispatch is always cache-friendly regardless of nesting depth.
 
-/** Handler declined, try next handler.
-
-    Return this from a handler to decline processing
-    and allow the next handler in the route to try:
-
-    @code
-    route_task auth_handler(route_params& p)
-    {
-        if(! p.req.exists(field::authorization))
-            co_return route_next;  // let another handler try
-
-        // process authenticated request...
-        co_return route_done;
-    }
-    @endcode
-*/
-inline constexpr decltype(auto) route_next = route_result::route_next;
-
-/** Handler declined, skip to next route.
-
-    Return this from a handler to skip all remaining
-    handlers in the current route and proceed to the
-    next matching route:
-
-    @code
-    route_task version_check(route_params& p)
-    {
-        if(p.req.version() < 11)
-            co_return route_next_route;  // skip this route
-
-        co_return route_next;  // continue with this route
-    }
-    @endcode
-*/
-inline constexpr decltype(auto) route_next_route = route_result::route_next_route;
-
-/** Handler requests connection closure.
-
-    Return this from a handler to immediately close
-    the connection without sending a response:
-
-    @code
-    route_task ban_check(route_params& p)
-    {
-        if(is_banned(p.req.remote_address()))
-            co_return route_close;  // drop connection
-
-        co_return route_next;
-    }
-    @endcode
-*/
-inline constexpr decltype(auto) route_close = route_result::route_close;
-
-/** Construct from an error code.
-
-    Use this constructor to return an error from a handler.
-    The error code must represent a failure condition.
-
-    @param ec The error code to return.
-
-    @throw std::invalid_argument if `!ec` (non-failing code).
-*/
-inline route_result route_error(system::error_code ec) noexcept
-{
-    return route_result(ec);
-}
-
-/** Construct from an error enum.
-
-    Use this overload to return an error from a handler
-    using any type satisfying `is_error_code_enum`.
-
-    @param e The error enum value to return.
-*/
-template<class E>
-auto route_error(E e) noexcept ->
-    std::enable_if_t<
-        system::is_error_code_enum<E>::value,
-        route_result>
-{
-    return route_result(make_error_code(e));
-}
-
-//------------------------------------------------
-
-/** Convenience alias for route handler return type.
-
-    Route handlers are coroutines that return a @ref route_result
-    indicating how the router should proceed. This alias simplifies
-    handler declarations:
-
-    @code
-    route_task my_handler(route_params& p)
-    {
-        // process request...
-        co_return route_done;
-    }
-
-    route_task auth_middleware(route_params& p)
-    {
-        if(! check_token(p))
-        {
-            p.res.set_status(status::unauthorized);
-            co_await p.send();
-            co_return route_done;
-        }
-        co_return route_next;  // continue to next handler
-    }
-    @endcode
-
-    @see route_result, route_params
-*/
-using route_task = capy::task<route_result>;
-
-//------------------------------------------------
-
-class any_router;
-template<class> class basic_router;
-
-namespace detail {
-
-struct route_params_access;
-
-struct route_params_base_privates
-{
-    std::string verb_str_;
-    std::string decoded_path_;
-    system::error_code ec_;
-    std::exception_ptr ep_;
-    std::size_t pos_ = 0;
-    std::size_t resume_ = 0;
-    http::method verb_ =
-        http::method::unknown;
-    bool addedSlash_ = false;
-    bool case_sensitive = false;
-    bool strict = false;
-    char kind_ = 0;
-};
-
-} // detail
-
-//------------------------------------------------
-
-/** Parameters object for HTTP route handlers.
-
-    This structure holds all the context needed for a route
-    handler to process an HTTP request and generate a response.
+    Patterns used to create route definitions have percent-decoding applied
+    when handlers are mounted. A literal "%2F" in the pattern string is
+    indistinguishable from a literal '/'. For example, "/x%2Fz" is the
+    same as "/x/z" when used as a pattern.
 
     @par Example
     @code
-    route_task my_handler(route_params& p)
-    {
-        p.res.set(field::content_type, "text/plain");
-        co_await p.send("Hello, World!");
-        co_return route_done;
-    }
+    router<route_params> r;
+    r.get( "/hello",
+        []( route_params& p )
+        {
+            p.res.status( status::ok );
+            p.res.set_body( "Hello, world!" );
+            return route_done;
+        } );
     @endcode
 
-    @see route_task, route_result
+    Router objects use shared ownership via `shared_ptr`. Copies refer
+    to the same underlying data. Modifying a router after it has been
+    copied is not permitted and results in undefined behavior.
+
+    @par Path Pattern Syntax
+
+    Route patterns define which request paths match a route. Patterns
+    support literal text, named parameters, wildcards, and optional
+    groups. The syntax is inspired by Express.js path-to-regexp.
+
+    @code
+    path       = *token
+    token      = text / param / wildcard / group
+    text       = 1*( char / escaped )     ; literal characters
+    param      = ":" name                 ; captures segment until '/'
+    wildcard   = "*" name                 ; captures everything to end
+    group      = "{" *token "}"           ; optional section
+    name       = identifier / quoted      ; plain or quoted name
+    identifier = ( "$" / "_" / ALPHA ) *( "$" / "_" / ALNUM )
+    quoted     = DQUOTE 1*qchar DQUOTE    ; allows spaces, punctuation
+    escaped    = "\" CHAR                 ; literal special character
+    @endcode
+
+    Named parameters capture path segments. A parameter matches any
+    characters except `/` and must capture at least one character:
+
+    - `/users/:id` matches `/users/42`, capturing `id = "42"`
+    - `/users/:userId/posts/:postId` matches `/users/5/posts/99`
+    - `/:from-:to` matches `/LAX-JFK`, capturing `from = "LAX"`, `to = "JFK"`
+
+    Wildcards capture everything from their position to the end of
+    the path, including `/` characters. Optional groups match
+    all-or-nothing:
+
+    - `/api{/v:version}` matches both `/api` and `/api/v2`
+    - `/file{.:ext}` matches `/file` and `/file.json`
+
+    Reserved characters `( ) [ ] + ? !` are not allowed in patterns.
+    For wildcards, escaping, and quoted names, see the Route Patterns
+    documentation.
+
+    @par Handlers
+
+    Regular handlers are invoked for matching routes and have this
+    equivalent signature:
+    @code
+    route_result handler( Params& p )
+    @endcode
+
+    The return value is a @ref route_result used to indicate the desired
+    action through @ref route enum values, or to indicate that a failure
+    occurred. Failures are represented by error codes for which
+    `system::error_code::failed()` returns `true`.
+
+    When a failing error code is produced and remains unhandled, the
+    router enters error-dispatching mode. In this mode, only error
+    handlers are invoked. Error handlers are registered globally or
+    for specific paths and execute in the order of registration whenever
+    a failing error code is present in the response.
+
+    Error handlers have this equivalent signature:
+    @code
+    route_result error_handler( Params& p, system::error_code ec )
+    @endcode
+
+    Each error handler may return any failing @ref system::error_code,
+    which is equivalent to calling:
+    @code
+    p.next( ec ); // with ec == true
+    @endcode
+
+    Returning @ref route_next indicates that control should proceed to
+    the next matching error handler. Returning a different failing code
+    replaces the current error and continues dispatch in error mode using
+    that new code. Error handlers are invoked until one returns a result
+    other than @ref route_next.
+
+    Exception handlers have this equivalent signature:
+    @code
+    route_result exception_handler( Params& p, E ex )
+    @endcode
+
+    Where `E` is the type of exception caught. Handlers installed for an
+    exception of type `E` will also be called when the exception type is
+    a derived class of `E`. Exception handlers are invoked in the order
+    of registration whenever an exception is present in the request.
+
+    The prefix match is not strict: middleware attached to `"/api"`
+    will also match `"/api/users"` and `"/api/data"`. When registered
+    before route handlers for the same prefix, middleware runs before
+    those routes. This is analogous to `app.use( path, ... )` in
+    Express.js.
+
+    @par Thread Safety
+
+    Member functions marked `const` such as @ref dispatch
+    may be called concurrently on routers that refer to the same data.
+    Modification of routers through calls to non-`const` member functions
+    is not thread-safe and must not be performed concurrently with any
+    other member function.
+
+    @par Nesting Depth
+
+    Routers may be nested to a maximum depth of `max_path_depth` (16 levels).
+    Exceeding this limit throws `std::length_error` when the nested router
+    is added via @ref use. This limit ensures that dispatch never overflows
+    its fixed-size tracking arrays.
+
+    @par Constraints
+
+    `Params` must be publicly derived from @ref route_params.
+
+    @tparam Params The type of the parameters object passed to handlers.
 */
-class BOOST_HTTP_SYMBOL_VISIBLE
-    route_params
+template<class P = route_params>
+class router : public detail::router_base
 {
-    detail::route_params_base_privates priv_;
+    static_assert(std::derived_from<P, route_params>);
 
-public:
-    struct match_result;
+    template<class T>
+    static inline constexpr char handler_kind =
+        []() -> char
+        {
+            if constexpr (detail::returns_route_task<T, P&>)
+            {
+                return is_plain;
+            }
+            else if constexpr (detail::returns_route_task<
+                T, P&, system::error_code>)
+            {
+                return is_error;
+            }
+            else if constexpr(
+                std::is_base_of_v<detail::router_base, T> &&
+                std::is_convertible_v<T const volatile*,
+                    detail::router_base const volatile*>)
+            {
+                return is_invalid;
+            }
+            else if constexpr (detail::returns_route_task<
+                T, P&, std::exception_ptr>)
+            {
+                return is_exception;
+            }
+            else
+            {
+                return is_invalid;
+            }
+        }();
 
-    /** Return true if the request method matches `m`
-    */
-    bool is_method(
-        http::method m) const noexcept
+    template<class T>
+    static inline constexpr bool is_sub_router =
+        std::is_base_of_v<detail::router_base, std::decay_t<T>> &&
+        std::is_convertible_v<std::decay_t<T> const volatile*,
+            detail::router_base const volatile*>;
+
+    template<class... Ts>
+    static inline constexpr bool handler_crvals =
+        ((!std::is_lvalue_reference_v<Ts> || 
+        std::is_const_v<std::remove_reference_t<Ts>> ||
+        std::is_function_v<std::remove_reference_t<Ts>>) && ...);
+        
+    template<char Mask, class... Ts>
+    static inline constexpr bool handler_check = 
+        (((handler_kind<Ts> & Mask) != 0) && ...);
+
+    template<class H>
+    struct handler_impl : handler
+    {  
+        std::decay_t<H> h;
+
+        template<class H_>
+        explicit handler_impl(H_ h_)
+            : handler(handler_kind<H>)
+            , h(std::forward<H_>(h_))
+        {
+        }
+    
+        auto invoke(route_params& rp) const ->
+            route_task override
+        {
+            if constexpr (detail::returns_route_task<H, P&>)
+            {
+                return h(static_cast<P&>(rp));
+            }
+            else if constexpr (detail::returns_route_task<
+                H, P&, system::error_code>)
+            {
+                return h(static_cast<P&>(rp), rp.priv_.ec_);
+            }
+            else if constexpr (detail::returns_route_task<
+                H, P&, std::exception_ptr>)
+            {
+                return h(static_cast<P&>(rp), rp.priv_.ep_);
+            }
+            else
+            {
+                std::terminate();
+            }
+        }
+    };
+
+    template<class H>
+    static handler_ptr make_handler(H&& h)
     {
-        return priv_.verb_ == m;
+        return std::make_unique<handler_impl<H>>(std::forward<H>(h));
     }
 
-    /** Return true if the request method matches `s`
-    */
-    BOOST_HTTP_DECL
-    bool is_method(
-        core::string_view s) const noexcept;
-
-    /** The mount path of the current router
-
-        This is the portion of the request path
-        which was matched to select the handler.
-        The remaining portion is available in
-        @ref path.
-    */
-    core::string_view base_path;
-
-    /** The current pathname, relative to the base path
-    */
-    core::string_view path;
-
-    /** Captured route parameters
-
-        Contains name-value pairs extracted from the path
-        by matching :param and *wildcard tokens.
-    */
-    std::vector<std::pair<std::string, std::string>> params;
-
-    /// The complete request target
-    urls::url_view url;
-
-    /// The HTTP request
-    http::request req;
-
-    /// The HTTP response
-    http::response res;
-
-    /// Provides access to the request body
-    capy::any_buffer_source req_body;
-
-    /// Provides access to the response body
-    capy::any_buffer_sink res_body;
-
-    /// Arbitrary per-route data
-    http::datastore route_data;
-
-    /// Arbitrary per-session data
-    http::datastore session_data;
-
-    BOOST_HTTP_DECL ~route_params();
-    BOOST_HTTP_DECL void reset();
-    BOOST_HTTP_DECL route_params& status(http::status code);
-
-    /** Send the response with an optional body.
-    */
-    BOOST_HTTP_DECL capy::io_task<> send(std::string_view body = {});
-
-private:
-    template<class>
-    friend class basic_router;
-    friend struct detail::route_params_access;
-
-    route_params& operator=(
-        route_params const&) = delete;
-};
-
-struct route_params::
-    match_result
-{
-    std::vector<std::pair<std::string, std::string>> params_;
-
-    void adjust_path(
-        route_params& p,
-        std::size_t n)
+    template<class H>
+    struct options_handler_impl : options_handler
     {
-        n_ = n;
-        if(n_ == 0)
-            return;
-        p.base_path = {
-            p.base_path.data(),
-            p.base_path.size() + n_ };
-        if(n_ < p.path.size())
+        std::decay_t<H> h;
+
+        template<class H_>
+        explicit options_handler_impl(H_&& h_)
+            : h(std::forward<H_>(h_))
         {
-            p.path.remove_prefix(n_);
+        }
+
+        route_task invoke(
+            route_params& rp,
+            std::string_view allow) const override
+        {
+            return h(static_cast<P&>(rp), allow);
+        }
+    };
+
+    template<std::size_t N>
+    struct handlers_impl : handlers
+    {
+        handler_ptr v[N];
+
+        template<class... HN>
+        explicit handlers_impl(HN&&... hn)
+        {
+            p = v;
+            n = sizeof...(HN);
+            assign<0>(std::forward<HN>(hn)...);
+        }
+
+    private:
+        template<std::size_t I, class H1, class... HN>
+        void assign(H1&& h1, HN&&... hn)
+        {
+            v[I] = make_handler(std::forward<H1>(h1));
+            assign<I+1>(std::forward<HN>(hn)...);
+        }
+
+        template<std::size_t>
+        void assign(int = 0)
+        {
+        }
+    };
+
+    template<class... HN>
+    static auto make_handlers(HN&&... hn)
+    {
+        return handlers_impl<sizeof...(HN)>(
+            std::forward<HN>(hn)...);
+    }
+
+public:
+    /** The type of params used in handlers.
+    */
+    using params_type = P;
+
+    /** A fluent interface for defining handlers on a specific route.
+
+        This type represents a single route within the router and
+        provides a chainable API for registering handlers associated
+        with particular HTTP methods or for all methods collectively.
+
+        Typical usage registers one or more handlers for a route:
+        @code
+        r.route( "/users/:id" )
+            .get( show_user )
+            .put( update_user )
+            .all( log_access );
+        @endcode
+
+        Each call appends handlers in registration order.
+    */
+    class fluent_route;
+
+    router(router const&) = default;
+    router& operator=(router const&) = default;
+    router(router&&) = default;
+    router& operator=(router&&) = default;
+
+    /** Constructor.
+
+        Creates an empty router with the specified configuration.
+        Routers constructed with default options inherit the values
+        of @ref router_options::case_sensitive and
+        @ref router_options::strict from the parent router, or default
+        to `false` if there is no parent. The value of
+        @ref router_options::merge_params defaults to `false` and
+        is never inherited.
+
+        @param options The configuration options to use.
+    */
+    explicit
+    router(
+        router_options options = {})
+        : detail::router_base(options.v_)
+    {
+    }
+
+    /** Construct a router from another router with compatible types.
+
+        This constructs a router that shares the same underlying routing
+        state as another router whose params type is a base class of `Params`.
+
+        The resulting router participates in shared ownership of the
+        implementation; copying the router does not duplicate routes or
+        handlers, and changes visible through one router are visible
+        through all routers that share the same underlying state.
+
+        @par Constraints
+
+        `Params` must be derived from `OtherParams`.
+
+        @param other The router to construct from.
+
+        @tparam OtherParams The params type of the source router.
+    */
+    template<class OtherP>
+        requires std::derived_from<OtherP, P>
+    router(
+        router<OtherP>&& other) noexcept
+        : detail::router_base(std::move(other))
+    {
+    }
+
+    /** Dispatch a request using a known HTTP method.
+
+        @param verb The HTTP method to match. Must not be
+        @ref http::method::unknown.
+
+        @param url The full request target used for route matching.
+
+        @param p The typed params to pass to handlers.
+
+        @return A task yielding the @ref route_result describing
+        how routing completed.
+
+        @throws std::invalid_argument If @p verb is
+        @ref http::method::unknown.
+    */
+    route_task
+    dispatch(
+        http::method verb,
+        urls::url_view const& url,
+        P& p) const
+    {
+        return detail::router_base::dispatch(
+            verb, url, static_cast<route_params&>(p));
+    }
+
+    /** Dispatch a request using a method string.
+
+        @param verb The HTTP method string to match. Must not be empty.
+
+        @param url The full request target used for route matching.
+
+        @param p The typed params to pass to handlers.
+
+        @return A task yielding the @ref route_result describing
+        how routing completed.
+
+        @throws std::invalid_argument If @p verb is empty.
+    */
+    route_task
+    dispatch(
+        std::string_view verb,
+        urls::url_view const& url,
+        P& p) const
+    {
+        return detail::router_base::dispatch(
+            verb, url, static_cast<route_params&>(p));
+    }
+
+    /** Add middleware handlers for a path prefix.
+
+        Each handler registered with this function participates in the
+        routing and error-dispatch process for requests whose path begins
+        with the specified prefix, as described in the @ref router
+        class documentation. Handlers execute in the order they are added
+        and may return @ref route_next to transfer control to the
+        subsequent handler in the chain.
+
+        @par Example
+        @code
+        r.use( "/api",
+            []( route_params& p )
+            {
+                if( ! authenticate( p ) )
+                {
+                    p.res.status( 401 );
+                    p.res.set_body( "Unauthorized" );
+                    return route_done;
+                }
+                return route_next;
+            },
+            []( route_params& p )
+            {
+                p.res.set_header( "X-Powered-By", "MyServer" );
+                return route_next;
+            } );
+        @endcode
+
+        @par Preconditions
+
+        @p pattern must be a valid path prefix; it may be empty to
+        indicate the root scope.
+
+        @param pattern The pattern to match.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+    */
+    template<class H1, class... HN>
+    void use(
+        std::string_view pattern,
+        H1&& h1, HN&&... hn)
+    {
+        // Single sub-router case
+        if constexpr(sizeof...(HN) == 0 && is_sub_router<H1>)
+        {
+            static_assert(!std::is_lvalue_reference_v<H1>,
+                "pass sub-routers by value or std::move()");
+            this->inline_router(pattern,
+                std::forward<H1>(h1));
         }
         else
         {
-            // append a soft slash
-            p.path = { p.priv_.decoded_path_.data() +
-                p.priv_.decoded_path_.size() - 1, 1};
-            BOOST_ASSERT(p.path == "/");
+            static_assert(handler_crvals<H1, HN...>,
+                "pass handlers by value or std::move()");
+            static_assert(! handler_check<8, H1, HN...>,
+                "cannot use exception handlers here");
+            static_assert(handler_check<3, H1, HN...>,
+                "invalid handler signature");
+            this->add_middleware(pattern, make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
         }
     }
 
-    void restore_path(
-        route_params& p)
+    /** Add global middleware handlers.
+
+        Each handler registered with this function participates in the
+        routing and error-dispatch process as described in the
+        @ref router class documentation. Handlers execute in the
+        order they are added and may return @ref route_next to transfer
+        control to the next handler in the chain.
+
+        This is equivalent to writing:
+        @code
+        use( "/", h1, hn... );
+        @endcode
+
+        @par Example
+        @code
+        r.use(
+            []( Params& p )
+            {
+                p.res.erase( "X-Powered-By" );
+                return route_next;
+            } );
+        @endcode
+
+        @par Constraints
+
+        @p h1 must not be convertible to @ref std::string_view.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+    */
+    template<class H1, class... HN>
+    void use(H1&& h1, HN&&... hn)
+        requires (!std::convertible_to<H1, std::string_view>)
     {
-        if( n_ > 0 &&
-            p.priv_.addedSlash_ &&
-            p.path.data() ==
-                p.priv_.decoded_path_.data() +
-                p.priv_.decoded_path_.size() - 1)
-        {
-            // remove soft slash
-            p.path = {
-                p.base_path.data() +
-                p.base_path.size(), 0 };
-        }
-        p.base_path.remove_suffix(n_);
-        p.path = {
-            p.path.data() - n_,
-            p.path.size() + n_ };
+        use(std::string_view(),
+            std::forward<H1>(h1), std::forward<HN>(hn)...);
+    }
+
+    /** Add exception handlers for a route pattern.
+
+        Registers one or more exception handlers that will be invoked
+        when an exception is thrown during request processing for routes
+        matching the specified pattern.
+
+        Handlers are invoked in the order provided until one handles
+        the exception.
+
+        @par Example
+        @code
+        app.except( "/api*",
+            []( route_params& p, std::exception const& ex )
+            {
+                p.res.set_status( 500 );
+                return route_done;
+            } );
+        @endcode
+
+        @param pattern The route pattern to match, or empty to match
+        all routes.
+
+        @param h1 The first exception handler.
+
+        @param hn Additional exception handlers.
+    */
+    template<class H1, class... HN>
+    void except(
+        std::string_view pattern,
+        H1&& h1, HN&&... hn)
+    {
+        static_assert(handler_crvals<H1, HN...>,
+            "pass handlers by value or std::move()");
+        static_assert(handler_check<8, H1, HN...>,
+            "only exception handlers are allowed here");
+        this->add_middleware(pattern, make_handlers(
+            std::forward<H1>(h1), std::forward<HN>(hn)...));
+    }
+
+    /** Add global exception handlers.
+
+        Registers one or more exception handlers that will be invoked
+        when an exception is thrown during request processing for any
+        route.
+
+        Equivalent to calling `except( "", h1, hn... )`.
+
+        @par Example
+        @code
+        app.except(
+            []( route_params& p, std::exception const& ex )
+            {
+                p.res.set_status( 500 );
+                return route_done;
+            } );
+        @endcode
+
+        @param h1 The first exception handler.
+
+        @param hn Additional exception handlers.
+    */
+    template<class H1, class... HN>
+    void except(H1&& h1, HN&&... hn)
+        requires (!std::convertible_to<H1, std::string_view>)
+    {
+        static_assert(handler_crvals<H1, HN...>,
+            "pass handlers by value or std::move()");
+        static_assert(handler_check<8, H1, HN...>,
+            "only exception handlers are allowed here");
+        except(std::string_view(),
+            std::forward<H1>(h1), std::forward<HN>(hn)...);
+    }
+
+    /** Add handlers for all HTTP methods matching a path pattern.
+
+        This registers regular handlers for the specified path pattern,
+        participating in dispatch as described in the @ref router
+        class documentation. Handlers run when the route matches,
+        regardless of HTTP method, and execute in registration order.
+        Error handlers and routers cannot be passed here. A new route
+        object is created even if the pattern already exists.
+
+        @par Example
+        @code
+        r.route( "/status" )
+            .add( method::head, check_headers )
+            .add( method::get, send_status )
+            .all( log_access );
+        @endcode
+
+        @par Preconditions
+
+        @p pattern must be a valid path pattern; it must not be empty.
+
+        @param pattern The path pattern to match.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+    */
+    template<class H1, class... HN>
+    void all(
+        std::string_view pattern,
+        H1&& h1, HN&&... hn)
+    {
+        static_assert(handler_crvals<H1, HN...>,
+            "pass handlers by value or std::move()");
+        static_assert(handler_check<1, H1, HN...>,
+            "only normal route handlers are allowed here");
+        this->route(pattern).all(
+            std::forward<H1>(h1), std::forward<HN>(hn)...);
+    }
+
+    /** Add route handlers for a method and pattern.
+
+        This registers regular handlers for the specified HTTP verb and
+        path pattern, participating in dispatch as described in the
+        @ref router class documentation. Error handlers and
+        routers cannot be passed here.
+
+        @param verb The known HTTP method to match.
+
+        @param pattern The path pattern to match.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+    */
+    template<class H1, class... HN>
+    void add(
+        http::method verb,
+        std::string_view pattern,
+        H1&& h1, HN&&... hn)
+    {
+        static_assert(handler_crvals<H1, HN...>,
+            "pass handlers by value or std::move()");
+        static_assert(handler_check<1, H1, HN...>,
+            "only normal route handlers are allowed here");
+        this->route(pattern).add(verb,
+            std::forward<H1>(h1), std::forward<HN>(hn)...);
+    }
+
+    /** Add route handlers for a method string and pattern.
+
+        This registers regular handlers for the specified HTTP verb and
+        path pattern, participating in dispatch as described in the
+        @ref router class documentation. Error handlers and
+        routers cannot be passed here.
+
+        @param verb The HTTP method string to match.
+
+        @param pattern The path pattern to match.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+    */
+    template<class H1, class... HN>
+    void add(
+        std::string_view verb,
+        std::string_view pattern,
+        H1&& h1, HN&&... hn)
+    {
+        static_assert(handler_crvals<H1, HN...>,
+            "pass handlers by value or std::move()");
+        static_assert(handler_check<1, H1, HN...>,
+            "only normal route handlers are allowed here");
+        this->route(pattern).add(verb,
+            std::forward<H1>(h1), std::forward<HN>(hn)...);
+    }
+
+    /** Return a fluent route for the specified path pattern.
+
+        Adds a new route to the router for the given pattern.
+        A new route object is always created, even if another
+        route with the same pattern already exists. The returned
+        @ref fluent_route reference allows method-specific handler
+        registration (such as GET or POST) or catch-all handlers
+        with @ref fluent_route::all.
+
+        @param pattern The path expression to match against request
+        targets. This may include parameters or wildcards following
+        the router's pattern syntax. May not be empty.
+
+        @return A fluent route interface for chaining handler
+        registrations.
+    */
+    auto
+    route(
+        std::string_view pattern) -> fluent_route
+    {
+        return fluent_route(*this, pattern);
+    }
+
+    /** Set the handler for automatic OPTIONS responses.
+
+        When an OPTIONS request matches a route but no explicit OPTIONS
+        handler is registered, this handler is invoked with the pre-built
+        Allow header value. This follows Express.js semantics where
+        explicit OPTIONS handlers take priority.
+
+        @param h A callable with signature `route_task(P&, std::string_view)`
+        where the string_view contains the pre-built Allow header value.
+    */
+    template<class H>
+    void set_options_handler(H&& h)
+    {
+        static_assert(
+            std::is_invocable_r_v<route_task, const std::decay_t<H>&, P&, std::string_view>,
+            "Handler must have signature: route_task(P&, std::string_view)");
+        this->set_options_handler_impl(
+            std::make_unique<options_handler_impl<H>>(
+                std::forward<H>(h)));
+    }
+};
+
+template<class P>
+class router<P>::
+    fluent_route
+{
+public:
+    fluent_route(fluent_route const&) = default;
+
+    /** Add handlers that apply to all HTTP methods.
+
+        This registers regular handlers that run for any request matching
+        the route's pattern, regardless of HTTP method. Handlers are
+        appended to the route's handler sequence and are invoked in
+        registration order whenever a preceding handler returns
+        @ref route_next. Error handlers and routers cannot be passed here.
+
+        This function returns a @ref fluent_route, allowing additional
+        method registrations to be chained. For example:
+        @code
+        r.route( "/resource" )
+            .all( log_request )
+            .add( method::get, show_resource )
+            .add( method::post, update_resource );
+        @endcode
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+
+        @return A reference to `*this` for chained registrations.
+    */
+    template<class H1, class... HN>
+    auto all(
+        H1&& h1, HN&&... hn) ->
+            fluent_route
+    {
+        static_assert(handler_check<1, H1, HN...>);
+        owner_.add_to_route(route_idx_, std::string_view{},
+            owner_.make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
+        return *this;
+    }
+
+    /** Add handlers for a specific HTTP method.
+
+        This registers regular handlers for the given method on the
+        current route, participating in dispatch as described in the
+        @ref router class documentation. Handlers are appended
+        to the route's handler sequence and invoked in registration
+        order whenever a preceding handler returns @ref route_next.
+        Error handlers and routers cannot be passed here.
+
+        @param verb The HTTP method to match.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+
+        @return A reference to `*this` for chained registrations.
+    */
+    template<class H1, class... HN>
+    auto add(
+        http::method verb,
+        H1&& h1, HN&&... hn) ->
+            fluent_route
+    {
+        static_assert(handler_check<1, H1, HN...>);
+        owner_.add_to_route(route_idx_, verb,
+            owner_.make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
+        return *this;
+    }
+
+    /** Add handlers for a method string.
+
+        This registers regular handlers for the given HTTP method string
+        on the current route, participating in dispatch as described in
+        the @ref router class documentation. This overload is
+        intended for methods not represented by @ref http::method.
+        Handlers are appended to the route's handler sequence and invoked
+        in registration order whenever a preceding handler returns
+        @ref route_next. Error handlers and routers cannot be passed here.
+
+        @param verb The HTTP method string to match.
+
+        @param h1 The first handler to add.
+
+        @param hn Additional handlers to add, invoked after @p h1 in
+        registration order.
+
+        @return A reference to `*this` for chained registrations.
+    */
+    template<class H1, class... HN>
+    auto add(
+        std::string_view verb,
+        H1&& h1, HN&&... hn) ->
+            fluent_route
+    {
+        static_assert(handler_check<1, H1, HN...>);
+        owner_.add_to_route(route_idx_, verb,
+            owner_.make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
+        return *this;
     }
 
 private:
-    std::size_t n_ = 0; // chars moved from path to base_path
-};
-
-//------------------------------------------------
-
-namespace detail {
-
-template<class H, class... Args>
-concept returns_route_task = std::same_as<
-    std::invoke_result_t<H, Args...>, route_task>;
-
-struct route_params_access
-{
-    route_params& rp;
-
-    route_params_base_privates& operator*() const noexcept
+    friend class router;
+    fluent_route(
+        router& owner,
+        std::string_view pattern)
+        : route_idx_(owner.new_route(pattern))
+        , owner_(owner)
     {
-        return rp.priv_;
     }
 
-    route_params_base_privates* operator->() const noexcept
-    {
-        return &rp.priv_;
-    }
+    std::size_t route_idx_;
+    router& owner_;
 };
-
-} // detail
-
-//------------------------------------------------
-
-/** The default router type using @ref route_params.
-*/
-using router = basic_router<route_params>;
 
 } // http
 } // boost

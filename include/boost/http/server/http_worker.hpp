@@ -16,7 +16,6 @@
 #include <boost/http/config.hpp>
 #include <boost/http/request_parser.hpp>
 #include <boost/http/serializer.hpp>
-#include <boost/http/server/any_router.hpp>
 #include <boost/http/server/router.hpp>
 
 namespace boost {
@@ -51,7 +50,7 @@ namespace http {
 
         my_worker(
             corosio::io_context& ctx,
-            http::any_router const& router,
+            http::router<route_params> const& router,
             http::shared_parser_config parser_cfg,
             http::shared_serializer_config serializer_cfg)
             : http_worker(router, parser_cfg, serializer_cfg)
@@ -81,7 +80,7 @@ namespace http {
 class BOOST_HTTP_DECL http_worker
 {
 public:
-    http::any_router fr;
+    http::router<route_params> fr;
     http::route_params rp;
     capy::any_read_stream stream;
     http::request_parser parser;
@@ -97,7 +96,7 @@ public:
     template<capy::WriteStream Stream>
     http_worker(
         Stream& stream_,
-        http::any_router fr_,
+        http::router<route_params> fr_,
         http::shared_parser_config parser_cfg,
         http::shared_serializer_config serializer_cfg)
         : fr(std::move(fr_))

@@ -161,8 +161,6 @@ cpp:boost::http::tchars[tchars]
 
 | **Types (1/2)**
 
-cpp:boost::http::basic_router[basic_router]
-
 cpp:boost::http::byte_range[byte_range]
 
 cpp:boost::http::cors[cors]
@@ -172,8 +170,6 @@ cpp:boost::http::cors_options[cors_options]
 cpp:boost::http::dotfiles_policy[dotfiles_policy]
 
 cpp:boost::http::etag_options[etag_options]
-
-cpp:boost::http::any_router[any_router]
 
 cpp:boost::http::range_result[range_result]
 

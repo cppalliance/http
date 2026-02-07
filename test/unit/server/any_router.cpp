@@ -8,11 +8,6 @@
 //
 
 // Test that header file is self-contained.
-#include <boost/http/server/any_router.hpp>
-
-// Full functional tests are in beast2/test/unit/server/router.cpp
-
-#include <boost/http/server/basic_router.hpp>
 #include <boost/http/server/router.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
@@ -24,7 +19,7 @@ namespace http {
 struct any_router_test
 {
     using params = route_params;
-    using test_router = basic_router<params>;
+    using test_router = router<params>;
 
     void testCopyConstruction()
     {
@@ -36,8 +31,8 @@ struct any_router_test
             co_return route_result{};
         });
 
-        any_router ar1(r);
-        any_router ar2(ar1);
+        router<> ar1(r);
+        router<> ar2(ar1);
 
         params req;
         capy::test::run_blocking()(ar1.dispatch(
@@ -59,14 +54,14 @@ struct any_router_test
             co_return route_result{};
         });
 
-        any_router ar1(r);
+        router<> ar1(r);
 
         test_router r2;
         r2.all("/", [](params&) -> route_task
         {
             co_return route_result{};
         });
-        any_router ar2(r2);
+        router<> ar2(r2);
 
         ar2 = ar1;
 
@@ -90,8 +85,8 @@ struct any_router_test
             co_return route_result{};
         });
 
-        any_router ar1;  // default construct
-        any_router ar2(r);
+        router<> ar1;  // default construct
+        router<> ar2(r);
         ar1 = ar2;  // assign to default-constructed
 
         params req;

@@ -8,8 +8,6 @@
 //
 
 // Test that header file is self-contained.
-#include <boost/http/server/basic_router.hpp>
-#include <boost/http/server/any_router.hpp>
 #include <boost/http/server/router.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
@@ -21,7 +19,7 @@ namespace http {
 struct router_test
 {
     using params = route_params;
-    using test_router = basic_router<params>;
+    using test_router = router<params>;
 
     //--------------------------------------------
     // Simple handlers - no destructor verification
@@ -346,7 +344,7 @@ struct router_test
             {
                 test_router r;
                 r.use("/a", make_deep(make_deep,
-                    any_router::max_path_depth - 2));
+                    detail::router_base::max_path_depth - 2));
                 // Should not throw
                 (void)r;
             }
@@ -356,7 +354,7 @@ struct router_test
                 [&]{
                     test_router r;
                     r.use("/a", make_deep(make_deep,
-                        any_router::max_path_depth));
+                        detail::router_base::max_path_depth));
                 }(),
                 std::length_error);
         }

@@ -13,7 +13,7 @@
 namespace boost {
 namespace http {
 
-any_router::
+detail::router_base::
 matcher::
 matcher(
     std::string_view pat,
@@ -41,7 +41,7 @@ matcher(
 }
 
 bool
-any_router::
+detail::router_base::
 matcher::
 operator()(
     route_params& p,

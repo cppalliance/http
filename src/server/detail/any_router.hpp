@@ -10,15 +10,16 @@
 #ifndef BOOST_HTTP_SRC_SERVER_DETAIL_ANY_ROUTER_HPP
 #define BOOST_HTTP_SRC_SERVER_DETAIL_ANY_ROUTER_HPP
 
-#include <boost/http/server/any_router.hpp>
+#include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/detail/except.hpp>
 #include "src/server/detail/route_match.hpp"
 #include <mutex>
 
 namespace boost {
 namespace http {
+namespace detail {
 
-struct any_router::entry
+struct router_base::entry
 {
     // ~32 bytes (SSO string)
     std::string verb_str;
@@ -69,7 +70,7 @@ struct any_router::entry
     bool match_method(
         route_params& rp) const noexcept
     {
-        detail::route_params_access RP{rp};
+        route_params_access RP{rp};
         if(all)
             return true;
         if(verb != http::method::unknown)
@@ -80,7 +81,7 @@ struct any_router::entry
     }
 };
 
-struct any_router::impl
+struct router_base::impl
 {
     std::vector<entry> entries;
     std::vector<matcher> matchers;
@@ -139,6 +140,7 @@ struct any_router::impl
         std::size_t base_len);
 };
 
+} // detail
 } // http
 } // boost
 

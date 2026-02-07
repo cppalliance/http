@@ -7,11 +7,11 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_SERVER_ANY_ROUTER_HPP
-#define BOOST_HTTP_SERVER_ANY_ROUTER_HPP
+#ifndef BOOST_HTTP_SERVER_DETAIL_ROUTER_BASE_HPP
+#define BOOST_HTTP_SERVER_DETAIL_ROUTER_BASE_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/server/router.hpp>
+#include <boost/http/server/route_handler.hpp>
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
@@ -23,36 +23,36 @@
 
 namespace boost {
 namespace http {
+namespace detail {
 
-template<class> class basic_router;
+template<class> class router;
 
-/** A type-erased router for dispatching HTTP requests.
+/** Non-template base class for all routers.
 
-    `any_router` is the non-template base class for all routers.
-    It holds a shared reference to an internal routing table
+    Holds a shared reference to an internal routing table
     that is built incrementally as routes are added. The routing
     table uses contiguous flat arrays for cache-friendly dispatch.
 
-    Copies of an `any_router` share the same underlying routing
-    data. Modifying a router after it has been copied is not
-    permitted and results in undefined behavior.
+    Copies share the same underlying routing data. Modifying
+    a router after it has been copied is not permitted and
+    results in undefined behavior.
 
     @par Thread Safety
 
     `dispatch` may be called concurrently on routers that share
-    the same data. Modification through `basic_router` is not
+    the same data. Modification through `router` is not
     thread-safe and must not be performed concurrently with any
     other operation.
 
-    @see basic_router, router
+    @see router
 */
 class BOOST_HTTP_DECL
-    any_router
+    router_base
 {
     struct impl;
     std::shared_ptr<impl> impl_;
 
-    template<class> friend class basic_router;
+    template<class> friend class http::router;
 
 protected:
     using opt_flags = unsigned int;
@@ -100,11 +100,11 @@ protected:
     struct entry;
 
     // Construct with options
-    explicit any_router(opt_flags);
+    explicit router_base(opt_flags);
 
     // Registration helpers
     void add_middleware(std::string_view pattern, handlers hn);
-    void inline_router(std::string_view pattern, any_router&& sub);
+    void inline_router(std::string_view pattern, router_base&& sub);
     std::size_t new_route(std::string_view pattern);
     void add_to_route(std::size_t idx, http::method verb, handlers hn);
     void add_to_route(std::size_t idx, std::string_view verb, handlers hn);
@@ -118,13 +118,13 @@ public:
         operations on a default-constructed router are
         assignment, destruction, and copying.
     */
-    any_router() = default;
+    router_base() = default;
 
-    any_router(any_router const&) = default;
-    any_router(any_router&&) noexcept = default;
-    any_router& operator=(any_router const&) = default;
-    any_router& operator=(any_router&&) noexcept = default;
-    ~any_router() = default;
+    router_base(router_base const&) = default;
+    router_base(router_base&&) noexcept = default;
+    router_base& operator=(router_base const&) = default;
+    router_base& operator=(router_base&&) noexcept = default;
+    ~router_base() = default;
 
     /** Dispatch a request using a known HTTP method.
 
@@ -175,6 +175,7 @@ public:
     static constexpr std::size_t max_path_depth = 16;
 };
 
+} // detail
 } // http
 } // boost
 

@@ -11,7 +11,7 @@
 #define BOOST_HTTP_SERVER_DETAIL_ROUTE_MATCH_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/http/server/any_router.hpp>
+#include <boost/http/server/detail/router_base.hpp>
 #include "src/server/route_abnf.hpp"
 #include "src/server/detail/stable_string.hpp"
 #include <cstdint>
@@ -23,7 +23,7 @@ namespace http {
 
 // Matches a path against a pattern
 // Members ordered largest-to-smallest for optimal packing
-struct any_router::matcher
+struct detail::router_base::matcher
 {
     matcher(std::string_view pat, bool end_);
 
@@ -36,8 +36,8 @@ struct any_router::matcher
     system::error_code error() const noexcept { return ec_; }
 
 private:
-    friend class any_router;
-    friend struct any_router::impl;
+    friend class detail::router_base;
+    friend struct detail::router_base::impl;
 
     system::error_code ec_;
     std::string allow_header_;

@@ -8,7 +8,7 @@
 //
 
 #include "src/server/detail/any_router.hpp"
-#include <boost/http/server/any_router.hpp>
+#include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/http/error.hpp>
 #include <boost/url/grammar/ci_string.hpp>
@@ -19,6 +19,7 @@
 
 namespace boost {
 namespace http {
+namespace detail {
 
 //------------------------------------------------
 //
@@ -27,7 +28,7 @@ namespace http {
 //------------------------------------------------
 
 std::string
-any_router::impl::
+router_base::impl::
 build_allow_header(
     std::uint64_t methods,
     std::vector<std::string> const& custom)
@@ -89,8 +90,8 @@ build_allow_header(
     return result;
 }
 
-any_router::opt_flags
-any_router::impl::
+router_base::opt_flags
+router_base::impl::
 compute_effective_opts(
     opt_flags parent,
     opt_flags child)
@@ -113,12 +114,12 @@ compute_effective_opts(
 }
 
 void
-any_router::impl::
+router_base::impl::
 restore_path(
     route_params& p,
     std::size_t base_len)
 {
-    auto& pv = *detail::route_params_access{p};
+    auto& pv = *route_params_access{p};
     p.base_path = { pv.decoded_path_.data(), base_len };
     auto const path_len = pv.decoded_path_.size() - (pv.addedSlash_ ? 1 : 0);
     if(base_len < path_len)
@@ -130,7 +131,7 @@ restore_path(
 }
 
 void
-any_router::impl::
+router_base::impl::
 update_allow_for_entry(
     matcher& m,
     entry const& e)
@@ -160,7 +161,7 @@ update_allow_for_entry(
 }
 
 void
-any_router::impl::
+router_base::impl::
 rebuild_global_allow_header()
 {
     std::sort(global_custom_verbs_.begin(), global_custom_verbs_.end());
@@ -172,7 +173,7 @@ rebuild_global_allow_header()
 }
 
 void
-any_router::impl::
+router_base::impl::
 finalize_pending()
 {
     if(pending_route_ == SIZE_MAX)
@@ -197,10 +198,10 @@ finalize_pending()
 //------------------------------------------------
 
 route_task
-any_router::impl::
+router_base::impl::
 dispatch_loop(route_params& p, bool is_options) const
 {
-    auto& pv = *detail::route_params_access{p};
+    auto& pv = *route_params_access{p};
 
     std::size_t last_matched = SIZE_MAX;
     std::uint32_t current_depth = 0;
@@ -208,11 +209,11 @@ dispatch_loop(route_params& p, bool is_options) const
     std::uint64_t options_methods = 0;
     std::vector<std::string> options_custom_verbs;
 
-    std::size_t path_stack[any_router::max_path_depth];
+    std::size_t path_stack[router_base::max_path_depth];
     path_stack[0] = 0;
 
-    std::size_t matched_at_depth[any_router::max_path_depth];
-    for(std::size_t d = 0; d < any_router::max_path_depth; ++d)
+    std::size_t matched_at_depth[router_base::max_path_depth];
+    for(std::size_t d = 0; d < router_base::max_path_depth; ++d)
         matched_at_depth[d] = SIZE_MAX;
 
     for(std::size_t i = 0; i < entries.size(); )
@@ -243,7 +244,7 @@ dispatch_loop(route_params& p, bool is_options) const
                 restore_path(p, path_stack[cm.depth_]);
             }
 
-            if(cm.end_ && pv.kind_ != any_router::is_plain)
+            if(cm.end_ && pv.kind_ != router_base::is_plain)
             {
                 i = cm.skip_;
                 ancestors_ok = false;
@@ -253,13 +254,13 @@ dispatch_loop(route_params& p, bool is_options) const
             pv.case_sensitive = (cm.effective_opts_ & 2) != 0;
             pv.strict = (cm.effective_opts_ & 8) != 0;
 
-            if(cm.depth_ < any_router::max_path_depth)
+            if(cm.depth_ < router_base::max_path_depth)
                 path_stack[cm.depth_] = p.base_path.size();
 
             match_result mr;
             if(!cm(p, mr))
             {
-                for(std::size_t d = cm.depth_; d < any_router::max_path_depth; ++d)
+                for(std::size_t d = cm.depth_; d < router_base::max_path_depth; ++d)
                     matched_at_depth[d] = SIZE_MAX;
                 i = cm.skip_;
                 ancestors_ok = false;
@@ -272,13 +273,13 @@ dispatch_loop(route_params& p, bool is_options) const
                     p.params.push_back(std::move(param));
             }
 
-            if(cm.depth_ < any_router::max_path_depth)
+            if(cm.depth_ < router_base::max_path_depth)
                 matched_at_depth[cm.depth_] = check_idx;
 
             last_matched = check_idx;
             current_depth = cm.depth_ + 1;
 
-            if(current_depth < any_router::max_path_depth)
+            if(current_depth < router_base::max_path_depth)
                 path_stack[current_depth] = p.base_path.size();
         }
 
@@ -319,7 +320,7 @@ dispatch_loop(route_params& p, bool is_options) const
         catch(...)
         {
             pv.ep_ = std::current_exception();
-            pv.kind_ = any_router::is_exception;
+            pv.kind_ = router_base::is_exception;
             ++i;
             continue;
         }
@@ -346,7 +347,7 @@ dispatch_loop(route_params& p, bool is_options) const
 
         // Error - transition to error mode
         pv.ec_ = rv.error();
-        pv.kind_ = any_router::is_error;
+        pv.kind_ = router_base::is_error;
 
         if(m.end_)
         {
@@ -357,9 +358,9 @@ dispatch_loop(route_params& p, bool is_options) const
         ++i;
     }
 
-    if(pv.kind_ == any_router::is_exception)
+    if(pv.kind_ == router_base::is_exception)
         co_return route_error(error::unhandled_exception);
-    if(pv.kind_ == any_router::is_error)
+    if(pv.kind_ == router_base::is_error)
         co_return route_error(pv.ec_);
 
     // OPTIONS fallback
@@ -374,19 +375,19 @@ dispatch_loop(route_params& p, bool is_options) const
 
 //------------------------------------------------
 //
-// any_router
+// router_base
 //
 //------------------------------------------------
 
-any_router::
-any_router(
+router_base::
+router_base(
     opt_flags opt)
     : impl_(std::make_shared<impl>(opt))
 {
 }
 
 void
-any_router::
+router_base::
 add_middleware(
     std::string_view pattern,
     handlers hn)
@@ -400,7 +401,7 @@ add_middleware(
     impl_->matchers.emplace_back(pattern, false);
     auto& m = impl_->matchers.back();
     if(m.error())
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
     m.first_entry_ = impl_->entries.size();
     m.effective_opts_ = impl::compute_effective_opts(0, impl_->opt_);
     m.own_opts_ = impl_->opt_;
@@ -416,10 +417,10 @@ add_middleware(
 }
 
 void
-any_router::
+router_base::
 inline_router(
     std::string_view pattern,
-    any_router&& sub)
+    router_base&& sub)
 {
     impl_->finalize_pending();
 
@@ -436,7 +437,7 @@ inline_router(
     impl_->matchers.emplace_back(pattern, false);
     auto& parent_m = impl_->matchers.back();
     if(parent_m.error())
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
     parent_m.first_entry_ = impl_->entries.size();
 
     auto parent_eff = impl::compute_effective_opts(0, impl_->opt_);
@@ -450,7 +451,7 @@ inline_router(
         max_sub_depth = (std::max)(max_sub_depth,
             static_cast<std::size_t>(sm.depth_));
     if(max_sub_depth + 1 >= max_path_depth)
-        detail::throw_length_error(
+        throw_length_error(
             "router nesting depth exceeds max_path_depth");
 
     // Compute offsets for re-indexing
@@ -501,20 +502,20 @@ inline_router(
 }
 
 std::size_t
-any_router::
+router_base::
 new_route(
     std::string_view pattern)
 {
     impl_->finalize_pending();
 
     if(pattern.empty())
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
 
     auto const idx = impl_->matchers.size();
     impl_->matchers.emplace_back(pattern, true);
     auto& m = impl_->matchers.back();
     if(m.error())
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
     m.first_entry_ = impl_->entries.size();
     m.effective_opts_ = impl::compute_effective_opts(0, impl_->opt_);
     m.own_opts_ = impl_->opt_;
@@ -525,14 +526,14 @@ new_route(
 }
 
 void
-any_router::
+router_base::
 add_to_route(
     std::size_t idx,
     http::method verb,
     handlers hn)
 {
     if(verb == http::method::unknown)
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
 
     auto& m = impl_->matchers[idx];
     for(std::size_t i = 0; i < hn.n; ++i)
@@ -545,7 +546,7 @@ add_to_route(
 }
 
 void
-any_router::
+router_base::
 add_to_route(
     std::size_t idx,
     std::string_view verb,
@@ -577,7 +578,7 @@ add_to_route(
 }
 
 void
-any_router::
+router_base::
 finalize_pending()
 {
     if(impl_)
@@ -585,7 +586,7 @@ finalize_pending()
 }
 
 void
-any_router::
+router_base::
 set_options_handler_impl(
     options_handler_ptr p)
 {
@@ -599,14 +600,14 @@ set_options_handler_impl(
 //------------------------------------------------
 
 route_task
-any_router::
+router_base::
 dispatch(
     http::method verb,
     urls::url_view const& url,
     route_params& p) const
 {
     if(verb == http::method::unknown)
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
 
     impl_->ensure_finalized();
 
@@ -622,14 +623,14 @@ dispatch(
     }
 
     // Initialize params
-    auto& pv = *detail::route_params_access{p};
+    auto& pv = *route_params_access{p};
     pv.kind_ = is_plain;
     pv.verb_ = verb;
     pv.verb_str_.clear();
     pv.ec_.clear();
     pv.ep_ = nullptr;
     p.params.clear();
-    pv.decoded_path_ = detail::pct_decode_path(url.encoded_path());
+    pv.decoded_path_ = pct_decode_path(url.encoded_path());
     if(pv.decoded_path_.empty() || pv.decoded_path_.back() != '/')
     {
         pv.decoded_path_.push_back('/');
@@ -647,14 +648,14 @@ dispatch(
 }
 
 route_task
-any_router::
+router_base::
 dispatch(
     std::string_view verb,
     urls::url_view const& url,
     route_params& p) const
 {
     if(verb.empty())
-        detail::throw_invalid_argument();
+        throw_invalid_argument();
 
     impl_->ensure_finalized();
 
@@ -672,7 +673,7 @@ dispatch(
     }
 
     // Initialize params
-    auto& pv = *detail::route_params_access{p};
+    auto& pv = *route_params_access{p};
     pv.kind_ = is_plain;
     pv.verb_ = method;
     if(pv.verb_ == http::method::unknown)
@@ -682,7 +683,7 @@ dispatch(
     pv.ec_.clear();
     pv.ep_ = nullptr;
     p.params.clear();
-    pv.decoded_path_ = detail::pct_decode_path(url.encoded_path());
+    pv.decoded_path_ = pct_decode_path(url.encoded_path());
     if(pv.decoded_path_.empty() || pv.decoded_path_.back() != '/')
     {
         pv.decoded_path_.push_back('/');
@@ -699,5 +700,6 @@ dispatch(
     return impl_->dispatch_loop(p, is_options);
 }
 
+} // detail
 } // http
 } // boost
