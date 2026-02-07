@@ -12,9 +12,8 @@
 
 namespace boost {
 namespace http {
-namespace detail {
 
-router_base::
+any_router::
 matcher::
 matcher(
     std::string_view pat,
@@ -22,7 +21,7 @@ matcher(
     : decoded_pat_(
         [&pat]
         {
-            auto s = pct_decode(pat);
+            auto s = detail::pct_decode(pat);
             if( s.size() > 1
                 && s.back() == '/')
                 s.pop_back();
@@ -42,7 +41,7 @@ matcher(
 }
 
 bool
-router_base::
+any_router::
 matcher::
 operator()(
     route_params_base& p,
@@ -58,7 +57,7 @@ operator()(
     }
 
     // Convert bitflags to match_options
-    match_options opts{
+    detail::match_options opts{
         p.case_sensitive,
         p.strict,
         end_
@@ -74,6 +73,5 @@ operator()(
     return true;
 }
 
-} // detail
 } // http
 } // boost

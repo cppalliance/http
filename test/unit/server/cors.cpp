@@ -109,8 +109,6 @@ struct cors_test
                 co_return http::route_error(ec);
             co_return http::route_done;
         });
-        http::flat_router fr(std::move(r));
-
         auto parser_cfg = http::make_parser_config(
             http::parser_config{true});
         auto serializer_cfg = http::make_serializer_config(
@@ -121,7 +119,7 @@ struct cors_test
             capy::test::make_stream_pair(f);
 
         http::http_worker worker(
-            server, std::move(fr),
+            server, std::move(r),
             parser_cfg, serializer_cfg);
 
         client.provide(

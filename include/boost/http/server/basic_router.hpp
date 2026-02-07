@@ -11,8 +11,8 @@
 #define BOOST_HTTP_SERVER_BASIC_ROUTER_HPP
 
 #include <boost/http/detail/config.hpp>
+#include <boost/http/server/any_router.hpp>
 #include <boost/http/server/router_types.hpp>
-#include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/method.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
@@ -138,6 +138,9 @@ private:
     path pattern, method, and an associated handler, and the router is then
     used to dispatch the appropriate handler.
 
+    Routes are flattened into contiguous arrays as they are added, so
+    dispatch is always cache-friendly regardless of nesting depth.
+
     Patterns used to create route definitions have percent-decoding applied
     when handlers are mounted. A literal "%2F" in the pattern string is
     indistinguishable from a literal '/'. For example, "/x%2Fz" is the
@@ -156,10 +159,9 @@ private:
         } );
     @endcode
 
-    Router objects are lightweight, shared references to their contents.
-    Copies of a router obtained through construction, conversion, or
-    assignment do not create new instances; they all refer to the same
-    underlying data.
+    Router objects use shared ownership via `shared_ptr`. Copies refer
+    to the same underlying data. Modifying a router after it has been
+    copied is not permitted and results in undefined behavior.
 
     @par Path Pattern Syntax
 
@@ -252,7 +254,7 @@ private:
 
     @par Thread Safety
 
-    Member functions marked `const` such as @ref dispatch and @ref resume
+    Member functions marked `const` such as @ref dispatch
     may be called concurrently on routers that refer to the same data.
     Modification of routers through calls to non-`const` member functions
     is not thread-safe and must not be performed concurrently with any
@@ -262,8 +264,8 @@ private:
 
     Routers may be nested to a maximum depth of `max_path_depth` (16 levels).
     Exceeding this limit throws `std::length_error` when the nested router
-    is added via @ref use. This limit ensures that @ref flat_router dispatch
-    never overflows its fixed-size tracking arrays.
+    is added via @ref use. This limit ensures that dispatch never overflows
+    its fixed-size tracking arrays.
 
     @par Constraints
 
@@ -272,7 +274,7 @@ private:
     @tparam Params The type of the parameters object passed to handlers.
 */
 template<class P>
-class basic_router : public detail::router_base
+class basic_router : public any_router
 {
     static_assert(std::derived_from<P, route_params_base>);
 
@@ -290,12 +292,12 @@ class basic_router : public detail::router_base
                 return is_error;
             }
             else if constexpr(
-                std::is_base_of_v<router_base, T> &&
+                std::is_base_of_v<any_router, T> &&
                 std::is_convertible_v<T const volatile*,
-                    router_base const volatile*> &&
-                std::is_constructible_v<T, basic_router<P>>)
+                    any_router const volatile*>)
             {
-                return is_router;        
+                // Nested router -- handled by inline_router, not handler_impl
+                return is_invalid;
             }
             else if constexpr (detail::returns_route_task<
                 T, P&, std::exception_ptr>)
@@ -307,6 +309,12 @@ class basic_router : public detail::router_base
                 return is_invalid;
             }
         }();
+
+    template<class T>
+    static inline constexpr bool is_sub_router =
+        std::is_base_of_v<any_router, std::decay_t<T>> &&
+        std::is_convertible_v<std::decay_t<T> const volatile*,
+            any_router const volatile*>;
 
     template<class... Ts>
     static inline constexpr bool handler_crvals =
@@ -349,19 +357,8 @@ class basic_router : public detail::router_base
             }
             else
             {
-                // impossible with flat router
                 std::terminate();
             }
-        }
-
-        detail::router_base*
-        get_router() noexcept override
-        {
-            if constexpr (std::is_base_of_v<
-                detail::router_base, std::decay_t<H>>)
-                return &h;
-            else
-                return nullptr;
         }
     };
 
@@ -447,8 +444,10 @@ public:
     */
     class fluent_route;
 
-    basic_router(basic_router const&) = delete;
-    basic_router& operator=(basic_router const&) = delete;
+    basic_router(basic_router const&) = default;
+    basic_router& operator=(basic_router const&) = default;
+    basic_router(basic_router&&) = default;
+    basic_router& operator=(basic_router&&) = default;
 
     /** Constructor.
 
@@ -465,7 +464,7 @@ public:
     explicit
     basic_router(
         router_options options = {})
-        : router_base(options.v_)
+        : any_router(options.v_)
     {
     }
 
@@ -491,7 +490,7 @@ public:
         requires std::derived_from<OtherP, P>
     basic_router(
         basic_router<OtherP>&& other) noexcept
-        : router_base(std::move(other))
+        : any_router(std::move(other))
     {
     }
 
@@ -541,14 +540,25 @@ public:
         std::string_view pattern,
         H1&& h1, HN&&... hn)
     {
-        static_assert(handler_crvals<H1, HN...>,
-            "pass handlers by value or std::move()");
-        static_assert(! handler_check<8, H1, HN...>,
-            "cannot use exception handlers here");
-        static_assert(handler_check<7, H1, HN...>,
-            "invalid handler signature");
-        add_impl(pattern, make_handlers(
-            std::forward<H1>(h1), std::forward<HN>(hn)...));
+        // Single sub-router case
+        if constexpr(sizeof...(HN) == 0 && is_sub_router<H1>)
+        {
+            static_assert(!std::is_lvalue_reference_v<H1>,
+                "pass sub-routers by value or std::move()");
+            this->inline_router(pattern,
+                std::forward<H1>(h1));
+        }
+        else
+        {
+            static_assert(handler_crvals<H1, HN...>,
+                "pass handlers by value or std::move()");
+            static_assert(! handler_check<8, H1, HN...>,
+                "cannot use exception handlers here");
+            static_assert(handler_check<3, H1, HN...>,
+                "invalid handler signature");
+            this->add_middleware(pattern, make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
+        }
     }
 
     /** Add global middleware handlers.
@@ -587,12 +597,6 @@ public:
     void use(H1&& h1, HN&&... hn)
         requires (!std::convertible_to<H1, std::string_view>)
     {
-        static_assert(handler_crvals<H1, HN...>,
-            "pass handlers by value or std::move()");
-        static_assert(! handler_check<8, H1, HN...>,
-            "cannot use exception handlers here");
-        static_assert(handler_check<7, H1, HN...>,
-            "invalid handler signature");
         use(std::string_view(),
             std::forward<H1>(h1), std::forward<HN>(hn)...);
     }
@@ -632,7 +636,7 @@ public:
             "pass handlers by value or std::move()");
         static_assert(handler_check<8, H1, HN...>,
             "only exception handlers are allowed here");
-        add_impl(pattern, make_handlers(
+        this->add_middleware(pattern, make_handlers(
             std::forward<H1>(h1), std::forward<HN>(hn)...));
     }
 
@@ -810,8 +814,9 @@ public:
         static_assert(
             std::is_invocable_r_v<route_task, const std::decay_t<H>&, P&, std::string_view>,
             "Handler must have signature: route_task(P&, std::string_view)");
-        this->options_handler_ = std::make_unique<options_handler_impl<H>>(
-            std::forward<H>(h));
+        this->set_options_handler_impl(
+            std::make_unique<options_handler_impl<H>>(
+                std::forward<H>(h)));
     }
 };
 
@@ -852,7 +857,7 @@ public:
             fluent_route
     {
         static_assert(handler_check<1, H1, HN...>);
-        owner_.add_impl(owner_.get_layer(layer_idx_), std::string_view{},
+        owner_.add_to_route(route_idx_, std::string_view{},
             owner_.make_handlers(
                 std::forward<H1>(h1), std::forward<HN>(hn)...));
         return *this;
@@ -883,8 +888,9 @@ public:
             fluent_route
     {
         static_assert(handler_check<1, H1, HN...>);
-        owner_.add_impl(owner_.get_layer(layer_idx_), verb, owner_.make_handlers(
-            std::forward<H1>(h1), std::forward<HN>(hn)...));
+        owner_.add_to_route(route_idx_, verb,
+            owner_.make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
         return *this;
     }
 
@@ -914,8 +920,9 @@ public:
             fluent_route
     {
         static_assert(handler_check<1, H1, HN...>);
-        owner_.add_impl(owner_.get_layer(layer_idx_), verb, owner_.make_handlers(
-            std::forward<H1>(h1), std::forward<HN>(hn)...));
+        owner_.add_to_route(route_idx_, verb,
+            owner_.make_handlers(
+                std::forward<H1>(h1), std::forward<HN>(hn)...));
         return *this;
     }
 
@@ -924,12 +931,12 @@ private:
     fluent_route(
         basic_router& owner,
         std::string_view pattern)
-        : layer_idx_(owner.new_layer_idx(pattern))
+        : route_idx_(owner.new_route(pattern))
         , owner_(owner)
     {
     }
 
-    std::size_t layer_idx_;
+    std::size_t route_idx_;
     basic_router& owner_;
 };
 

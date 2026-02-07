@@ -47,13 +47,10 @@ int main()
             return route::send;
         });
     
-    // Flatten for dispatch
-    flat_router fr(std::move(r));
-    
     // Dispatch a request
     route_params params;
     // ... populate params from parsed request ...
-    auto result = co_await fr.dispatch(method::get, url, params);
+    auto result = co_await r.dispatch(method::get, url, params);
 }
 ----
 
@@ -354,7 +351,7 @@ matches `show_stats`.
 
 == Dispatching Requests
 
-Convert the router to a `flat_router` for efficient dispatch:
+Dispatch requests directly on the router:
 
 [source,cpp]
 ----
@@ -362,15 +359,12 @@ Convert the router to a `flat_router` for efficient dispatch:
 router<route_params> r;
 // ... add routes ...
 
-// Flatten for dispatch (do this once)
-flat_router fr(std::move(r));
-
 // Dispatch requests
 route_params p;
 p.url = parsed_url;
 p.req = parsed_request;
 
-auto result = co_await fr.dispatch(
+auto result = co_await r.dispatch(
     p.req.method(),
     p.url,
     p);
@@ -393,8 +387,8 @@ case route::close:
 }
 ----
 
-The `flat_router` pre-processes routes into a structure optimized for
-dispatch performance. Create it once after all routes are registered.
+The router internally flattens routes for efficient dispatch. The first
+call to `dispatch()` finalizes the routing table automatically.
 
 == The route_params Object
 
@@ -537,9 +531,6 @@ int main()
         p.set_body(ec.message());
         return route::send;
     });
-    
-    // Flatten and dispatch
-    flat_router fr(std::move(r));
     
     // ... integrate with your I/O layer ...
 }

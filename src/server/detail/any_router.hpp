@@ -7,28 +7,25 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_SRC_SERVER_DETAIL_ROUTER_BASE_HPP
-#define BOOST_HTTP_SRC_SERVER_DETAIL_ROUTER_BASE_HPP
+#ifndef BOOST_HTTP_SRC_SERVER_DETAIL_ANY_ROUTER_HPP
+#define BOOST_HTTP_SRC_SERVER_DETAIL_ANY_ROUTER_HPP
 
-#include <boost/http/server/detail/router_base.hpp>
+#include <boost/http/server/any_router.hpp>
 #include <boost/http/detail/except.hpp>
 #include "src/server/detail/route_match.hpp"
+#include <mutex>
 
 namespace boost {
 namespace http {
-namespace detail {
 
-// An entry describes a single route handler.
-// This can be an end route or a middleware.
-// Members ordered largest-to-smallest for optimal packing.
-struct router_base::entry
+struct any_router::entry
 {
     // ~32 bytes (SSO string)
     std::string verb_str;
 
     // 8 bytes each
     handler_ptr h;
-    std::size_t matcher_idx = 0;    // flat_router: index into matchers vector
+    std::size_t matcher_idx = 0;
 
     // 4 bytes
     http::method verb = http::method::unknown;
@@ -36,7 +33,7 @@ struct router_base::entry
     // 1 byte (+ 3 bytes padding)
     bool all;
 
-    // all
+    // all methods
     explicit entry(
         handler_ptr h_) noexcept
         : h(std::move(h_))
@@ -44,7 +41,7 @@ struct router_base::entry
     {
     }
 
-    // verb match
+    // known verb match
     entry(
         http::method verb_,
         handler_ptr h_) noexcept
@@ -56,7 +53,7 @@ struct router_base::entry
             http::method::unknown);
     }
 
-    // verb match
+    // string verb match
     entry(
         std::string_view verb_str_,
         handler_ptr h_) noexcept
@@ -83,49 +80,65 @@ struct router_base::entry
     }
 };
 
-// A layer is a set of entries that match a route
-struct router_base::layer
+struct any_router::impl
 {
-    matcher match;
     std::vector<entry> entries;
+    std::vector<matcher> matchers;
 
-    // middleware layer
-    layer(
-        std::string_view pat,
-        handlers hn)
-        : match(pat, false)
-    {
-        if(match.error())
-            throw_invalid_argument();
-        entries.reserve(hn.n);
-        for(std::size_t i = 0; i < hn.n; ++i)
-            entries.emplace_back(std::move(hn.p[i]));
-    }
+    std::size_t pending_route_ = SIZE_MAX;
+    mutable std::once_flag finalized_;
 
-    // route layer
-    explicit layer(
-        std::string_view pat)
-        : match(pat, true)
-    {
-        if(match.error())
-            throw_invalid_argument();
-    }
-};
+    options_handler_ptr options_handler_;
+    std::uint64_t global_methods_ = 0;
+    std::vector<std::string> global_custom_verbs_;
+    std::string global_allow_header_;
 
-struct router_base::impl
-{
-    std::vector<layer> layers;
-    opt_flags opt;
+    opt_flags opt_;
     std::size_t depth_ = 0;
 
     explicit impl(
-        opt_flags opt_) noexcept
-        : opt(opt_)
+        opt_flags opt) noexcept
+        : opt_(opt)
     {
     }
+
+    void finalize_pending();
+
+    // Thread-safe lazy finalization for dispatch
+    void ensure_finalized() const
+    {
+        std::call_once(finalized_, [this]() {
+            const_cast<impl*>(this)->finalize_pending();
+        });
+    }
+
+    void update_allow_for_entry(
+        matcher& m,
+        entry const& e);
+
+    void rebuild_global_allow_header();
+
+    route_task
+    dispatch_loop(
+        route_params_base& p,
+        bool is_options) const;
+
+    static std::string
+    build_allow_header(
+        std::uint64_t methods,
+        std::vector<std::string> const& custom);
+
+    static opt_flags
+    compute_effective_opts(
+        opt_flags parent,
+        opt_flags child);
+
+    static void
+    restore_path(
+        route_params_base& p,
+        std::size_t base_len);
 };
 
-} // detail
 } // http
 } // boost
 

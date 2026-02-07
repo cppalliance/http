@@ -18,6 +18,7 @@
 #include <boost/capy/task.hpp>
 #include <boost/system/error_category.hpp>
 #include <boost/system/error_code.hpp>
+#include <concepts>
 #include <exception>
 #include <string>
 #include <type_traits>
@@ -317,9 +318,7 @@ using route_task = capy::task<route_result>;
 
 //------------------------------------------------
 
-namespace detail {
-class router_base;
-} // detail
+class any_router;
 template<class> class basic_router;
 
 struct route_params_base_privates
@@ -337,7 +336,7 @@ struct route_params_base_privates
     bool addedSlash_ = false;
     bool case_sensitive = false;
     bool strict = false;
-    char kind_ = 0;  // dispatch mode, initialized by flat_router::dispatch()
+    char kind_ = 0;  // dispatch mode, initialized by any_router::dispatch()
 };
 
 /** Base class for request objects
@@ -447,6 +446,10 @@ private:
 
 
 namespace detail {
+
+template<class H, class... Args>
+concept returns_route_task = std::same_as<
+    std::invoke_result_t<H, Args...>, route_task>;
 
 struct route_params_access
 {

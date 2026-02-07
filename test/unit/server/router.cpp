@@ -9,9 +9,8 @@
 
 // Test that header file is self-contained.
 #include <boost/http/server/basic_router.hpp>
-#include <boost/http/server/flat_router.hpp>
+#include <boost/http/server/any_router.hpp>
 #include <boost/http/server/router.hpp>
-#include <boost/http/server/detail/router_base.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
 #include "test_suite.hpp"
@@ -106,11 +105,10 @@ struct router_test
         core::string_view url,
         route_result rv0 = route_done)
     {
-        flat_router fr(std::move(r));
         params req;
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
-            fr.dispatch(http::method::get, urls::url_view(url), req));
+            r.dispatch(http::method::get, urls::url_view(url), req));
         BOOST_TEST(rv.what() == rv0.what());
     }
 
@@ -120,11 +118,10 @@ struct router_test
         core::string_view url,
         route_result rv0 = route_done)
     {
-        flat_router fr(std::move(r));
         params req;
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
-            fr.dispatch(verb, urls::url_view(url), req));
+            r.dispatch(verb, urls::url_view(url), req));
         BOOST_TEST(rv.what() == rv0.what());
     }
 
@@ -134,11 +131,10 @@ struct router_test
         core::string_view url,
         route_result rv0 = route_done)
     {
-        flat_router fr(std::move(r));
         params req;
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
-            fr.dispatch(verb, urls::url_view(url), req));
+            r.dispatch(verb, urls::url_view(url), req));
         BOOST_TEST(rv.what() == rv0.what());
     }
 
@@ -350,10 +346,9 @@ struct router_test
             {
                 test_router r;
                 r.use("/a", make_deep(make_deep,
-                    detail::router_base::max_path_depth - 2));
+                    any_router::max_path_depth - 2));
                 // Should not throw
-                flat_router fr(std::move(r));
-                (void)fr;
+                (void)r;
             }
 
             // max_path_depth + 1 should throw
@@ -361,7 +356,7 @@ struct router_test
                 [&]{
                     test_router r;
                     r.use("/a", make_deep(make_deep,
-                        detail::router_base::max_path_depth));
+                        any_router::max_path_depth));
                 }(),
                 std::length_error);
         }
@@ -411,10 +406,9 @@ struct router_test
         {
             test_router r;
             r.use(h_next);
-            flat_router fr(std::move(r));
             params req;
             BOOST_TEST_THROWS(
-                capy::test::run_blocking()(fr.dispatch(
+                capy::test::run_blocking()(r.dispatch(
                     http::method::unknown, urls::url_view("/"), req)),
                 std::invalid_argument);
         }
@@ -423,10 +417,9 @@ struct router_test
         {
             test_router r;
             r.use(h_next);
-            flat_router fr(std::move(r));
             params req;
             BOOST_TEST_THROWS(
-                capy::test::run_blocking()(fr.dispatch(
+                capy::test::run_blocking()(r.dispatch(
                     "", urls::url_view("/"), req)),
                 std::invalid_argument);
         }

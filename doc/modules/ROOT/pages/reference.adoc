@@ -173,7 +173,7 @@ cpp:boost::http::dotfiles_policy[dotfiles_policy]
 
 cpp:boost::http::etag_options[etag_options]
 
-cpp:boost::http::flat_router[flat_router]
+cpp:boost::http::any_router[any_router]
 
 cpp:boost::http::range_result[range_result]
 
