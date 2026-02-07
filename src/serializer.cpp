@@ -239,7 +239,6 @@ class serializer::impl
     enum class style
     {
         empty,
-        buffers,
         stream
     };
 
@@ -247,7 +246,6 @@ class serializer::impl
     detail::workspace ws_;
 
     std::unique_ptr<detail::filter> filter_;
-    cbs_gen* cbs_gen_ = nullptr;
 
     capy::circular_dynamic_buffer out_;
     capy::circular_dynamic_buffer in_;
@@ -318,40 +316,6 @@ public:
             case style::empty:
                 break;
 
-            case style::buffers:
-            {
-                // add more buffers if prepped_ is half empty.
-                if(more_input_ &&
-                    prepped_.capacity() >= prepped_.size())
-                {
-                    prepped_.slide_to_front();
-                    while(prepped_.capacity() != 0)
-                    {
-                        auto buf = cbs_gen_->next();
-                        if(buf.size() == 0)
-                            break;
-                        prepped_.append(buf);
-                    }
-                    if(cbs_gen_->is_empty())
-                    {
-                        if(is_chunked_)
-                        {
-                            if(prepped_.capacity() != 0)
-                            {
-                                prepped_.append(
-                                    crlf_and_final_chunk);
-                                more_input_ = false;
-                            }
-                        }
-                        else
-                        {
-                            more_input_ = false;
-                        }
-                    }
-                }
-                return detail::make_span(prepped_);
-            }
-
             case style::stream:
                 if(out_.size() == 0 && is_header_done() && more_input_)
                     BOOST_HTTP_RETURN_EC(
@@ -388,44 +352,6 @@ public:
                     out_finish();
                 }
 
-                break;
-            }
-
-            case style::buffers:
-            {
-                while(out_capacity() != 0 && !filter_done_)
-                {
-                    if(more_input_ && tmp_.size() == 0)
-                    {
-                        tmp_ = cbs_gen_->next();
-                        if(tmp_.size() == 0) // cbs_gen_ is empty
-                            more_input_ = false;
-                    }
-
-                    const auto rs = filter_->process(
-                        detail::make_span(out_prepare()),
-                        {{ {tmp_}, {} }},
-                        more_input_);
-
-                    if(rs.ec)
-                    {
-                        ws_.clear();
-                        state_ = state::reset;
-                        return rs.ec;
-                    }
-
-                    capy::remove_prefix(tmp_, rs.in_bytes);
-                    out_commit(rs.out_bytes);
-
-                    if(rs.out_short)
-                        break;
-
-                    if(rs.finished)
-                    {
-                        filter_done_ = true;
-                        out_finish();
-                    }
-                }
                 break;
             }
 
@@ -610,59 +536,6 @@ public:
     }
 
     void
-    start_buffers(
-        message_base const& m,
-        cbs_gen& cbs_gen)
-    {
-        // start_init() already called 
-        style_ = style::buffers;
-        cbs_gen_ = &cbs_gen;
-
-        if(!filter_)
-        {
-            auto stats = cbs_gen_->stats();
-            auto batch_size = clamp(stats.count, 16);
-
-            prepped_ = make_array(
-                1 + // header
-                batch_size + // buffers
-                (is_chunked_ ? 2 : 0)); // chunk header + final chunk
-
-            prepped_.append({ m.h_.cbuf, m.h_.size });
-            more_input_ = (batch_size != 0);
-
-            if(is_chunked_)
-            {
-                if(!more_input_)
-                {
-                    prepped_.append(final_chunk);
-                }
-                else
-                {
-                    auto h_len = chunk_header_len(stats.size);
-                    capy::mutable_buffer mb(
-                        ws_.reserve_front(h_len), h_len);
-                    write_chunk_header({{ {mb}, {} }}, stats.size);    
-                    prepped_.append(mb);
-                }
-            }
-            return;
-        }
-
-        // filter
-
-        prepped_ = make_array(
-            1 + // header
-            2); // out buffer pairs
-
-        out_init();
-
-        prepped_.append({ m.h_.cbuf, m.h_.size });
-        tmp_ = {};
-        more_input_ = true;
-    }
-
-    void
     start_stream(message_base const& m)
     {
         start_init(m);
@@ -678,6 +551,24 @@ public:
             auto const n = (ws_.size() - 1) / 2;
             in_ = { ws_.reserve_front(n), n };
         }
+
+        out_init();
+
+        prepped_.append({ m.h_.cbuf, m.h_.size });
+        more_input_ = true;
+    }
+
+    // Like start_stream but without in_ allocation.
+    // Entire workspace is used for output buffering.
+    void
+    start_buffers_direct(message_base const& m)
+    {
+        start_init(m);
+        style_ = style::stream;
+
+        prepped_ = make_array(
+            1 + // header
+            2); // out buffer pairs
 
         out_init();
 
@@ -730,6 +621,12 @@ public:
 
     bool
     is_done() const noexcept
+    {
+        return state_ == state::start;
+    }
+
+    bool
+    is_start() const noexcept
     {
         return state_ == state::start;
     }
@@ -869,14 +766,6 @@ serializer(
 {
 }
 
-serializer::
-serializer(
-    std::shared_ptr<serializer_config_impl const> cfg,
-    message_base const& m)
-    : impl_(new impl(std::move(cfg), m))
-{
-}
-
 void
 serializer::
 reset() noexcept
@@ -895,14 +784,6 @@ set_message(message_base const& m) noexcept
 
 void
 serializer::
-start(message_base const& m)
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_empty(m);
-}
-
-void
-serializer::
 start()
 {
     if(!impl_ || !impl_->msg_)
@@ -912,20 +793,29 @@ start()
 
 void
 serializer::
-start_stream(
-    message_base const& m)
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_stream(m);
-}
-
-void
-serializer::
 start_stream()
 {
     if(!impl_ || !impl_->msg_)
         detail::throw_logic_error();
     impl_->start_stream(*impl_->msg_);
+}
+
+void
+serializer::
+start_writes()
+{
+    if(!impl_ || !impl_->msg_)
+        detail::throw_logic_error();
+    impl_->start_stream(*impl_->msg_);
+}
+
+void
+serializer::
+start_buffers()
+{
+    if(!impl_ || !impl_->msg_)
+        detail::throw_logic_error();
+    impl_->start_buffers_direct(*impl_->msg_);
 }
 
 auto
@@ -953,6 +843,14 @@ is_done() const noexcept
     return impl_->is_done();
 }
 
+bool
+serializer::
+is_start() const noexcept
+{
+    BOOST_ASSERT(impl_);
+    return impl_->is_start();
+}
+
 //------------------------------------------------
 
 detail::workspace&
@@ -961,24 +859,6 @@ ws()
 {
     BOOST_ASSERT(impl_);
     return impl_->ws();
-}
-
-void
-serializer::
-start_init(message_base const& m)
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_init(m);
-}
-
-void
-serializer::
-start_buffers(
-    message_base const& m,
-    cbs_gen& cbs_gen)
-{
-    BOOST_ASSERT(impl_);
-    impl_->start_buffers(m, cbs_gen);
 }
 
 //------------------------------------------------

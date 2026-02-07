@@ -15,42 +15,41 @@ automatically.
 
 == Basic Usage
 
-Serialization follows a push model. You provide a message, then pull output
-buffers until complete:
+Serialization follows a two-step model: associate a message with `set_message`,
+then choose a body mode. For messages without a body, call `start` and pull
+output buffers until complete:
 
 [source,cpp]
 ----
-// 1. Install serializer service with configuration
-serializer::config cfg;
-install_serializer_service(cfg);
+// 1. Create serializer with configuration
+auto cfg = make_serializer_config(serializer_config{});
+serializer sr(cfg);
 
-// 2. Create serializer
-serializer sr;
-
-// 3. Start with a message
+// 2. Associate a message
 response res(status::ok);
-res.set(field::content_type, "text/plain");
-sr.start(res, "Hello, world!");
+res.set_payload_size(0);
+sr.set_message(res);
+sr.start();
 
-// 4. Pull output and write to socket
+// 3. Pull output and write to socket
 while (!sr.is_done())
 {
     auto result = sr.prepare();
     if (!result)
         throw system::system_error(result.error());
-    
-    socket.write(*result);
+
+    co_await socket.write(*result);
     sr.consume(capy::buffer_size(*result));
 }
 ----
 
 == Configuration
 
-Serializer behavior is controlled through configuration installed globally:
+Serializer behavior is controlled through configuration:
 
 [source,cpp]
 ----
-serializer::config cfg;
+serializer_config cfg;
 
 // Content encoding (compression)
 cfg.apply_gzip_encoder = true;       // Enable gzip compression
@@ -68,94 +67,107 @@ cfg.brotli_comp_window = 18;         // 10-24
 
 // Buffer settings
 cfg.payload_buffer = 8192;           // Internal buffer size
-cfg.max_type_erase = 1024;           // Space for buffer sequence storage
 
-install_serializer_service(cfg);
+auto shared_cfg = make_serializer_config(cfg);
+serializer sr(shared_cfg);
 ----
 
-== Body Sources
+== Writing Body Data
 
-The serializer supports several ways to provide message body content.
-
-=== No Body
-
-For messages without a body (HEAD responses, 204 No Content, etc.):
+The serializer provides two interfaces for writing body data through a
+`sink` object. Both are accessed through `sink_for`:
 
 [source,cpp]
 ----
-response res(status::no_content);
-sr.start(res);  // No body argument
+auto sink = sr.sink_for(socket);
 ----
 
-=== Buffer Sequence Body
+=== WriteSink (Caller-Owned Buffers)
 
-Provide the body as in-memory buffers:
+Write body data from your own buffers. The sink copies the data through
+the serializer automatically. This is the simplest approach when you
+already have the body data in memory:
 
 [source,cpp]
 ----
 response res(status::ok);
 res.set(field::content_type, "text/plain");
-res.set_content_length(13);
+res.set_payload_size(13);
+sr.set_message(res);
 
-std::string body = "Hello, world!";
-sr.start(res, capy::buffer(body));
+auto sink = sr.sink_for(socket);
+co_await sink.write_eof(
+    capy::make_buffer(std::string_view("Hello, world!")));
 ----
 
-Multiple buffers are supported:
-
-[source,cpp]
-----
-std::string part1 = "Hello, ";
-std::string part2 = "world!";
-std::array<capy::const_buffer, 2> buffers = {
-    capy::buffer(part1),
-    capy::buffer(part2)
-};
-
-sr.start(res, buffers);
-----
-
-=== Stream Body
-
-For maximum flexibility, push body data incrementally:
+For large bodies or incremental generation, use multiple writes:
 
 [source,cpp]
 ----
 response res(status::ok);
-res.set(field::content_type, "application/octet-stream");
-// No content-length - will use chunked encoding
+res.set_chunked(true);
+sr.set_message(res);
 
-sr.start_stream(res);
+auto sink = sr.sink_for(socket);
+co_await sink.write(capy::make_buffer(part1));
+co_await sink.write(capy::make_buffer(part2));
+co_await sink.write_eof();
+----
 
-// Push body data as it becomes available
-while (has_more_data())
+=== BufferSink (Zero-Copy)
+
+Write directly into the serializer's internal buffer for zero-copy
+body generation. This avoids copying when the body is produced
+incrementally (reading from a file, generating on-the-fly):
+
+[source,cpp]
+----
+response res(status::ok);
+res.set_chunked(true);
+sr.set_message(res);
+
+auto sink = sr.sink_for(socket);
+
+// Get writable buffers
+capy::mutable_buffer arr[16];
+auto bufs = sink.prepare(arr);
+
+// Write directly into serializer memory
+auto n = read_from_file(file, bufs);
+co_await sink.commit(n);
+
+// More data...
+bufs = sink.prepare(arr);
+n = read_from_file(file, bufs);
+co_await sink.commit_eof(n);
+----
+
+=== Lazy Start
+
+The sink starts the serializer automatically on first use. You do not
+need to call `start_writes` or `start_buffers` explicitly when using
+the sink:
+
+* `prepare` / `commit` / `commit_eof` trigger `start_writes`
+* `write` / `write_eof` trigger `start_buffers`
+
+== Sink Lifetime
+
+The sink is a lightweight handle that can be created once and reused
+across multiple messages. The serializer must outlive the sink:
+
+[source,cpp]
+----
+serializer sr(cfg);
+auto sink = sr.sink_for(socket);
+
+for (auto& req : requests)
 {
-    // Get buffer to write into
-    auto buf = sr.stream_prepare();
-    std::size_t n = generate_data(buf);
-    sr.stream_commit(n);
-    
-    // Output is available
-    auto result = sr.prepare();
-    if (result)
-    {
-        socket.write(*result);
-        sr.consume(capy::buffer_size(*result));
-    }
-}
-
-// Signal end of body
-sr.stream_close();
-
-// Flush remaining output
-while (!sr.is_done())
-{
-    auto result = sr.prepare();
-    if (result)
-    {
-        socket.write(*result);
-        sr.consume(capy::buffer_size(*result));
-    }
+    response res = handle(req);
+    sr.set_message(res);
+    co_await sink.write_eof(
+        capy::make_buffer(body));
+    sr.reset();
 }
 ----
 
@@ -170,24 +182,16 @@ The serializer uses chunked transfer encoding automatically when:
 ----
 response res(status::ok);
 res.set(field::content_type, "text/event-stream");
-// No Content-Length - chunked encoding will be used
+sr.set_message(res);
 
-sr.start_stream(res);
+auto sink = sr.sink_for(socket);
 
 // Send chunks as events occur
 for (auto& event : events)
-{
-    auto buf = sr.stream_prepare();
-    auto n = format_event(event, buf);
-    sr.stream_commit(n);
-    
-    // Flush to client
-    auto result = sr.prepare();
-    socket.write(*result);
-    sr.consume(capy::buffer_size(*result));
-}
+    co_await sink.write(
+        capy::make_buffer(format_event(event)));
 
-sr.stream_close();
+co_await sink.write_eof();
 ----
 
 == Content Encoding
@@ -198,9 +202,9 @@ compresses the body automatically:
 [source,cpp]
 ----
 // Enable in config
-serializer::config cfg;
+serializer_config cfg;
 cfg.apply_gzip_encoder = true;
-cfg.apply_brotli_encoder = true;  // Requires brotli encode service
+cfg.apply_brotli_encoder = true;
 
 // Check Accept-Encoding from request
 if (request_accepts_gzip(req))
@@ -209,7 +213,10 @@ if (request_accepts_gzip(req))
     // Body will be compressed
 }
 
-sr.start(res, large_body);
+sr.set_message(res);
+auto sink = sr.sink_for(socket);
+co_await sink.write_eof(
+    capy::make_buffer(large_body));
 ----
 
 For detailed information on compression services, see:
@@ -219,37 +226,47 @@ For detailed information on compression services, see:
 
 == Expect: 100-continue
 
-The serializer handles the 100-continue handshake:
+The serializer handles the 100-continue handshake. When `prepare`
+returns `error::expect_100_continue`, the header has been sent and
+the serializer is waiting for the caller to decide whether to
+continue sending the body:
 
 [source,cpp]
 ----
-response res(status::ok);
-// ... set headers ...
-sr.start(res, capy::buffer(body));
+sr.set_message(res);
 
+auto sink = sr.sink_for(socket);
+// Write body data
+co_await sink.write_eof(
+    capy::make_buffer(body));
+----
+
+For low-level control over the handshake:
+
+[source,cpp]
+----
+sr.set_message(res);
+sr.start_writes();
+
+// Pull header
 while (!sr.is_done())
 {
     auto result = sr.prepare();
-    
+
     if (result.error() == error::expect_100_continue)
     {
-        // Client wants confirmation before sending body
-        // Send 100 Continue response
-        response cont(status::continue_);
-        serializer sr100;
-        sr100.start(cont);
-        // ... write sr100 output ...
-        
-        // Continue with original response
-        continue;
+        // Send 100 Continue interim response
+        break;
     }
-    
+
     if (!result)
         throw system::system_error(result.error());
-    
-    socket.write(*result);
+
+    co_await socket.write(*result);
     sr.consume(capy::buffer_size(*result));
 }
+
+// Continue with body...
 ----
 
 == Error Handling
@@ -263,7 +280,7 @@ auto result = sr.prepare();
 if (!result)
 {
     auto ec = result.error();
-    
+
     if (ec == error::expect_100_continue)
     {
         // Not an error - handle 100-continue
@@ -275,7 +292,8 @@ if (!result)
     else
     {
         // Real error
-        std::cerr << "Serialization error: " << ec.message() << "\n";
+        std::cerr << "Serialization error: "
+            << ec.message() << "\n";
     }
 }
 ----
@@ -286,27 +304,17 @@ Reuse the serializer for multiple messages on the same connection:
 
 [source,cpp]
 ----
-serializer sr;
+serializer sr(cfg);
+auto sink = sr.sink_for(socket);
 
 for (auto& request : requests)
 {
-    // Process request, build response
     response res = handle(request);
-    
-    // Serialize response
-    sr.start(res, response_body);
-    
-    while (!sr.is_done())
-    {
-        auto result = sr.prepare();
-        if (result)
-        {
-            socket.write(*result);
-            sr.consume(capy::buffer_size(*result));
-        }
-    }
-    
-    // Reset for next message
+    sr.set_message(res);
+
+    co_await sink.write_eof(
+        capy::make_buffer(response_body));
+
     sr.reset();
 }
 ----

@@ -24,6 +24,7 @@
 #include <boost/system/result.hpp>
 
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 #include <utility>
 
@@ -35,29 +36,41 @@ class message_base;
 
 //------------------------------------------------
 
-/** A serializer for HTTP/1 messages
+/** A serializer for HTTP/1 messages.
 
-    This is used to serialize one or more complete
-    HTTP/1 messages. Each message consists of a
-    required header followed by an optional body.
+    Transforms one or more HTTP/1 messages into bytes for
+    transmission. Each message consists of a required header
+    followed by an optional body.
 
-    Objects of this type operate using an "input area" and an
-    "output area". Callers provide data to the input area
-    using one of the @ref start or @ref start_stream member
-    functions. After input is provided, serialized data
-    becomes available in the serializer's output area in the
-    form of a constant buffer sequence.
+    Use @ref set_message to associate a message, then choose
+    a body mode:
 
-    Callers alternate between filling the input area and
-    consuming the output area until all the input has been
-    provided and all the output data has been consumed, or
-    an error occurs.
+    @li @ref start — empty body (header only)
+    @li @ref start_writes — body via internal buffer
+        (BufferSink path)
+    @li @ref start_buffers — body via caller-owned buffers
+        (WriteSink path)
 
-    After calling @ref start, the caller must ensure that the
-    contents of the associated message are not changed or
-    destroyed until @ref is_done returns true, @ref reset is
-    called, or the serializer is destroyed, otherwise the
-    behavior is undefined.
+    Alternatively, obtain a @ref sink via @ref sink_for and
+    let it start the serializer lazily on first use.
+
+    The caller must ensure that the associated message is not
+    changed or destroyed until @ref is_done returns true,
+    @ref reset is called, or the serializer is destroyed.
+
+    @par Example
+    @code
+    http::serializer sr(cfg);
+    http::response res;
+    res.set_payload_size(5);
+    sr.set_message(res);
+
+    auto sink = sr.sink_for(socket);
+    co_await sink.write_eof(
+        capy::make_buffer(std::string_view("hello")));
+    @endcode
+
+    @see @ref sink, @ref set_message.
 */
 class serializer
 {
@@ -111,29 +124,6 @@ public:
     explicit
     serializer(
         std::shared_ptr<serializer_config_impl const> cfg);
-
-    /** Constructor with associated message.
-
-        Constructs a serializer with the provided configuration
-        and associates a message for the serializer's lifetime.
-        The message must remain valid until the serializer is
-        destroyed.
-
-        @par Postconditions
-        @code
-        this->is_done() == true
-        @endcode
-
-        @param cfg Shared pointer to serializer configuration.
-
-        @param m The message to associate.
-
-        @see @ref make_serializer_config, @ref serializer_config.
-    */
-    BOOST_HTTP_DECL
-    serializer(
-        std::shared_ptr<serializer_config_impl const> cfg,
-        message_base const& m);
 
     /** Constructor.
 
@@ -201,57 +191,13 @@ public:
     void
     set_message(message_base const& m) noexcept;
 
-    /** Start serializing a message with an empty body
-
-        This function prepares the serializer to create a message which
-        has an empty body.
-        Ownership of the specified message is not transferred; the caller is
-        responsible for ensuring the lifetime of the object extends until the
-        serializer is done.
-
-        @par Preconditions
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-        Exceptions thrown if there is insufficient internal buffer space
-        to start the operation.
-
-        @throw std::logic_error `this->is_done() == true`.
-
-        @throw std::length_error if there is insufficient internal buffer
-        space to start the operation.
-
-        @param m The request or response headers to serialize.
-
-        @see
-            @ref message_base.
-    */
-    void
-    BOOST_HTTP_DECL
-    start(message_base const& m);
-
     /** Start serializing the associated message with an empty body.
 
-        Uses the message associated at construction time.
+        The message must be set beforehand using @ref set_message.
+        Use the prepare/consume loop to pull output bytes.
 
         @par Preconditions
-        A message was associated at construction.
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
+        A message was associated via @ref set_message.
 
         @par Exception Safety
         Strong guarantee.
@@ -261,145 +207,20 @@ public:
 
         @throw std::length_error if there is insufficient internal buffer
         space to start the operation.
+
+        @see @ref set_message, @ref prepare, @ref consume.
     */
     void
     BOOST_HTTP_DECL
     start();
 
-    /** Start serializing a message with a buffer sequence body
-
-        Initializes the serializer with the HTTP start-line and headers from `m`,
-        and the provided `buffers` for reading the message body from.
-
-        Changing the contents of the message after calling this function and
-        before @ref is_done returns `true` results in undefined behavior.
-
-        At least one copy of the specified buffer sequence is maintained until
-        the serializer is done, gets reset, or ios destroyed, after which all
-        of its copies are destroyed. Ownership of the underlying memory is not
-        transferred; the caller must ensure the memory remains valid until the
-        serializer’s copies are destroyed.
-
-        @par Preconditions
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
-
-        @par Constraints
-        @code
-        capy::ConstBufferSequence<ConstBufferSequence>
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-        Exceptions thrown if there is insufficient internal buffer space
-        to start the operation.
-
-        @throw std::logic_error `this->is_done() == true`.
-
-        @throw std::length_error If there is insufficient internal buffer
-        space to start the operation.
-
-        @param m The message to read the HTTP start-line and headers from.
-
-        @param buffers A buffer sequence containing the message body.
-
-        containing the message body data. While
-        the buffers object is copied, ownership of
-        the underlying memory remains with the
-        caller, who must ensure it stays valid
-        until @ref is_done returns `true`.
-
-        @see
-            @ref message_base.
-    */
-    template<
-        class ConstBufferSequence,
-        class = typename std::enable_if<
-            capy::ConstBufferSequence<ConstBufferSequence>>::type
-    >
-    void
-    start(
-        message_base const& m,
-        ConstBufferSequence&& buffers);
-
-    /** Prepare the serializer for streaming body data.
-
-        Initializes the serializer with the HTTP
-        start-line and headers from `m` for streaming
-        mode. After calling this function, use
-        @ref stream_prepare, @ref stream_commit, and
-        @ref stream_close to write body data.
-
-        Changing the contents of the message
-        after calling this function and before
-        @ref is_done returns `true` results in
-        undefined behavior.
-
-        @par Example
-        @code
-        auto sink = sr.sink_for(socket);
-        sr.start_stream(response);
-
-        capy::mutable_buffer arr[16];
-        auto bufs = sink.prepare(arr);
-        std::memcpy(bufs[0].data(), "Hello", 5);
-        co_await sink.commit_eof(5);
-        @endcode
-
-        @par Preconditions
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
-
-        @par Exception Safety
-        Strong guarantee.
-        Exceptions thrown if there is insufficient
-        internal buffer space to start the
-        operation.
-
-        @throw std::length_error if there is
-        insufficient internal buffer space to
-        start the operation.
-
-        @param m The message to read the HTTP
-        start-line and headers from.
-
-        @see
-            @ref stream_prepare,
-            @ref stream_commit,
-            @ref stream_close,
-            @ref message_base.
-     */
-    BOOST_HTTP_DECL
-    void
-    start_stream(
-        message_base const& m);
-
     /** Start streaming the associated message.
 
-        Uses the message associated at construction time.
+        Low-level entry point equivalent to @ref start_writes.
+        Prefer using a @ref sink which starts lazily.
 
         @par Preconditions
-        A message was associated at construction.
-        @code
-        this->is_done() == true
-        @endcode
-
-        @par Postconditions
-        @code
-        this->is_done() == false
-        @endcode
+        A message was associated via @ref set_message.
 
         @par Exception Safety
         Strong guarantee.
@@ -410,37 +231,91 @@ public:
         @throw std::length_error if there is insufficient internal buffer
         space to start the operation.
 
-        @see
-            @ref stream_prepare,
-            @ref stream_commit,
-            @ref stream_close.
+        @see @ref start_writes, @ref sink.
     */
     BOOST_HTTP_DECL
     void
     start_stream();
 
-    /** Get a sink wrapper for writing body data.
+    /** Start the serializer in write mode.
 
-        Returns a @ref sink object that can be used to write body
-        data to the provided stream. This function does not call
-        @ref start_stream. The caller must call @ref start_stream
-        before using the sink.
+        Prepares the serializer for write-mode streaming
+        using the message previously set via @ref set_message.
+        In this mode, the workspace is split into an input
+        buffer and an output buffer. Use @ref stream_prepare,
+        @ref stream_commit, and @ref stream_close to write
+        body data, or use the sink's BufferSink interface.
 
-        This allows the sink to be obtained early (e.g., at
-        construction time) and stored, with streaming started
-        later when the message is ready.
+        @par Preconditions
+        A message was associated via @ref set_message.
+        @code
+        this->is_done() == true
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if no message is associated.
+
+        @throw std::length_error if there is insufficient internal buffer
+        space to start the operation.
+
+        @see @ref set_message, @ref sink.
+    */
+    BOOST_HTTP_DECL
+    void
+    start_writes();
+
+    /** Start the serializer in buffer mode.
+
+        Prepares the serializer for buffer-mode streaming
+        using the message previously set via @ref set_message.
+        In this mode, the entire workspace is used for output
+        buffering. The caller provides body data through the
+        sink's WriteSink methods (write, write_eof), passing
+        their own buffers directly.
+
+        @par Preconditions
+        A message was associated via @ref set_message.
+        @code
+        this->is_done() == true
+        @endcode
+
+        @par Exception Safety
+        Strong guarantee.
+
+        @throw std::logic_error if no message is associated.
+
+        @throw std::length_error if there is insufficient internal buffer
+        space to start the operation.
+
+        @see @ref set_message, @ref sink.
+    */
+    BOOST_HTTP_DECL
+    void
+    start_buffers();
+
+    /** Create a sink for writing body data.
+
+        Returns a lightweight @ref sink handle that writes
+        serialized body data to the provided stream. The sink
+        starts the serializer lazily on first use, so neither
+        @ref start_writes nor @ref start_buffers need to be
+        called beforehand.
+
+        The sink can be created once and reused across multiple
+        messages. The serializer must outlive the sink.
 
         @par Example
         @code
-        http::serializer sr(cfg, res);
+        http::serializer sr(cfg);
         auto sink = sr.sink_for(socket);
-        // ... later ...
-        sr.start_stream();  // Configure for streaming
 
-        capy::mutable_buffer arr[16];
-        auto bufs = sink.prepare(arr);
-        std::memcpy(bufs[0].data(), "Hello", 5);
-        co_await sink.commit_eof(5);
+        http::response res;
+        res.set_payload_size(5);
+        sr.set_message(res);
+        co_await sink.write_eof(
+            capy::make_buffer(std::string_view("hello")));
         @endcode
 
         @tparam Stream The output stream type satisfying
@@ -450,7 +325,7 @@ public:
 
         @return A @ref sink object for writing body data.
 
-        @see @ref sink, @ref start_stream.
+        @see @ref sink, @ref set_message.
     */
     template<capy::WriteStream Stream>
     sink<Stream>
@@ -549,6 +424,12 @@ public:
     bool
     is_done() const noexcept;
 
+    /** Return true if serialization has not yet started.
+    */
+    BOOST_HTTP_DECL
+    bool
+    is_start() const noexcept;
+
     /** Return the available capacity for streaming.
 
         Returns the number of bytes that can be written
@@ -642,24 +523,10 @@ public:
 
 private:
     class impl;
-    class cbs_gen;
-    template<class>
-    class cbs_gen_impl;
 
     BOOST_HTTP_DECL
     detail::workspace&
     ws();
-
-    BOOST_HTTP_DECL
-    void
-    start_init(
-        message_base const&);
-
-    BOOST_HTTP_DECL
-    void
-    start_buffers(
-        message_base const&,
-        cbs_gen&);
 
     impl* impl_ = nullptr;
 };
@@ -668,19 +535,23 @@ private:
 
 /** A sink adapter for writing HTTP message bodies.
 
-    This class wraps an underlying @ref capy::WriteStream and a
-    @ref serializer to provide a @ref capy::BufferSink interface
-    for writing message body data. The caller writes directly into
-    the serializer's internal buffer (zero-copy); the serializer
-    automatically handles:
+    Wraps a @ref serializer and a @ref capy::WriteStream to
+    provide two interfaces for body writing:
 
-    @li Chunked transfer-encoding (chunk framing added automatically)
-    @li Content-Encoding compression (gzip, deflate, brotli if configured)
-    @li Content-Length validation (if specified in headers)
+    @li **BufferSink** (@ref prepare / @ref commit /
+        @ref commit_eof) — write directly into the serializer's
+        internal buffer (zero-copy). Triggers @ref start_writes
+        lazily.
+    @li **WriteSink** (@ref write / @ref write_eof) — pass
+        caller-owned buffers; the sink copies data through the
+        serializer. Triggers @ref start_buffers lazily.
 
-    For @ref capy::WriteSink semantics (caller owns buffers), wrap
-    this sink with @ref capy::any_buffer_sink which provides both
-    interfaces.
+    Both interfaces handle chunked framing, compression, and
+    Content-Length validation automatically.
+
+    The sink is a lightweight handle that can be created once
+    and reused across multiple messages. The serializer and
+    stream must outlive the sink.
 
     @tparam Stream The underlying stream type satisfying
         @ref capy::WriteStream.
@@ -691,25 +562,24 @@ private:
 
     @par Example
     @code
-    capy::task<void>
+    capy::task<>
     send_response(capy::WriteStream auto& socket)
     {
-        http::response res;
-        res.set_chunked(true);
-        http::serializer sr(cfg, res);
-
+        http::serializer sr(cfg);
         auto sink = sr.sink_for(socket);
-        sr.start_stream();
 
-        // Zero-copy write using BufferSink interface
-        capy::mutable_buffer arr[16];
-        auto bufs = sink.prepare(arr);
-        std::memcpy(bufs[0].data(), "Hello", 5);
-        co_await sink.commit_eof(5);
+        http::response res;
+        res.set_payload_size(5);
+        sr.set_message(res);
+
+        // WriteSink: pass your own buffer
+        co_await sink.write_eof(
+            capy::make_buffer(std::string_view("hello")));
     }
     @endcode
 
-    @see capy::BufferSink, capy::any_buffer_sink, serializer
+    @see @ref capy::BufferSink, @ref capy::any_buffer_sink,
+        @ref serializer.
 */
 template<capy::WriteStream Stream>
 class serializer::sink
@@ -741,7 +611,8 @@ public:
 
         Fills the provided span with mutable buffer descriptors
         pointing to the serializer's internal storage. This
-        operation is synchronous.
+        operation is synchronous. Lazily starts the serializer
+        in write mode if not already started.
 
         @param dest Span of mutable_buffer to fill.
 
@@ -750,6 +621,8 @@ public:
     std::span<capy::mutable_buffer>
     prepare(std::span<capy::mutable_buffer> dest)
     {
+        if(sr_->is_start())
+            sr_->start_writes();
         auto bufs = sr_->stream_prepare();
         std::size_t count = 0;
         for(auto const& b : bufs)
@@ -775,6 +648,8 @@ public:
     commit(std::size_t n)
         -> capy::io_task<>
     {
+        if(sr_->is_start())
+            sr_->start_writes();
         sr_->stream_commit(n);
 
         while(!sr_->is_done())
@@ -789,6 +664,7 @@ public:
 
             if(capy::buffer_empty(*cbs))
             {
+                // advance state machine
                 sr_->consume(0);
                 continue;
             }
@@ -821,6 +697,8 @@ public:
     commit_eof(std::size_t n)
         -> capy::io_task<>
     {
+        if(sr_->is_start())
+            sr_->start_writes();
         sr_->stream_commit(n);
         sr_->stream_close();
 
@@ -836,6 +714,204 @@ public:
 
             if(capy::buffer_empty(*cbs))
             {
+                // advance state machine
+                sr_->consume(0);
+                continue;
+            }
+
+            auto [ec, written] = co_await stream_->write_some(*cbs);
+            sr_->consume(written);
+
+            if(ec)
+                co_return {ec};
+        }
+
+        co_return {};
+    }
+
+    /** Write body data from caller-owned buffers.
+
+        Lazily starts the serializer in buffer mode if not
+        already started. Writes all data from the provided
+        buffers through the serializer to the underlying stream.
+
+        @param buffers The buffer sequence containing body data.
+
+        @return An awaitable yielding `(error_code, std::size_t)`.
+        The size_t is the total number of body bytes written.
+    */
+    template<class ConstBufferSequence>
+    auto
+    write(ConstBufferSequence const& buffers)
+        -> capy::io_task<std::size_t>
+    {
+        if(sr_->is_start())
+            sr_->start_buffers();
+
+        // Drain header first
+        while(!sr_->is_done())
+        {
+            auto cbs = sr_->prepare();
+            if(cbs.has_error())
+            {
+                if(cbs.error() == error::need_data)
+                    break;
+                co_return {cbs.error(), 0};
+            }
+
+            if(capy::buffer_empty(*cbs))
+            {
+                // advance state machine
+                sr_->consume(0);
+                continue;
+            }
+
+            auto [ec, written] = co_await stream_->write_some(*cbs);
+            sr_->consume(written);
+
+            if(ec)
+                co_return {ec, 0};
+        }
+
+        // Write body data through stream_prepare/commit
+        std::size_t total = 0;
+        for(auto it = capy::begin(buffers);
+            it != capy::end(buffers); ++it)
+        {
+            capy::const_buffer src = *it;
+            while(src.size() != 0)
+            {
+                auto mbp = sr_->stream_prepare();
+                std::size_t copied = 0;
+                for(auto const& mb : mbp)
+                {
+                    auto chunk = (std::min)(
+                        mb.size(), src.size());
+                    if(chunk == 0)
+                        break;
+                    std::memcpy(mb.data(),
+                        src.data(), chunk);
+                    src += chunk;
+                    copied += chunk;
+                }
+                sr_->stream_commit(copied);
+                total += copied;
+
+                // Drain output
+                while(!sr_->is_done())
+                {
+                    auto cbs = sr_->prepare();
+                    if(cbs.has_error())
+                    {
+                        if(cbs.error() == error::need_data)
+                            break;
+                        co_return {cbs.error(), total};
+                    }
+
+                    if(capy::buffer_empty(*cbs))
+                    {
+                        // advance state machine
+                        sr_->consume(0);
+                        continue;
+                    }
+
+                    auto [ec, written] =
+                        co_await stream_->write_some(*cbs);
+                    sr_->consume(written);
+
+                    if(ec)
+                        co_return {ec, total};
+                }
+            }
+        }
+
+        co_return {{}, total};
+    }
+
+    /** Write final body data and signal end-of-stream.
+
+        Lazily starts the serializer in buffer mode if not
+        already started. Writes all data from the provided
+        buffers and then closes the body stream, flushing
+        any remaining output to the underlying stream.
+
+        @param buffers The buffer sequence containing final body data.
+
+        @return An awaitable yielding `(error_code, std::size_t)`.
+        The size_t is the total number of body bytes written.
+
+        @post The serializer's `is_done()` returns `true` on success.
+    */
+    template<class ConstBufferSequence>
+    auto
+    write_eof(ConstBufferSequence const& buffers)
+        -> capy::io_task<std::size_t>
+    {
+        auto [ec, n] = co_await write(buffers);
+        if(ec)
+            co_return {ec, n};
+
+        sr_->stream_close();
+
+        while(!sr_->is_done())
+        {
+            auto cbs = sr_->prepare();
+            if(cbs.has_error())
+            {
+                if(cbs.error() == error::need_data)
+                    continue;
+                co_return {cbs.error(), n};
+            }
+
+            if(capy::buffer_empty(*cbs))
+            {
+                // advance state machine
+                sr_->consume(0);
+                continue;
+            }
+
+            auto [ec2, written] = co_await stream_->write_some(*cbs);
+            sr_->consume(written);
+
+            if(ec2)
+                co_return {ec2, n};
+        }
+
+        co_return {{}, n};
+    }
+
+    /** Signal end-of-stream with no additional data.
+
+        Lazily starts the serializer in buffer mode if not
+        already started. Closes the body stream and flushes
+        any remaining output to the underlying stream.
+
+        @return An awaitable yielding `(error_code)`.
+
+        @post The serializer's `is_done()` returns `true` on success.
+    */
+    auto
+    write_eof()
+        -> capy::io_task<>
+    {
+        if(sr_->is_start())
+            sr_->start_buffers();
+
+        sr_->stream_close();
+
+        while(!sr_->is_done())
+        {
+            auto cbs = sr_->prepare();
+            if(cbs.has_error())
+            {
+                if(cbs.error() == error::need_data)
+                    continue;
+                co_return {cbs.error()};
+            }
+
+            if(capy::buffer_empty(*cbs))
+            {
+                // advance state machine
                 sr_->consume(0);
                 continue;
             }
@@ -862,7 +938,5 @@ serializer::sink_for(Stream& ws) noexcept
 
 } // http
 } // boost
-
-#include <boost/http/impl/serializer.hpp>
 
 #endif

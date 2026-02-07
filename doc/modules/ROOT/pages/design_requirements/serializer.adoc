@@ -27,135 +27,72 @@ handle_request(
 {
     res.set_start_line(status::not_found, req.version());
     res.set_keep_alive(req.keep_alive());
-    sr.start(res);
+    sr.set_message(res);
+    sr.start();
     return {};
 }
 ----
 
 
-=== Source Body
+=== WriteSink Body
 
-A `source`-like body allows for algorithms that can generate body contents directly in the `serializer` 's internal buffer in one or multiple steps, for example for sending contents of a file. The `serializer` takes ownership of the `source` object and is responsible for driving the algorithm and offering a `MutableBufferSequence` (by calling the related virtual interfaces on the `source` object).
-
-[source,cpp]
-----
-system::result<void>
-handle_request(
-    serializer& sr,
-    response& res,
-    request_view req)
-{
-    res.set_start_line(status::ok, req.version());
-    res.set_keep_alive(req.keep_alive());
-    res.set_chunked(true);
-
-    http::file file;
-    system::error_code ec;
-    file.open("./index.html", file_mode::scan, ec);
-    if (ec.failed())
-        return ec;
-
-    sr.start<file_body>(res, std::move(file));
-    return {};
-}
-----
-
-
-=== ConstBufferSequence Body
-
-The `serializer` can use body contents passed as a `ConstBufferSequence` without copying it into its internal buffer.
+When the caller already has the body data in memory, the WriteSink interface writes caller-owned buffers through the serializer to the stream. The sink handles framing (chunked encoding, compression) automatically.
 
 [source,cpp]
 ----
-system::result<void>
+capy::task<>
 handle_request(
     serializer& sr,
     response& res,
-    request_view req)
+    request_view req,
+    capy::WriteStream auto& socket)
 {
     res.set_start_line(status::not_found, req.version());
     res.set_keep_alive(req.keep_alive());
 
-    // Assume caller has an stable reference to static_pages
-    sr.start(res, buffers::make_buffer(static_pages.not_found));
-    return {};
+    // Assume caller has a stable reference to static_pages
+    sr.set_message(res);
+    auto sink = sr.sink_for(socket);
+    co_await sink.write_eof(
+        capy::make_buffer(static_pages.not_found));
 }
 ----
 
 
-=== ConstBufferSequence Body with Ownership Transfer
+=== BufferSink Body (Zero-Copy Streaming)
 
-This is useful when the caller wants to create a `ConstBufferSequence` from an object which lives on the caller's stack or it is inconvenient for the caller to keep the object alive until the send operation is complete.
-
-[source,cpp]
-----
-system::result<void>
-handle_request(
-    serializer& sr,
-    response& res,
-    request_view req)
-{
-    res.set_start_line(status::ok, req.version());
-    res.set_keep_alive(req.keep_alive());
-
-    std::string body{ "<!doctype html><title>HOWDY!</title>" };
-
-    sr.start(res, [body = std::move(body)]{return buffers::make_buffer(body);});
-    return {};
-}
-----
-
-
-=== Streaming Body Contents
-
-Sometimes it is desirable to read the body contents asynchronously, such as when reading from a socket, file, or a pipe. In such scenarios, it is possible to borrow buffers from the `serializer` and use them for the asynchronous read operation. As a result, the contents would be read directly into the `serializer` 's internal buffer without needing to make an extra copy.
-
-The following snippet demonstrates a usage example (using synchronous read/write APIs to keep the code simple):
+Sometimes it is desirable to read the body contents asynchronously, such as when reading from a socket, file, or a pipe. The BufferSink interface lets the caller write directly into the serializer's internal buffer, avoiding an extra copy.
 
 [source,cpp]
 ----
-template<class ReadStream, class WriteStream>
-void relay_body_contents(
+capy::task<>
+relay_body_contents(
     serializer& sr,
     response& res,
     request_view req,
-    ReadStream& src,
-    WriteStream& client_session)
+    capy::ReadStream auto& src,
+    capy::WriteStream auto& client_session)
 {
     res.set_start_line(status::ok, req.version());
     res.set_keep_alive(req.keep_alive());
     res.set_chunked(true);
 
-    sr.start_stream(res);
-
-    auto write_some = [&]
-    {
-        auto bs = sr.prepare().value();
-        system::error_code ec;
-        auto length = client_session.write_some(bs, ec);
-        // if (ec.failed())  handle the error...
-        sr.consume(length);
-    };
+    sr.set_message(res);
+    auto sink = sr.sink_for(client_session);
 
     for (;;)
     {
-        auto bs = sr.stream_prepare();
-        system::error_code ec;
-        auto length = src.read_some(bs, ec);
-        sr.stream_commit(length);
+        capy::mutable_buffer arr[16];
+        auto bufs = sink.prepare(arr);
 
-        if (ec == asio::error::eof)
+        auto [ec, n] = co_await src.read_some(bufs);
+        if (ec == capy::error::eof)
+        {
+            co_await sink.commit_eof(n);
             break;
+        }
 
-        // if (ec.failed())  handle the error...
-
-        write_some();
+        co_await sink.commit(n);
     }
-
-    // Closing stream to signal serializer end of body contents
-    sr.stream_close();
-
-    while (!sr.is_done())
-        write_some();
 }
 ----

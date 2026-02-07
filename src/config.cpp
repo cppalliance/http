@@ -38,7 +38,6 @@ make_parser_config(parser_config cfg)
         fb  flat_dynamic_buffer         headers.max_size
         cb0 circular_buffer     min_buffer
         cb1 circular_buffer     min_buffer
-        T   body                max_type_erase
         f   table               max_table_space
     */
 
@@ -48,9 +47,6 @@ make_parser_config(parser_config cfg)
 
     // cb0_, cb1_
     space_needed += impl->min_buffer + impl->min_buffer;
-
-    // T
-    space_needed += impl->max_type_erase;
 
     // round up to alignof(detail::header::entry)
     auto const al = alignof(detail::header::entry);
@@ -70,7 +66,6 @@ make_serializer_config(serializer_config cfg)
 
     std::size_t space_needed = 0;
     space_needed += impl->payload_buffer;
-    space_needed += impl->max_type_erase;
 
     impl->space_needed = space_needed;
 

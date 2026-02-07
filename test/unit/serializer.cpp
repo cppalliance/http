@@ -132,22 +132,18 @@ struct serializer_test
         serializer sr(cfg_);
         response res;
 
-        sr.start(res);
+        sr.set_message(res);
+        sr.start();
         sr.reset();
 
-        sr.start(res, capy::const_buffer{});
+        sr.set_message(res);
+        sr.start_writes();
+        sr.stream_close();
         sr.reset();
 
-        sr.start(res, capy::mutable_buffer{});
-        sr.reset();
-
-        sr.start(res, capy::const_buffer{});
-        sr.reset();
-
-        sr.start(res, capy::mutable_buffer{});
-        sr.reset();
-
-        sr.start_stream(res);
+        sr.set_message(res);
+        sr.start_buffers();
+        sr.stream_close();
         sr.reset();
     }
 
@@ -181,7 +177,8 @@ struct serializer_test
             std::string message;
             capy::string_dynamic_buffer buf(&message);
             serializer sr1(cfg_);
-            sr1.start(res);
+            sr1.set_message(res);
+            sr1.start();
 
             // consume 5 bytes
             {
@@ -221,7 +218,8 @@ struct serializer_test
         {
             response res(headers);
             serializer sr(cfg_);
-            sr.start(res);
+            sr.set_message(res);
+            sr.start();
             std::string s = read(sr);
             BOOST_TEST(s == expected);
         };
@@ -250,43 +248,42 @@ struct serializer_test
 
     //--------------------------------------------
 
-    void
-    check_buffers(
+    std::string
+    sink_serialize(
         core::string_view headers,
-        core::string_view body,
-        core::string_view expected_header,
-        core::string_view expected_body)
+        core::string_view body = {})
     {
+        std::string result;
         response res(headers);
-        std::array<
-            capy::const_buffer, 23> buf;
-
-        const auto buf_size =
-            (body.size() / buf.size()) + 1;
-        for(auto& cb : buf)
+        capy::test::fuse f;
+        auto r = f.armed(
+            [this, &res, &result, body]
+            (capy::test::fuse& f) -> capy::task<>
         {
-            if(body.size() < buf_size)
+            capy::test::write_stream ws(f);
+            serializer sr(cfg_);
+            sr.set_message(res);
+            auto sink = sr.sink_for(ws);
+            if(body.empty())
             {
-                cb = { body.data(), body.size() };
-                body.remove_prefix(body.size());
-                break;
+                auto [ec] = co_await sink.write_eof();
+                if(ec)
+                    co_return;
             }
-            cb = { body.data(), buf_size };
-            body.remove_prefix(buf_size);
-        }
-
-        serializer sr(cfg_);
-        sr.start(res, buf);
-        std::string s = read(sr);
-        core::string_view sv(s);
-
-        BOOST_TEST(
-            sv.substr(0, expected_header.size())
-                == expected_header);
-
-        BOOST_TEST(
-            sv.substr(expected_header.size())
-                == expected_body);
+            else
+            {
+                std::string_view sv(
+                    body.data(), body.size());
+                auto [ec, n] = co_await sink.write_eof(
+                    capy::make_buffer(sv));
+                if(ec)
+                    co_return;
+            }
+            BOOST_TEST(sr.is_done());
+            result = ws.data();
+        });
+        BOOST_TEST(r.success);
+        return result;
     }
 
     template <class F>
@@ -298,10 +295,9 @@ struct serializer_test
     {
         response res(headers);
         serializer sr(cfg_);
-        sr.start_stream(res);
-        BOOST_TEST_GT(
-            sr.stream_capacity(),
-            serializer_config{}.payload_buffer);
+        sr.set_message(res);
+        sr.start_writes();
+        BOOST_TEST(sr.stream_capacity() != 0);
 
         std::vector<char> s; // stores complete output
 
@@ -381,63 +377,73 @@ struct serializer_test
     void
     testOutput()
     {
-        // buffers (0 size)
-        check_buffers(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n",
-            "",
-            //--------------------------
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Content-Length: 0\r\n"
-            "\r\n",
-            "");
+        // WriteSink: Content-Length: 0
+        {
+            auto s = sink_serialize(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 0\r\n"
+                "\r\n");
+            BOOST_TEST(s ==
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 0\r\n"
+                "\r\n");
+        }
 
-        // buffers
-        check_buffers(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Content-Length: 2048\r\n"
-            "\r\n",
-            std::string(2048, '*'),
-            //--------------------------
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Content-Length: 2048\r\n"
-            "\r\n",
-            std::string(2048, '*'));
+        // WriteSink: Content-Length: 2048
+        {
+            std::string body(2048, '*');
+            auto s = sink_serialize(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 2048\r\n"
+                "\r\n",
+                body);
+            BOOST_TEST(s ==
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 2048\r\n"
+                "\r\n" + body);
+        }
 
-        // buffers chunked
-        check_buffers(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n",
-            std::string(2048, '*'),
-            //--------------------------
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n",
-            std::string("800\r\n") +
-            std::string(2048, '*') +
-            std::string("\r\n0\r\n\r\n"));
+        // WriteSink: chunked 2048
+        {
+            std::string body(2048, '*');
+            auto s = sink_serialize(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n",
+                body);
+            core::string_view sv(s);
+            core::string_view hdr =
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n";
+            BOOST_TEST(sv.starts_with(hdr));
+            sv.remove_prefix(hdr.size());
+            check_chunked_body(sv, body);
+        }
 
-        // buffers chunked empty
-        check_buffers(
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n",
-            "",
-            //--------------------------
-            "HTTP/1.1 200 OK\r\n"
-            "Server: test\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n",
-            "0\r\n\r\n");
+        // WriteSink: chunked empty
+        {
+            auto s = sink_serialize(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n");
+            core::string_view sv(s);
+            core::string_view hdr =
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n";
+            BOOST_TEST(sv.starts_with(hdr));
+            sv.remove_prefix(hdr.size());
+            BOOST_TEST(sv == "0\r\n\r\n");
+        }
 
         // empty stream
         {
@@ -538,7 +544,26 @@ struct serializer_test
                 "Expect: 100-continue\r\n"
                 "Content-Length: 5\r\n"
                 "\r\n");
-            sr.start(req, capy::const_buffer("12345", 5));
+            sr.set_message(req);
+            sr.start_writes();
+            {
+                auto mbp = sr.stream_prepare();
+                capy::const_buffer body("12345", 5);
+                std::size_t n = 0;
+                for(auto const& mb : mbp)
+                {
+                    auto chunk =
+                        (std::min)(mb.size(), body.size());
+                    if(chunk == 0)
+                        break;
+                    std::memcpy(
+                        mb.data(), body.data(), chunk);
+                    body += chunk;
+                    n += chunk;
+                }
+                sr.stream_commit(n);
+            }
+            sr.stream_close();
             std::string s;
             system::result<
                 serializer::const_buffers_type> rv;
@@ -582,7 +607,8 @@ struct serializer_test
                 "Expect: 100-continue\r\n"
                 "Content-Length: 5\r\n"
                 "\r\n");
-            sr.start(req);
+            sr.set_message(req);
+            sr.start();
             std::string s;
             system::result<
                 serializer::const_buffers_type> rv;
@@ -621,7 +647,26 @@ struct serializer_test
 
             serializer sr(cfg_);
             response res(sv);
-            sr.start(res, capy::const_buffer("12345", 5));
+            sr.set_message(res);
+            sr.start_writes();
+            {
+                auto mbp = sr.stream_prepare();
+                capy::const_buffer body("12345", 5);
+                std::size_t n = 0;
+                for(auto const& mb : mbp)
+                {
+                    auto chunk =
+                        (std::min)(mb.size(), body.size());
+                    if(chunk == 0)
+                        break;
+                    std::memcpy(
+                        mb.data(), body.data(), chunk);
+                    body += chunk;
+                    n += chunk;
+                }
+                sr.stream_commit(n);
+            }
+            sr.stream_close();
             auto s = read(sr);
             BOOST_TEST(s ==
                 "HTTP/1.1 200 OK\r\n"
@@ -642,7 +687,8 @@ struct serializer_test
                 "\r\n";
             response res(sv);
             serializer sr(cfg_);
-            sr.start_stream(res);
+            sr.set_message(res);
+            sr.start_writes();
 
             // consume whole header
             {
@@ -692,7 +738,8 @@ struct serializer_test
                 "\r\n";
             response res(sv);
             serializer sr(cfg_);
-            sr.start_stream(res);
+            sr.set_message(res);
+            sr.start_writes();
 
             auto mbs = sr.stream_prepare();
             BOOST_TEST_GT(
@@ -739,7 +786,8 @@ struct serializer_test
     {
         serializer sr(cfg_);
         request req;
-        sr.start(req);
+        sr.set_message(req);
+        sr.start();
         auto cbs = sr.prepare().value();
         sr.consume(capy::buffer_size(cbs) + 1);
         BOOST_TEST(sr.is_done());
@@ -764,8 +812,8 @@ struct serializer_test
 
             response res;
             res.set_payload_size(13);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
             auto bufs = sink.prepare(arr);
@@ -801,8 +849,8 @@ struct serializer_test
 
             response res;
             res.set_payload_size(5);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
             auto bufs = sink.prepare(arr);
@@ -834,8 +882,8 @@ struct serializer_test
 
             response res;
             res.set_payload_size(0);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             auto [ec] = co_await sink.commit(0);
             if(ec)
@@ -859,8 +907,8 @@ struct serializer_test
 
             response res;
             res.set_chunked(true);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             // First commit
             capy::mutable_buffer arr[16];
@@ -909,8 +957,8 @@ struct serializer_test
 
             response res;
             res.set_chunked(true);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
             auto bufs = sink.prepare(arr);
@@ -945,8 +993,8 @@ struct serializer_test
 
             response res;
             res.set_chunked(true);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             auto [ec] = co_await sink.commit_eof(0);
             if(ec)
@@ -971,8 +1019,8 @@ struct serializer_test
             response res;
             res.set_payload_size(5);
             res.set(field::content_type, "text/plain");
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
             auto bufs = sink.prepare(arr);
@@ -1010,8 +1058,8 @@ struct serializer_test
             response res;
             res.set_chunked(true);
             res.set(field::content_type, "text/plain");
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::mutable_buffer arr[16];
             auto bufs = sink.prepare(arr);
@@ -1038,6 +1086,132 @@ struct serializer_test
     }
 
     //--------------------------------------------
+    // WriteSink direct tests
+    //--------------------------------------------
+
+    void
+    testWriteSinkMultiWrite()
+    {
+        // Multiple writes, Content-Length
+        {
+            response res(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 10\r\n"
+                "\r\n");
+            capy::test::fuse f;
+            auto r = f.armed(
+                [this, &res]
+                (capy::test::fuse& f) -> capy::task<>
+            {
+                capy::test::write_stream ws(f);
+                serializer sr(cfg_);
+                sr.set_message(res);
+                auto sink = sr.sink_for(ws);
+
+                std::string_view s1("Hello");
+                auto [ec1, n1] = co_await sink.write(
+                    capy::make_buffer(s1));
+                if(ec1)
+                    co_return;
+                BOOST_TEST_EQ(n1, 5u);
+
+                std::string_view s2(", Bob");
+                auto [ec2, n2] = co_await sink.write_eof(
+                    capy::make_buffer(s2));
+                if(ec2)
+                    co_return;
+                BOOST_TEST_EQ(n2, 5u);
+
+                BOOST_TEST(sr.is_done());
+                BOOST_TEST(ws.data().find("Hello, Bob") !=
+                    std::string::npos);
+            });
+            BOOST_TEST(r.success);
+        }
+
+        // Multiple writes, chunked
+        {
+            response res(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n");
+            capy::test::fuse f;
+            auto r = f.armed(
+                [this, &res]
+                (capy::test::fuse& f) -> capy::task<>
+            {
+                capy::test::write_stream ws(f);
+                serializer sr(cfg_);
+                sr.set_message(res);
+                auto sink = sr.sink_for(ws);
+
+                std::string_view s1("Hello");
+                auto [ec1, n1] = co_await sink.write(
+                    capy::make_buffer(s1));
+                if(ec1)
+                    co_return;
+
+                std::string_view s2("World");
+                auto [ec2, n2] = co_await sink.write(
+                    capy::make_buffer(s2));
+                if(ec2)
+                    co_return;
+
+                auto [ec3] = co_await sink.write_eof();
+                if(ec3)
+                    co_return;
+
+                BOOST_TEST(sr.is_done());
+                BOOST_TEST(ws.data().find("0\r\n\r\n") !=
+                    std::string::npos);
+            });
+            BOOST_TEST(r.success);
+        }
+    }
+
+    void
+    testWriteSinkLargeBody()
+    {
+        // Large body, Content-Length
+        {
+            std::string body(13370, '*');
+            auto s = sink_serialize(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 13370\r\n"
+                "\r\n",
+                body);
+            BOOST_TEST(s ==
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Content-Length: 13370\r\n"
+                "\r\n" + body);
+        }
+
+        // Large body, chunked
+        {
+            std::string body(13370, '*');
+            auto s = sink_serialize(
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n",
+                body);
+            core::string_view sv(s);
+            core::string_view hdr =
+                "HTTP/1.1 200 OK\r\n"
+                "Server: test\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n";
+            BOOST_TEST(sv.starts_with(hdr));
+            sv.remove_prefix(hdr.size());
+            check_chunked_body(sv, body);
+        }
+    }
+
+    //--------------------------------------------
     // any_buffer_sink wrapper tests (WriteSink)
     //--------------------------------------------
 
@@ -1052,8 +1226,8 @@ struct serializer_test
 
             response res;
             res.set_payload_size(13);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::any_buffer_sink abs(sink);
 
@@ -1087,8 +1261,8 @@ struct serializer_test
 
             response res;
             res.set_payload_size(5);
+            sr.set_message(res);
             auto sink = sr.sink_for(ws);
-            sr.start_stream(res);
 
             capy::any_buffer_sink abs(sink);
 
@@ -1126,6 +1300,10 @@ struct serializer_test
         testSinkCommitEofEmpty();
         testSinkContentLength();
         testSinkChunked();
+
+        // WriteSink direct tests
+        testWriteSinkMultiWrite();
+        testWriteSinkLargeBody();
 
         // any_buffer_sink wrapper tests (WriteSink)
         testAnyBufferSinkWrite();
