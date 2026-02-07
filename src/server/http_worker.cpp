@@ -4,7 +4,7 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/beast2
+// Official repository: https://github.com/cppalliance/http
 //
 
 #include <boost/http/server/http_worker.hpp>
@@ -13,19 +13,7 @@
 #include <iostream>
 
 namespace boost {
-namespace beast2 {
-
-http_worker::
-http_worker(
-    http::flat_router fr_,
-    http::shared_parser_config parser_cfg,
-    http::shared_serializer_config serializer_cfg)
-    : fr(std::move(fr_))
-    , parser(parser_cfg)
-    , serializer(serializer_cfg)
-{
-    serializer.set_message(rp.res);
-}
+namespace http {
 
 capy::task<void>
 http_worker::
@@ -98,5 +86,5 @@ do_http_session()
     }
 }
 
-} // beast2
+} // http
 } // boost

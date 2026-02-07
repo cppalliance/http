@@ -4,11 +4,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-// Official repository: https://github.com/cppalliance/beast2
+// Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_BEAST2_HTTP_WORKER_HPP
-#define BOOST_BEAST2_HTTP_WORKER_HPP
+#ifndef BOOST_HTTP_SERVER_WORKER_HPP
+#define BOOST_HTTP_SERVER_WORKER_HPP
 
 #include <boost/http/detail/config.hpp>
 #include <boost/capy/io/any_read_stream.hpp>
@@ -20,7 +20,7 @@
 #include <boost/http/server/router.hpp>
 
 namespace boost {
-namespace beast2 {
+namespace http {
 
 /** Reusable HTTP request/response processing logic.
 
@@ -94,10 +94,21 @@ public:
         @param serializer_cfg Shared configuration for the response
             serializer.
     */
+    template<capy::WriteStream Stream>
     http_worker(
+        Stream& stream_,
         http::flat_router fr_,
         http::shared_parser_config parser_cfg,
-        http::shared_serializer_config serializer_cfg);
+        http::shared_serializer_config serializer_cfg)
+        : fr(std::move(fr_))
+        , stream(&stream_)
+        , parser(parser_cfg)
+        , serializer(serializer_cfg)
+        {
+            serializer.set_message(rp.res);
+            rp.req_body = capy::any_buffer_source(parser.source_for(stream_));
+            rp.res_body = capy::any_buffer_sink(serializer.sink_for(stream_));
+        }
 
     /** Handle an HTTP session.
 
@@ -112,7 +123,7 @@ public:
     do_http_session();
 };
 
-} // beast2
+} // http
 } // boost
 
 #endif
