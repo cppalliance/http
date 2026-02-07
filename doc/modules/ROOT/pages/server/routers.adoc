@@ -1,0 +1,1179 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Routers
+
+A web server that can only respond to one kind of request is like a
+restaurant with one item on the menu. It works, but nobody comes back.
+Real servers handle dozens or hundreds of different endpoints, each
+with its own logic for different HTTP methods. Something has to sit
+between the raw request and the right handler, inspecting the method
+and the path, and making the connection. That something is the router.
+
+The `router` class in Boost.Http is the dispatch engine at the heart
+of every server built with this library. You describe which paths and
+methods your application supports, attach handler functions, and the
+router takes care of the rest. When a request arrives, it walks through
+your registered routes, finds the match, and invokes the handler. When
+things go wrong, it finds the right error handler. When routers nest
+inside other routers, it stitches the path together seamlessly.
+
+This page is a thorough tour of the router. We start with the simplest
+possible route and build from there, covering every feature the router
+offers.
+
+NOTE: Code snippets assume `using namespace boost::http;` is in effect
+and that handler functions are coroutines returning `route_task`.
+
+
+== Your First Route
+
+The smallest useful router has one route:
+
+[source,cpp]
+----
+router<> r;
+
+r.add(method::get, "/hello",
+    [](route_params& rp) -> route_task
+    {
+        rp.status(status::ok);
+        co_await rp.send("Hello, World!");
+        co_return route_done;
+    });
+----
+
+Three things happen here:
+
+1. A `router` is created. The angle brackets are empty because
+   the default template parameter, `route_params`, is all most
+   applications need.
+2. A route is registered for `GET /hello`. The path is a literal
+   string. The handler is a lambda coroutine.
+3. The handler sets the status, sends the body, and returns
+   `route_done` to tell the router the request is finished.
+
+That is the fundamental building block. Everything else in this page
+is a variation or extension of this pattern.
+
+
+== How Routes Are Registered
+
+The router provides several ways to install handlers, each suited to a
+different situation. Understanding the differences is the key to
+organizing a server cleanly.
+
+=== add() -- Method and Pattern
+
+The most explicit way to register a route:
+
+[source,cpp]
+----
+r.add(method::get,    "/users",     list_users);
+r.add(method::post,   "/users",     create_user);
+r.add(method::get,    "/users/:id", show_user);
+r.add(method::put,    "/users/:id", update_user);
+r.add(method::delete_,"/users/:id", delete_user);
+----
+
+Each call binds a specific HTTP method to a path pattern. The handler
+runs only when both the method and path match. This is the bread and
+butter of REST API construction.
+
+=== all() -- Any Method, One Pattern
+
+Sometimes you want a handler that responds regardless of method:
+
+[source,cpp]
+----
+r.all("/status", check_status);
+----
+
+This is equivalent to registering the handler for every HTTP method on
+the given pattern. It is useful for endpoints where the method does not
+matter -- health checks, catch-all logging, or handlers that inspect
+the method internally.
+
+=== route() -- The Fluent Interface
+
+When a single path has handlers for multiple methods, calling `add()`
+repeatedly is verbose. The `route()` method returns a fluent interface
+that chains registrations:
+
+[source,cpp]
+----
+r.route("/users/:id")
+    .add(method::get,     show_user)
+    .add(method::put,     update_user)
+    .add(method::delete_, delete_user)
+    .all(log_access);
+----
+
+Each call on the fluent object appends handlers to the same route.
+The `all()` at the end adds a handler that fires for any method -- in
+this case, logging after the method-specific handler runs if it
+returned `route_next`.
+
+Every call to `route()` creates a new route object, even if the
+pattern already exists. This is deliberate: it lets you define
+multiple independent routes for the same path, each with its own set
+of handlers.
+
+=== use() -- Middleware
+
+Middleware is a handler that runs _before_ route handlers. It
+typically performs cross-cutting work -- authentication, logging,
+header manipulation -- and then yields control to the next handler
+by returning `route_next`.
+
+[source,cpp]
+----
+// Global middleware: runs for every request
+r.use(
+    [](route_params& rp) -> route_task
+    {
+        rp.res.set(field::server, "MyApp/1.0");
+        co_return route_next;
+    });
+
+// Path-scoped middleware: runs for /api and everything under it
+r.use("/api",
+    [](route_params& rp) -> route_task
+    {
+        if(! rp.req.exists(field::authorization))
+        {
+            rp.status(status::unauthorized);
+            co_await rp.send("Unauthorized");
+            co_return route_done;
+        }
+        co_return route_next;
+    });
+----
+
+The critical difference between `use()` and `add()` is how paths
+match. Routes registered with `add()` require the pattern to match
+the _entire_ request path. Middleware registered with `use()` matches
+a _prefix_. Middleware on `"/api"` fires for `"/api"`, `"/api/"`,
+`"/api/users"`, and `"/api/users/42"`.
+
+When `use()` is called without a path, it is equivalent to `use("/",
+...)` -- the middleware runs for every request.
+
+=== Multiple Handlers Per Registration
+
+Both `add()` and `use()` accept multiple handlers in a single call.
+They execute in order:
+
+[source,cpp]
+----
+r.add(method::get, "/admin",
+    check_auth,
+    check_admin_role,
+    serve_admin_panel);
+----
+
+This is identical to registering three separate handlers for the
+same method and path, but more concise. If `check_auth` returns
+`route_done` (perhaps sending a 401), the remaining handlers never
+run. If it returns `route_next`, `check_admin_role` runs next.
+
+
+== HTTP Methods
+
+The `method` enum defines the standard HTTP verbs:
+
+[source,cpp]
+----
+method::get        method::post       method::put
+method::delete_    method::head       method::options
+method::patch      method::connect    method::trace
+----
+
+The trailing underscore on `delete_` avoids a collision with the C++
+keyword. Beyond these, the enum includes WebDAV methods (`lock`,
+`unlock`, `mkcol`, `propfind`, and others), CalDAV methods
+(`mkcalendar`), and more.
+
+=== Custom Methods
+
+HTTP is extensible. If your application uses a non-standard method,
+pass it as a string:
+
+[source,cpp]
+----
+r.add("PURGE", "/cache/:key", purge_cache);
+----
+
+The router matches custom method strings exactly, case-sensitively.
+The same rule applies to the string overload of `dispatch()`:
+
+[source,cpp]
+----
+auto result = co_await r.dispatch("PURGE", url, params);
+----
+
+=== Automatic OPTIONS Handling
+
+When an `OPTIONS` request arrives for a path that has routes but no
+explicit OPTIONS handler, the router can respond automatically with
+an `Allow` header listing the methods that _are_ registered:
+
+[source,cpp]
+----
+r.set_options_handler(
+    [](route_params& rp, std::string_view allow)
+        -> route_task
+    {
+        rp.status(status::no_content);
+        rp.res.set(field::allow, allow);
+        co_await rp.send();
+        co_return route_done;
+    });
+----
+
+The `allow` parameter is a pre-built comma-separated string like
+`"GET, PUT, DELETE"`. If you register an explicit OPTIONS handler
+on a route, it takes priority over this automatic one.
+
+
+== The Order of Matching
+
+The router matches requests in the order handlers were registered.
+This is a simple rule with profound consequences.
+
+[source,cpp]
+----
+r.use(log_every_request);         // 1. runs first
+r.use("/api", check_api_key);     // 2. runs for /api/*
+r.add(method::get, "/api/users",  // 3. the actual route
+    list_users);
+r.use(catch_all_errors);          // 4. error handler
+----
+
+When `GET /api/users` arrives:
+
+1. `log_every_request` runs. It returns `route_next`.
+2. `check_api_key` runs (the path matches). It returns `route_next`.
+3. `list_users` runs. It returns `route_done`.
+4. `catch_all_errors` never fires because no error occurred.
+
+If step 2 had returned `route_done` (rejecting the request), step 3
+would never execute. If step 3 had returned `route_error(ec)`, the
+router would skip remaining regular handlers and search for error
+handlers -- finding `catch_all_errors` at step 4.
+
+=== Registration Order Is Definition Order
+
+There is no priority system, no weighting, no "most specific wins"
+algorithm. The first handler that matches and does not return
+`route_next` wins. This makes the dispatch logic completely
+predictable: read the registration calls from top to bottom, and
+you know the exact order.
+
+This is why middleware is typically registered _before_ route
+handlers: it needs to run first.
+
+=== Middleware vs. Routes
+
+Middleware (via `use()`) and routes (via `add()`, `all()`, or
+`route()`) live in the same ordered sequence. The router does not
+maintain separate lists. A middleware registered after a route handler
+will only fire if the route handler returned `route_next` or an error.
+
+=== route_next vs. route_next_route
+
+Both tell the router to keep looking, but they skip different amounts:
+
+- `route_next` -- try the next handler _within_ the current route.
+  If multiple handlers are chained on one route, this advances to
+  the next one.
+- `route_next_route` -- skip all remaining handlers on the current
+  route and jump to the next _route_ entirely. This is useful when
+  a handler determines the entire route is wrong, not just this
+  particular handler in the chain.
+
+[source,cpp]
+----
+r.route("/resource")
+    .add(method::get,
+        [](route_params& rp) -> route_task
+        {
+            if(rp.req.version() < 11)
+                co_return route_next_route; // skip this route
+
+            co_return route_next; // try next handler on this route
+        },
+        serve_resource);
+
+r.route("/resource")
+    .add(method::get, serve_legacy_resource);
+----
+
+If the HTTP version is too old, `route_next_route` jumps past
+`serve_resource` directly to `serve_legacy_resource` on the second
+route.
+
+
+== Path Pattern Syntax
+
+Route patterns are how you tell the router which paths to match. They
+range from simple literal strings to expressive patterns with
+parameters, wildcards, and optional groups.
+
+=== Literal Paths
+
+The simplest pattern is a literal string:
+
+[source,cpp]
+----
+r.add(method::get, "/about", serve_about);
+----
+
+This matches `/about` and nothing else (unless the trailing-slash
+option is relaxed -- see <<Router Options>> below).
+
+=== Named Parameters
+
+A colon introduces a named parameter that captures a path segment:
+
+[source,cpp]
+----
+r.add(method::get, "/users/:id", show_user);
+----
+
+This matches `/users/42`, `/users/alice`, or any path that has
+exactly one segment after `/users/`. The captured value is available
+in `rp.params` as a name-value pair:
+
+[source,cpp]
+----
+// For a request to /users/42:
+for(auto const& [name, value] : rp.params)
+    std::cout << name << " = " << value << "\n";
+// Output: id = 42
+----
+
+Parameters capture characters up to the next `/` or the end of the
+path. They must match at least one character, so `/users/` (with a
+trailing slash but no ID) does not match `/users/:id`.
+
+Multiple parameters can appear in a single pattern:
+
+[source,cpp]
+----
+r.add(method::get, "/users/:uid/posts/:pid", show_post);
+// Matches /users/5/posts/99 → uid="5", pid="99"
+----
+
+Parameters can be separated by non-slash delimiters:
+
+[source,cpp]
+----
+r.add(method::get, "/flights/:from-:to", find_flights);
+// Matches /flights/LAX-JFK → from="LAX", to="JFK"
+----
+
+=== Wildcards
+
+A wildcard captures everything from its position to the end of the
+path, including slashes:
+
+[source,cpp]
+----
+r.add(method::get, "/files/*filepath", serve_file);
+// Matches /files/docs/readme.txt → filepath="docs/readme.txt"
+----
+
+Unlike parameters, wildcards cross `/` boundaries. There can be only
+one wildcard per pattern, and it must be the last token.
+
+=== Optional Groups
+
+Braces define a group that matches all-or-nothing:
+
+[source,cpp]
+----
+r.add(method::get, "/api{/v:version}/users", list_users);
+----
+
+This matches both `/api/users` (no version captured) and
+`/api/v2/users` (`version = "2"`). If the group content does not
+match, the group is silently skipped and matching continues.
+
+Groups can nest for multi-level optionality:
+
+[source,cpp]
+----
+r.add(method::get, "/archive{/:year{/:month{/:day}}}", list_archive);
+// Matches /archive, /archive/2025, /archive/2025/06, /archive/2025/06/15
+----
+
+=== Escaping
+
+The characters `:`, `*`, `{`, `}`, and `\` have special meaning. To
+match them literally, prefix with `\`:
+
+[source,cpp]
+----
+r.add(method::get, "/config\\:main", show_config);
+// Matches /config:main literally
+----
+
+The characters `( ) [ ] + ? !` are reserved and produce a parse error
+if used unescaped.
+
+=== The Grammar
+
+For reference, the complete pattern syntax:
+
+[source,abnf]
+----
+path       = *token
+token      = text / param / wildcard / group
+text       = 1*( char / escaped )
+param      = ":" name
+wildcard   = "*" name
+group      = "{" *token "}"
+name       = identifier / quoted
+identifier = ( "$" / "_" / ALPHA ) *( "$" / "_" / ALNUM )
+quoted     = DQUOTE 1*qchar DQUOTE
+escaped    = "\" CHAR
+----
+
+Quoted names allow spaces and punctuation in parameter names:
+
+[source,cpp]
+----
+r.add(method::get, "/query/:\"search term\"", search_handler);
+----
+
+Percent-encoding in patterns is decoded at registration time.
+A literal `%2F` in a pattern is indistinguishable from `/`.
+
+
+== Nested Routers
+
+As an application grows, putting every route in one file becomes
+unwieldy. Nested routers let you break your application into modules,
+each with its own self-contained router, and compose them into a
+tree.
+
+=== Mounting a Sub-Router
+
+Create a router for a subsystem and mount it under a prefix:
+
+[source,cpp]
+----
+// api_routes.cpp
+router<> build_api_router()
+{
+    router<> api;
+    api.add(method::get, "/users", list_users);
+    api.add(method::get, "/users/:id", show_user);
+    api.add(method::post, "/users", create_user);
+    return api;
+}
+
+// admin_routes.cpp
+router<> build_admin_router()
+{
+    router<> admin;
+    admin.add(method::get, "/stats", show_stats);
+    admin.add(method::post, "/config", update_config);
+    return admin;
+}
+
+// main.cpp
+router<> app;
+app.use("/api", build_api_router());
+app.use("/admin", build_admin_router());
+----
+
+Now `/api/users` reaches `list_users` and `/admin/stats` reaches
+`show_stats`. Each sub-router is self-contained: it knows nothing
+about the prefix under which it will be mounted. The paths it
+registers (`/users`, `/stats`) are relative to its mount point.
+
+=== How Path Splitting Works
+
+When a sub-router is mounted at `"/api"` and a request arrives for
+`"/api/users/42"`, the router splits the path:
+
+- `base_path` = `"/api"` (the portion consumed by the parent)
+- `path` = `"/users/42"` (the portion the sub-router sees)
+
+Inside the sub-router's handlers, `rp.path` contains only the
+relative portion. If you need the full original path, concatenate
+`rp.base_path` and `rp.path`, or use `rp.url.encoded_path()`.
+
+=== Deep Nesting
+
+Routers can nest to arbitrary depth (up to 16 levels):
+
+[source,cpp]
+----
+router<> v1;
+v1.add(method::get, "/users", list_users_v1);
+
+router<> api;
+api.use("/v1", std::move(v1));
+
+router<> app;
+app.use("/api", std::move(api));
+// /api/v1/users → list_users_v1
+----
+
+Each level peels off its prefix from the path. In the handler for
+`/api/v1/users`, `base_path` is `"/api/v1"` and `path` is
+`"/users"`.
+
+Nesting beyond 16 levels throws `std::length_error`. This limit
+exists because the router uses fixed-size arrays internally for
+tracking path state during dispatch, ensuring predictable memory
+usage.
+
+=== Error Propagation Across Nesting
+
+Errors propagate upward through nested routers. If a handler inside a
+sub-router returns `route_error(ec)`, the parent router's error
+handlers can catch it:
+
+[source,cpp]
+----
+router<> api;
+api.add(method::get, "/fragile",
+    [](route_params& rp) -> route_task
+    {
+        co_return route_error(error::bad_connection);
+    });
+
+router<> app;
+app.use("/api", std::move(api));
+app.use(
+    [](route_params& rp, system::error_code ec) -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Error: " + ec.message());
+        co_return route_done;
+    });
+----
+
+A `GET /api/fragile` produces an error inside the sub-router. No
+error handler exists in the sub-router, so the error propagates to
+the parent, where the global error handler catches it.
+
+=== Flat Dispatch
+
+Despite the nesting syntax, routes are flattened into contiguous
+arrays when they are added. Dispatch walks a single flat sequence, so
+performance is identical whether you have one router or twenty nested
+ones. Nesting is purely an organizational tool -- it has no runtime
+cost.
+
+=== Passing Sub-Routers
+
+Sub-routers must be passed by value or `std::move()`:
+
+[source,cpp]
+----
+app.use("/api", std::move(api));  // correct
+// app.use("/api", api);          // compile error
+----
+
+This enforces clear ownership. Once a router is mounted, the original
+should not be modified.
+
+
+== Router Options
+
+Three options control how patterns are matched against request paths.
+They are set at construction time via `router_options`:
+
+[source,cpp]
+----
+router<> r(router_options()
+    .case_sensitive(true)
+    .strict(true)
+    .merge_params(false));
+----
+
+=== case_sensitive
+
+Default: `false`.
+
+When `false`, the pattern `/Users` matches `/users`, `/USERS`, and
+`/Users`. When `true`, only `/Users` matches.
+
+[source,cpp]
+----
+router<> r(router_options().case_sensitive(true));
+r.add(method::get, "/Users/:id", show_user);
+
+// GET /Users/alice  → matches
+// GET /users/alice  → does NOT match
+----
+
+=== strict
+
+Default: `false`.
+
+Controls whether a trailing slash is significant. When `false`, the
+pattern `"/api"` matches both `"/api"` and `"/api/"`. When `true`,
+they are treated as different paths.
+
+[source,cpp]
+----
+router<> r(router_options().strict(true));
+r.add(method::get, "/api", api_root);
+
+// GET /api   → matches
+// GET /api/  → does NOT match
+----
+
+=== merge_params
+
+Default: `false`.
+
+When a sub-router is nested inside a parent, captured parameters from
+the parent are normally not visible inside the child. Setting
+`merge_params(true)` on the child router makes them available:
+
+[source,cpp]
+----
+router<> users(router_options().merge_params(true));
+users.add(method::get, "/profile", show_profile);
+
+router<> app;
+app.use("/users/:userId", std::move(users));
+
+// GET /users/42/profile
+// Inside show_profile: rp.params includes userId=42
+----
+
+Unlike `case_sensitive` and `strict`, `merge_params` is never
+inherited from the parent. It always defaults to `false`.
+
+=== Option Inheritance
+
+When a sub-router is constructed with default options (no explicit
+`case_sensitive` or `strict`), it inherits these values from its
+parent when mounted. If it sets them explicitly, the explicit values
+take precedence:
+
+[source,cpp]
+----
+router<> app(router_options().case_sensitive(true));
+
+// This sub-router inherits case_sensitive=true
+router<> api;
+api.add(method::get, "/data", serve_data);
+app.use("/api", std::move(api));
+
+// This sub-router overrides to case_sensitive=false
+router<> legacy(router_options().case_sensitive(false));
+legacy.add(method::get, "/old", serve_legacy);
+app.use("/legacy", std::move(legacy));
+----
+
+
+== Dispatching Requests
+
+Once routes are registered, the `dispatch()` method matches an
+incoming request and invokes the appropriate handlers:
+
+[source,cpp]
+----
+route_params rp;
+// ... populate rp from a parsed HTTP request ...
+
+route_result rv = co_await r.dispatch(
+    rp.req.method(),
+    rp.url,
+    rp);
+----
+
+`dispatch()` accepts either a `method` enum or a string:
+
+[source,cpp]
+----
+// Known method
+co_await r.dispatch(method::get, url, rp);
+
+// Custom method string
+co_await r.dispatch("PURGE", url, rp);
+----
+
+Passing `method::unknown` or an empty string throws
+`std::invalid_argument`. The router requires a concrete method to
+match against.
+
+The returned `route_result` tells the caller what happened:
+
+[cols="1,3"]
+|===
+|Result |Meaning
+
+|`route_done`
+|A handler completed the request. The response is ready.
+
+|`route_next`
+|No handler matched (or all returned `route_next`). Typically
+ the caller should send a 404.
+
+|`route_close`
+|A handler requested that the connection be closed.
+
+|Error
+|An error occurred and was not handled. Check `rv.error()`.
+|===
+
+
+== Error Handling
+
+Errors are a fact of life. Databases go down, files go missing,
+upstream services time out. The router has a structured system for
+catching errors without scattering try/catch blocks through every
+handler.
+
+=== Returning Errors
+
+A handler signals an error by returning `route_error(ec)`:
+
+[source,cpp]
+----
+route_task load_config(route_params& rp)
+{
+    auto [ec, data] = co_await read_file("/etc/app.conf");
+    if(ec)
+        co_return route_error(ec);
+
+    rp.status(status::ok);
+    co_await rp.send(data);
+    co_return route_done;
+}
+----
+
+When a handler returns a failing error code, the router enters
+_error dispatch mode_. It stops trying regular handlers and begins
+searching for error handlers.
+
+=== Error Handlers
+
+An error handler is a callable with a specific signature:
+
+[source,cpp]
+----
+route_task handle_error(
+    route_params& rp,
+    system::error_code ec)
+{
+    rp.status(status::internal_server_error);
+    co_await rp.send("Error: " + ec.message());
+    co_return route_done;
+}
+----
+
+The router distinguishes error handlers from regular handlers at
+compile time by inspecting the callable's parameter list. A callable
+that accepts `(route_params&, system::error_code)` is automatically
+treated as an error handler. No special registration method is needed
+-- you install them with the same `use()` that registers middleware:
+
+[source,cpp]
+----
+r.use(handle_error);
+r.use("/api", api_error_handler);
+----
+
+Error handlers and regular handlers can coexist in the same `use()`
+call. The router sorts them out by signature.
+
+=== Error Handler Chains
+
+Error handlers form their own chain, independent of regular handlers.
+An error handler can:
+
+- Return `route_done` to finalize the response.
+- Return `route_next` to pass the error to the next error handler.
+- Return `route_error(different_ec)` to replace the error code and
+  continue in error mode.
+
+[source,cpp]
+----
+// Log the error, then pass it along
+r.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        std::cerr << "Error: " << ec.message() << "\n";
+        co_return route_next;
+    });
+
+// Send a response to the client
+r.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Something went wrong");
+        co_return route_done;
+    });
+----
+
+The first error handler logs. The second sends the response. Clean
+separation.
+
+=== Path-Scoped Error Handlers
+
+Error handlers respect path scoping. An API can return JSON errors
+while the rest of the application returns HTML:
+
+[source,cpp]
+----
+r.use("/api",
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        rp.res.set(field::content_type, "application/json");
+        co_await rp.send(
+            "{\"error\":\"" + ec.message() + "\"}");
+        co_return route_done;
+    });
+
+r.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send(
+            "<h1>Error</h1><p>" + ec.message() + "</p>");
+        co_return route_done;
+    });
+----
+
+Errors from `/api/...` routes are caught by the JSON handler. Errors
+from all other routes fall through to the HTML handler.
+
+=== Errors Skip Regular Handlers
+
+Once the router enters error mode, regular handlers are ignored. Only
+error handlers are considered. This means you can safely interleave
+regular handlers and error handlers in your registration order, and
+errors will always find the right handler:
+
+[source,cpp]
+----
+r.use(auth_middleware);            // regular
+r.add(method::get, "/data", get_data); // regular
+r.use(another_middleware);         // regular -- skipped in error mode
+r.use(error_logger);              // error handler
+r.use(error_responder);           // error handler
+----
+
+If `get_data` returns an error, `another_middleware` is skipped.
+`error_logger` runs, then `error_responder`.
+
+
+== Exception Handling
+
+Error codes are the preferred error mechanism, but exceptions
+happen -- from third-party libraries, standard library operations,
+or oversights in user code. When an exception escapes a handler's
+coroutine, the router catches it and enters _exception dispatch mode_.
+
+=== Exception Handlers
+
+Exception handlers have their own signature:
+
+[source,cpp]
+----
+route_task handle_exception(
+    route_params& rp,
+    std::exception_ptr ep)
+{
+    try
+    {
+        std::rethrow_exception(ep);
+    }
+    catch(std::exception const& e)
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send(e.what());
+    }
+    catch(...)
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Unknown error");
+    }
+    co_return route_done;
+}
+----
+
+The second parameter is a `std::exception_ptr`. To inspect it, use
+the standard `rethrow_exception` / `catch` pattern.
+
+=== Registering Exception Handlers
+
+Unlike error handlers, exception handlers are registered with the
+dedicated `except()` method:
+
+[source,cpp]
+----
+// Global exception handler
+r.except(handle_exception);
+
+// Path-scoped exception handler
+r.except("/api",
+    [](route_params& rp, std::exception_ptr ep)
+        -> route_task
+    {
+        try { std::rethrow_exception(ep); }
+        catch(std::exception const& e)
+        {
+            rp.status(status::internal_server_error);
+            rp.res.set(field::content_type, "application/json");
+            co_await rp.send(
+                "{\"error\":\"" + std::string(e.what()) + "\"}");
+        }
+        co_return route_done;
+    });
+----
+
+The separate `except()` method keeps the distinction between error
+handlers (anticipated failures via error codes) and exception handlers
+(unexpected failures via thrown exceptions) explicit in the code.
+
+=== Exception Handler Chains
+
+Like error handlers, exception handlers chain. Return `route_next` to
+defer to the next exception handler. Return `route_done` to finalize.
+
+[source,cpp]
+----
+r.except(
+    [](route_params& rp, std::exception_ptr ep) -> route_task
+    {
+        try { std::rethrow_exception(ep); }
+        catch(std::exception const& e)
+        {
+            std::cerr << "Unhandled: " << e.what() << "\n";
+        }
+        co_return route_next; // let another handler respond
+    });
+
+r.except(
+    [](route_params& rp, std::exception_ptr ep) -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Internal Server Error");
+        co_return route_done;
+    });
+----
+
+=== Unhandled Exceptions
+
+If no exception handler catches the exception, the router produces
+an `error::unhandled_exception` error code as the dispatch result.
+The caller can detect this and respond appropriately -- typically
+with a 500 status.
+
+
+== Handler Transforms
+
+The `router` class template takes a second parameter, `HT`, for a
+_handler transform_. A transform is a callable the router applies to
+each plain handler at registration time, wrapping it with additional
+behavior. Error handlers and exception handlers are never transformed.
+
+The default transform is `identity`, which passes handlers through
+unchanged.
+
+=== Why Transforms Exist
+
+Transforms solve a common problem: you want every handler to have
+some behavior (logging, timing, authentication) without modifying
+every handler individually. Middleware can do this, but transforms
+operate at a different level -- they wrap each handler, not the
+request pipeline.
+
+=== Creating a Transformed Router
+
+Use `with_transform()` to create a router that shares the same
+routing table but wraps new handlers:
+
+[source,cpp]
+----
+router<> base;
+
+auto r = base.with_transform(
+    [](auto handler)
+    {
+        struct wrapper
+        {
+            decltype(handler) h_;
+            route_task operator()(route_params& rp) const
+            {
+                auto t0 = std::chrono::steady_clock::now();
+                auto rv = co_await h_(rp);
+                auto elapsed = std::chrono::steady_clock::now() - t0;
+                // log elapsed time
+                co_return rv;
+            }
+        };
+        return wrapper{ std::move(handler) };
+    });
+
+r.add(method::get, "/fast", fast_handler);   // wrapped
+r.add(method::get, "/slow", slow_handler);   // wrapped
+----
+
+The transform runs once at registration time for each handler. The
+wrapper it returns is stored and invoked at dispatch time. Both
+`fast_handler` and `slow_handler` are automatically timed without
+any changes to their code.
+
+=== Shared Routing Table
+
+The router returned by `with_transform()` shares the same underlying
+routing table as the original. Routes added through either router are
+visible during dispatch from both. The transform only affects how
+_new_ handlers registered through the transformed router are wrapped.
+
+[source,cpp]
+----
+router<> base;
+
+auto logged = base.with_transform(log_transform{});
+auto timed  = base.with_transform(time_transform{});
+
+logged.add(method::get, "/a", handler_a);  // log-wrapped
+timed.add(method::get, "/b", handler_b);   // time-wrapped
+
+// Dispatching on 'base' sees both /a and /b
+co_await base.dispatch(method::get, url, rp);
+----
+
+
+== Shared Ownership
+
+Router objects use `std::shared_ptr` internally. Copies share the
+same routing state:
+
+[source,cpp]
+----
+router<> r;
+r.add(method::get, "/hello", greet);
+
+router<> copy = r;
+// 'copy' and 'r' share the same routes
+----
+
+This makes it cheap to pass routers around and store them in multiple
+places. However, modifying a router after it has been copied is not
+permitted and results in undefined behavior. Build your router
+completely before copying or dispatching.
+
+
+== Thread Safety
+
+The `dispatch()` method is `const` and may be called concurrently
+from multiple threads on routers that share the same data. This is
+safe because dispatch only reads the routing table.
+
+Non-const methods (`add()`, `use()`, `except()`, `route()`, etc.)
+modify the routing table and must not be called concurrently with any
+other operation. The typical pattern is: build the router on one
+thread, then dispatch from many.
+
+
+== Putting It All Together
+
+Here is a complete router setup that demonstrates most features:
+
+[source,cpp]
+----
+router<> app;
+
+// Global middleware
+app.use(
+    [](route_params& rp) -> route_task
+    {
+        rp.res.set(field::server, "Boost.Http/1.0");
+        co_return route_next;
+    });
+
+// API sub-router
+router<> api;
+api.use(
+    [](route_params& rp) -> route_task
+    {
+        if(! rp.req.exists(field::authorization))
+        {
+            rp.status(status::unauthorized);
+            co_await rp.send("API key required");
+            co_return route_done;
+        }
+        co_return route_next;
+    });
+api.add(method::get, "/users", list_users);
+api.route("/users/:id")
+    .add(method::get, show_user)
+    .add(method::put, update_user)
+    .add(method::delete_, delete_user);
+api.add(method::get, "/files/*path", serve_file);
+
+app.use("/api", std::move(api));
+
+// Static file serving
+app.use(serve_static("/var/www/public"));
+
+// Global error handler
+app.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Error: " + ec.message());
+        co_return route_done;
+    });
+
+// Global exception handler
+app.except(
+    [](route_params& rp, std::exception_ptr ep)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Internal Server Error");
+        co_return route_done;
+    });
+----
+
+This application:
+
+1. Sets a `Server` header on every response.
+2. Requires API keys for `/api/...` routes.
+3. Exposes a REST API for users with multiple methods.
+4. Serves files via a wildcard pattern.
+5. Falls back to static file serving for everything else.
+6. Has a safety net for both error codes and exceptions.
+
+The router handles the dispatch. The handlers handle the logic. The
+separation is clean, testable, and scales to applications of any
+size.
+
+
+== See Also
+
+* xref:server/route-handlers.adoc[Route Handlers] -- the handler
+  signature, `route_params`, and the `send()` method
+* xref:server/route-patterns.adoc[Route Patterns] -- the complete
+  pattern syntax with detailed matching examples
+* xref:server/serve-static.adoc[Serving Static Files] -- the
+  `serve_static` middleware

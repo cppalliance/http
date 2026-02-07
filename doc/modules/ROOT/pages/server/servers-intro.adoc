@@ -1,0 +1,528 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Servers
+
+Every time you load a web page, stream a video, or send a message, a
+server somewhere is listening. It heard your request, understood what you
+wanted, and sent back exactly the right bytes. This happens billions of
+times per second across the planet, and the protocol that makes it all
+work is HTTP.
+
+This section introduces the principles behind servers, with a focus on
+HTTP and WebSocket -- the two protocols that power the modern web. By
+the end, you will understand not just _what_ a server does but _why_
+it is built the way it is, and you will be ready to build one yourself
+in {cpp}.
+
+
+== The Simplest Server
+
+A server is a program that waits. It opens a port, listens for incoming
+connections, and when one arrives, reads a request and sends back a
+response. That is the entire job. Everything else -- routing, security,
+compression, concurrency -- is refinement of this basic loop.
+
+Think of a restaurant. A waiter stands ready. A customer walks in, sits
+down, and asks for the menu. The waiter brings it. The customer orders.
+The waiter relays the order to the kitchen and returns with food. The
+customer pays and leaves. The waiter is ready for the next customer.
+
+A server follows this same rhythm:
+
+1. **Listen** for a connection on a network port
+2. **Accept** the connection when a client arrives
+3. **Read** the request
+4. **Process** it (find a file, query a database, compute something)
+5. **Write** the response
+6. **Close** or reuse the connection
+
+Every HTTP server in existence, from a tiny embedded device to a
+continent-spanning CDN, is a variation on these six steps.
+
+
+== HTTP: A Conversation in Text
+
+HTTP stands for Hypertext Transfer Protocol. It is an application-layer
+protocol that sits on top of TCP, which provides reliable, ordered
+delivery of bytes between two machines. HTTP defines the _format_ of
+the conversation; TCP handles the _delivery_.
+
+The conversation is simple. The client sends a request. The server sends
+a response. One request, one response -- that is a single HTTP exchange.
+
+=== What a Request Looks Like
+
+When your browser navigates to `http://example.com/index.html`, it
+opens a TCP connection and sends something like this:
+
+----
+GET /index.html HTTP/1.1
+Host: example.com
+Accept: text/html
+----
+
+Three things are happening:
+
+* **The method** (`GET`) says what the client wants to do. `GET` means
+  "give me this resource." Other methods include `POST` (submit data),
+  `PUT` (replace a resource), and `DELETE` (remove it).
+* **The path** (`/index.html`) identifies which resource.
+* **The headers** (`Host`, `Accept`) carry metadata. Headers are
+  key-value pairs that describe the request, the client, and what
+  kinds of responses the client can handle.
+
+=== What a Response Looks Like
+
+The server reads the request, finds or generates the resource, and
+sends back:
+
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 137
+
+<!doctype html>
+<html>
+<head><title>Hello</title></head>
+<body><p>Hello, world.</p></body>
+</html>
+----
+
+The response has a status line (`200 OK`), headers, and a body. The
+status code tells the client what happened:
+
+[cols="1,3"]
+|===
+|Range |Meaning
+
+|`1xx`
+|Informational -- the server is still working
+
+|`2xx`
+|Success -- the request was fulfilled
+
+|`3xx`
+|Redirection -- look elsewhere
+
+|`4xx`
+|Client error -- the request was malformed or unauthorized
+
+|`5xx`
+|Server error -- something went wrong on the server side
+|===
+
+This request-response pattern is the heartbeat of the web. Every page
+load, every API call, every image download follows it.
+
+
+== Statelessness
+
+HTTP is stateless. Each request is independent; the server does not
+inherently remember anything about previous requests from the same
+client. This is a deliberate design choice. Statelessness makes servers
+simpler, more scalable, and easier to reason about. If a server crashes
+and restarts, clients can simply retry -- there is no session to
+reconstruct.
+
+When state _is_ needed (login sessions, shopping carts), it is layered
+on top through mechanisms like cookies, tokens, or external databases.
+The protocol itself stays clean.
+
+This matters for server design. A stateless protocol means you can
+distribute requests across multiple server processes or machines without
+coordination. It is the foundation of horizontal scaling.
+
+
+== From Protocol to Program
+
+Understanding HTTP is the first step. Now consider what happens inside
+the server program itself.
+
+When a connection arrives, the server must _parse_ the raw bytes into
+a structured request: extract the method, the path, the headers, and
+the body. This parsing must be correct and robust -- malformed input
+from the network is not a hypothetical; it is a certainty.
+
+Once the request is parsed, the server must decide what to do with it.
+This is _routing_: mapping the method and path to a handler function.
+A handler examines the request, performs whatever logic is needed, and
+constructs a response. Finally, the response is _serialized_ back into
+bytes and written to the connection.
+
+[source,text]
+----
+bytes in --> [ parser ] --> request --> [ router ] --> handler
+                                                        |
+bytes out <-- [ serializer ] <-- response <-------------+
+----
+
+These are the core concerns of any HTTP server, and they separate
+cleanly into distinct components. A well-designed server library
+addresses each one independently.
+
+
+== Routing
+
+A server that can only respond to one kind of request is not very
+useful. Real servers handle many paths and methods. This is where
+routing comes in.
+
+A router is a dispatch table. You register handlers for combinations
+of methods and path patterns, and when a request arrives, the router
+finds the best match and invokes the handler.
+
+[source,cpp]
+----
+http::router r;
+
+r.add(method::get, "/",
+    [](route_params& rp)
+    {
+        rp.status(status::ok);
+        rp.set_body("Welcome home");
+        return route::send;
+    });
+
+r.add(method::get, "/users/:id",
+    [](route_params& rp)
+    {
+        auto id = rp.param("id");
+        rp.status(status::ok);
+        rp.set_body("User: " + std::string(id));
+        return route::send;
+    });
+
+r.add(method::post, "/users",
+    [](route_params& rp)
+    {
+        // Read the body and create a new user
+        rp.status(status::created);
+        return route::send;
+    });
+----
+
+The pattern `/users/:id` contains a named parameter. When a client
+requests `/users/42`, the router captures `"42"` as the `id` parameter
+and passes it to the handler. This is how a single route definition
+handles thousands of different URLs.
+
+Patterns can also include wildcards, optional groups, and literal
+segments. The xref:server/route-patterns.adoc[Route Patterns] page
+explores the full syntax. For now, the key insight is that routing
+transforms a flat stream of requests into organized, purpose-built
+handler functions.
+
+
+== Serving Files
+
+One of the most common things a server does is serve static files --
+HTML pages, CSS stylesheets, JavaScript, images. Rather than writing
+a handler for every file, you point the server at a directory:
+
+[source,cpp]
+----
+r.use(http::serve_static("/var/www/html"));
+----
+
+The server maps the request path to a file on disk, determines the
+content type from the file extension, and streams the file back to
+the client. A good static file server also handles:
+
+* **Conditional requests** -- if the client already has a cached copy,
+  the server sends `304 Not Modified` instead of the full file
+* **Range requests** -- the client can request a portion of a file,
+  which is essential for resumable downloads and video seeking
+* **Content negotiation** -- the server picks the best representation
+  based on what the client accepts
+
+These features are built into the HTTP protocol and a quality server
+implementation handles them automatically.
+
+
+== Middleware
+
+Between receiving a request and producing a response, you often need
+to perform cross-cutting work: logging every request, checking
+authentication, setting CORS headers, compressing response bodies.
+These concerns apply to many or all routes, and duplicating the logic
+in every handler would be tedious and error-prone.
+
+Middleware solves this. A middleware function runs before (or after)
+the route handler. Middleware is registered with `use()` and executes
+in the order it was added:
+
+[source,cpp]
+----
+// Log every request
+r.use([](route_params& rp)
+{
+    std::cout << rp.req.method_string()
+              << " " << rp.url.encoded_path() << "\n";
+    return route::next; // continue to next handler
+});
+
+// Enable CORS
+r.use(http::cors());
+----
+
+Returning `route::next` means "I'm done with my part, pass the request
+along." Returning `route::send` means "I've written the response,
+stop here." This simple convention gives you a composable pipeline where
+each stage can inspect, modify, or short-circuit the request.
+
+
+== WebSocket: Beyond Request-Response
+
+HTTP's request-response model works beautifully for fetching pages and
+calling APIs. But some applications need real-time, bidirectional
+communication: chat, live dashboards, multiplayer games, collaborative
+editors. Polling the server repeatedly with HTTP requests is wasteful
+and introduces latency.
+
+WebSocket solves this. It starts as an HTTP request -- a special
+_upgrade_ handshake -- and then switches the connection to a
+persistent, full-duplex channel. Both sides can send messages at any
+time without waiting for the other.
+
+----
+GET /chat HTTP/1.1
+Host: example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Sec-WebSocket-Version: 13
+----
+
+The server responds with `101 Switching Protocols`, and from that
+point on, the connection speaks WebSocket instead of HTTP. Messages
+are framed (not raw byte streams), can be text or binary, and flow
+in both directions independently.
+
+For server design, WebSocket introduces an important distinction.
+HTTP handlers are short-lived: parse a request, produce a response,
+done. WebSocket handlers are long-lived: they maintain a session,
+send and receive messages over time, and must handle disconnection
+gracefully. This affects everything from resource management to
+concurrency strategy.
+
+A well-architected server handles both protocols. HTTP routes serve
+pages and APIs. One or more routes handle the WebSocket upgrade and
+then transition into a message loop:
+
+[source,cpp]
+----
+r.add(method::get, "/chat",
+    [](route_params& rp) -> route_task
+    {
+        // Upgrade the connection to WebSocket
+        auto ws = co_await rp.upgrade_websocket();
+
+        // Message loop
+        for(;;)
+        {
+            auto [ec, msg] = co_await ws.read();
+            if(ec)
+                break;
+            // Echo the message back
+            co_await ws.write(msg);
+        }
+        co_return route::complete;
+    });
+----
+
+The upgrade is seamless: from the router's perspective, it is just
+another handler. From the client's perspective, a single URL serves
+both the web page (via `GET`) and the live connection (via the
+upgrade handshake). The HTTP and WebSocket worlds coexist naturally.
+
+
+== Security: TLS and HTTPS
+
+Serving content over plain HTTP means anyone on the network path can
+read and modify the traffic. HTTPS wraps the HTTP conversation in TLS
+(Transport Layer Security), providing encryption, integrity, and
+authentication.
+
+From the server's perspective, HTTPS changes the transport layer but
+not the application layer. The same routes, handlers, and middleware
+work identically. The server loads a certificate and private key, and
+the I/O layer handles the TLS handshake transparently:
+
+[source,cpp]
+----
+corosio::tls_context tls;
+load_server_certificate(tls);
+
+https_server server(ioc, num_workers, tls, std::move(router),
+    http::make_parser_config(http::parser_config(true)),
+    http::make_serializer_config(http::serializer_config()));
+
+server.bind(corosio::endpoint(addr, 443));
+server.start();
+----
+
+In production, HTTPS is not optional. Browsers mark HTTP sites as
+insecure, and modern features like HTTP/2, service workers, and many
+web APIs require a secure context. A common pattern is to run an HTTP
+server on port 80 that redirects all traffic to HTTPS on port 443.
+
+
+== The Anatomy of a Server Program
+
+Bringing it all together, a server program has a recognizable
+structure:
+
+[source,cpp]
+----
+int main()
+{
+    // 1. Create the I/O context
+    corosio::io_context ioc;
+
+    // 2. Build the router
+    http::router r;
+    r.use(http::cors());
+    r.use(http::serve_static("/var/www/html"));
+    r.add(method::get, "/api/health",
+        [](route_params& rp)
+        {
+            rp.status(status::ok);
+            rp.set_body("OK");
+            return route::send;
+        });
+
+    // 3. Create and bind the server
+    http_server server(ioc, num_workers, std::move(r),
+        http::make_parser_config(http::parser_config(true)),
+        http::make_serializer_config(http::serializer_config()));
+    server.bind(corosio::endpoint(addr, 80));
+    server.start();
+
+    // 4. Run the event loop
+    ioc.run();
+    server.join();
+}
+----
+
+Each piece has a clear responsibility:
+
+* The **I/O context** runs the event loop, scheduling asynchronous
+  operations across connections
+* The **router** maps requests to handlers and middleware
+* The **server** binds to a port, accepts connections, parses requests,
+  dispatches through the router, and serializes responses
+* The **event loop** drives everything until the server is shut down
+
+This separation is not accidental. The router and handlers are
+_Sans-I/O_ -- they operate on parsed requests and produce responses
+without touching the network. The server and I/O context handle all
+network operations. This makes the routing logic easy to test,
+portable across I/O backends, and free from the complexity of
+asynchronous programming.
+
+
+== Concurrency
+
+A server that handles one request at a time is simple but impractical.
+Real servers handle thousands of simultaneous connections. There are
+several strategies for this:
+
+**Thread-per-connection** assigns a dedicated OS thread to each
+connection. Simple to reason about, but threads are expensive and do
+not scale past a few thousand.
+
+**Thread pool with blocking I/O** limits the number of threads and
+queues work. Better resource usage, but a slow client can still tie
+up a thread.
+
+**Event-driven (asynchronous) I/O** uses a small number of threads
+that each multiplex many connections. The I/O context is notified when
+data is ready, and it dispatches the appropriate handler. No thread
+sits idle waiting for a slow client.
+
+**Coroutines** give you the best of both worlds: the linear, readable
+code of blocking I/O with the scalability of asynchronous I/O. A
+coroutine suspends when it would block and resumes when data is ready,
+without tying up a thread:
+
+[source,cpp]
+----
+http::route_task handle_request(http::route_params& rp)
+{
+    auto body = co_await rp.read_body();
+    auto result = co_await query_database(body);
+    rp.status(status::ok);
+    co_await rp.send(result);
+    co_return route::complete;
+}
+----
+
+The `co_await` keywords mark suspension points. Between them, the
+code reads like ordinary sequential logic. Under the hood, the I/O
+context multiplexes this handler with thousands of others on a
+handful of threads. This is the approach used by the server libraries
+documented in this section.
+
+
+== Scaling Up
+
+A single server process can handle a remarkable number of connections,
+but eventually you hit limits: CPU, memory, network bandwidth, or
+simply the need for redundancy. Scaling strategies include:
+
+* **Vertical scaling** -- a bigger machine with more cores and memory.
+  Simple but has a ceiling.
+* **Horizontal scaling** -- multiple server processes or machines
+  behind a load balancer. HTTP's statelessness makes this
+  straightforward.
+* **Reverse proxies and CDNs** -- cache static content close to users
+  and shield the origin server from direct traffic.
+
+These are operational concerns rather than application concerns, but
+they influence design. A server that stores session state in local
+memory cannot be horizontally scaled without sticky sessions or a
+shared session store. A server that is truly stateless scales
+effortlessly.
+
+
+== What Comes Next
+
+The pages that follow dive into each component in detail:
+
+* xref:server/router.adoc[Router] -- the dispatch engine that maps
+  requests to handlers, with method matching, handler chaining,
+  middleware, nested routers, and error handling
+* xref:server/route-patterns.adoc[Route Patterns] -- the full pattern
+  syntax including named parameters, wildcards, and optional groups
+* xref:server/serve-static.adoc[Serving Static Files] -- efficient
+  file serving with caching, range requests, and content negotiation
+* xref:server/serve-index.adoc[Directory Listings] -- browsable
+  directory views in HTML, JSON, or plain text
+
+Each page builds on the foundation laid here. The router page shows
+how handlers compose and chain. The patterns page covers advanced
+URL matching. The static files and directory listing pages demonstrate
+production-ready middleware.
+
+Along the way, keep these principles in mind:
+
+* **HTTP is text.** It is human-readable by design, which makes it
+  debuggable. Use `curl`, browser developer tools, or a packet
+  capture to see exactly what is on the wire.
+* **Statelessness is a feature.** Embrace it. Push state to the edges
+  (client, database) and keep your handlers pure.
+* **Separation of concerns pays off.** Sans-I/O routing logic is
+  testable, composable, and portable. Let the I/O layer handle the
+  messy reality of networks.
+* **Start simple, measure, then optimize.** A correct server that
+  handles 100 requests per second is more valuable than a fast server
+  that sometimes sends the wrong response.
+
+The web is built on these ideas. Now let's build a server.

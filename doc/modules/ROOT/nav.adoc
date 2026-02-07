@@ -8,7 +8,10 @@
 * Parsing
 * xref:Message.adoc[]
 * Server
+** xref:server/servers-intro.adoc[Servers]
+** xref:server/route-handlers.adoc[Route Handlers]
 ** xref:server/router.adoc[Router]
+** xref:server/routers.adoc[Routers Deep Dive]
 ** xref:server/route-patterns.adoc[Route Patterns]
 ** xref:server/serve-static.adoc[Serving Static Files]
 ** xref:server/serve-index.adoc[Directory Listings]
