@@ -1,0 +1,635 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Headers
+
+An HTTP message without headers is like a package with no shipping label.
+The bytes inside might be a web page, a photograph, or a stock quote,
+but neither the sender nor the receiver would know what to do with them.
+Headers are the metadata layer that gives HTTP its power: they describe
+the payload, declare the sender's preferences, control caching, carry
+authentication tokens, and negotiate the terms of every exchange. Two
+programs that have never communicated before can cooperate perfectly, as
+long as they read each other's headers.
+
+You already know from the previous section that headers sit between the
+start line and the body as `Name: value` pairs, one per line. This
+section goes deeper. You will learn _which_ headers matter, _why_ they
+exist, and how they work together to orchestrate everything from a
+simple page load to a complex API transaction.
+
+== Header Syntax
+
+Every header field follows the same format:
+
+[source]
+----
+Field-Name: field-value
+----
+
+A name, a colon, optional whitespace, and a value. The name is
+case-insensitive -- `Content-Type`, `content-type`, and `CONTENT-TYPE`
+all mean the same thing. The value, however, _is_ case-sensitive for
+most headers unless the specification for that header says otherwise.
+
+[source]
+----
+Content-Type: text/html; charset=utf-8
+Cache-Control: max-age=3600, must-revalidate
+Accept: text/html, application/json;q=0.9, */*;q=0.8
+----
+
+Some values are simple tokens. Others carry parameters separated by
+semicolons, or lists of items separated by commas. The `Accept` header
+above says: "I prefer HTML, I can handle JSON almost as well, and in a
+pinch I will take anything." Those `q` values are quality weights --
+a number from 0 to 1 that ranks the client's preference.
+
+A message can contain any number of headers, and the same header name
+can appear more than once. When it does, the effect is the same as if
+the values were combined into a single comma-separated list. These two
+forms are equivalent:
+
+[source]
+----
+Accept-Encoding: gzip
+Accept-Encoding: deflate
+----
+
+[source]
+----
+Accept-Encoding: gzip, deflate
+----
+
+Headers can appear in any order, with one exception: the `Host` header
+should appear first in an HTTP/1.1 request, because servers that support
+virtual hosting need it immediately.
+
+== Categories of Headers
+
+HTTP defines dozens of standard headers. Remembering them all is
+unnecessary, but understanding how they are organized makes the list
+manageable. Headers fall into four broad categories based on their role
+in the message.
+
+=== Request Headers
+
+Request headers carry information _from the client to the server_.
+They describe who is making the request, what the client can accept,
+and any conditions attached to the request.
+
+[cols="1a,3a"]
+|===
+|Header|Purpose
+
+|`Host`
+|The domain name (and optional port) of the server. Required in
+HTTP/1.1 because a single machine often hosts many sites.
+
+|`User-Agent`
+|Identifies the client software -- browser name, version, and platform.
+Servers use this to tailor responses or log traffic patterns.
+
+|`Accept`
+|Media types the client is willing to receive, ranked by preference.
+
+|`Accept-Language`
+|Human languages the client prefers, such as `en`, `fr`, or `de`.
+
+|`Accept-Encoding`
+|Compression algorithms the client supports, such as `gzip` or `br`
+(Brotli).
+
+|`Referer`
+|The URL of the page that led the client to make this request. Useful
+for analytics and back-link tracking.
+
+|`Authorization`
+|Credentials for authenticating the client -- a bearer token, a Basic
+username/password pair, or other scheme.
+
+|`Cookie`
+|Previously stored cookies being returned to the server.
+
+|===
+
+Here is a realistic request with several of these headers in action:
+
+[source]
+----
+GET /api/products?category=tools HTTP/1.1
+Host: www.example.com
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
+Accept: application/json
+Accept-Language: en-US,en;q=0.9
+Accept-Encoding: gzip, br
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
+Cookie: session_id=abc123
+----
+
+Every header here helps the server make a better decision. `Accept`
+says the client wants JSON, not HTML. `Accept-Encoding` says the server
+can compress the response. `Authorization` proves the client is logged
+in. Without these headers, the server would have to guess -- or refuse
+the request.
+
+=== Response Headers
+
+Response headers carry information _from the server to the client_.
+They describe the server itself, provide instructions about the
+response, and sometimes set up future interactions.
+
+[cols="1a,3a"]
+|===
+|Header|Purpose
+
+|`Server`
+|Identifies the server software, similar to how `User-Agent` identifies
+the client.
+
+|`Date`
+|The date and time when the response was generated.
+
+|`Location`
+|The URL to redirect to. Used with 3xx status codes to send the client
+somewhere else.
+
+|`Retry-After`
+|Tells the client how long to wait before retrying, typically used with
+`503 Service Unavailable`.
+
+|`Set-Cookie`
+|Sends a cookie to the client for storage. The client will return it in
+subsequent `Cookie` headers.
+
+|`WWW-Authenticate`
+|Challenges the client to provide credentials. Sent with
+`401 Unauthorized` to initiate authentication.
+
+|===
+
+=== Representation Headers
+
+Representation headers describe the body of the message -- what it is,
+how big it is, and how it has been encoded. They appear in both requests
+and responses, because both directions can carry a body.
+
+[cols="1a,3a"]
+|===
+|Header|Purpose
+
+|`Content-Type`
+|The media type of the body: `text/html`, `application/json`,
+`image/png`, and so on. This is the single most important header for
+interpreting the payload.
+
+|`Content-Length`
+|The size of the body in bytes. Lets the receiver know exactly how much
+data to expect.
+
+|`Content-Encoding`
+|Any compression applied to the body, such as `gzip` or `br`. The
+receiver must decompress before processing.
+
+|`Content-Language`
+|The natural language of the body, such as `en` or `fr`.
+
+|`Transfer-Encoding`
+|How the body is framed for transport. The value `chunked` means the
+body arrives in pieces, each prefixed by its size.
+
+|===
+
+When a server sends a compressed JSON response, the representation
+headers make the whole arrangement explicit:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Content-Encoding: gzip
+Content-Length: 1843
+Transfer-Encoding: chunked
+----
+
+The client sees `Content-Type` and knows it is JSON. It sees
+`Content-Encoding: gzip` and knows it must decompress. It sees
+`Transfer-Encoding: chunked` and knows the body will arrive in
+pieces rather than all at once. Every step is unambiguous.
+
+=== General Headers
+
+Some headers belong to the message as a whole rather than to the
+request, the response, or the body. These are general headers --
+they can appear in either direction and affect how the message is
+transported or processed.
+
+[cols="1a,3a"]
+|===
+|Header|Purpose
+
+|`Connection`
+|Controls whether the TCP connection stays open after the response.
+`keep-alive` is the HTTP/1.1 default; `close` signals that the
+connection should be torn down.
+
+|`Via`
+|Records the intermediate proxies or gateways a message has passed
+through. Each hop appends its own entry.
+
+|`Cache-Control`
+|Directives for how caches along the path should handle the message.
+This header is so important it gets its own section below.
+
+|`Date`
+|The timestamp of the message, used for caching calculations and log
+correlation.
+
+|===
+
+== Conditional Headers
+
+One of the most practical things headers do is make requests
+_conditional_. A conditional request says: "Only give me this
+resource if something has changed." This avoids transferring data the
+client already has, saving bandwidth and time.
+
+The mechanism relies on validators -- values that identify a specific
+version of a resource. HTTP supports two kinds:
+
+**Last-Modified dates.** The server includes a `Last-Modified` header
+in the response, telling the client when the resource was last changed:
+
+[source]
+----
+HTTP/1.1 200 OK
+Last-Modified: Wed, 15 Jan 2026 08:30:00 GMT
+Content-Type: text/html
+Content-Length: 5120
+
+<html>...</html>
+----
+
+When the client requests the resource again, it includes the date in an
+`If-Modified-Since` header:
+
+[source]
+----
+GET /index.html HTTP/1.1
+Host: www.example.com
+If-Modified-Since: Wed, 15 Jan 2026 08:30:00 GMT
+----
+
+If the resource has not changed, the server responds with
+`304 Not Modified` and no body -- the client uses its cached copy.
+If it _has_ changed, the server sends the full `200 OK` response
+with the updated resource.
+
+**Entity tags.** An `ETag` is an opaque identifier -- often a hash --
+that the server assigns to a specific version of a resource:
+
+[source]
+----
+HTTP/1.1 200 OK
+ETag: "a3f2b7c"
+Content-Type: application/json
+Content-Length: 892
+
+{"products": [...]}
+----
+
+The client echoes it back in an `If-None-Match` header:
+
+[source]
+----
+GET /api/products HTTP/1.1
+Host: www.example.com
+If-None-Match: "a3f2b7c"
+----
+
+If the ETag still matches, the server returns `304 Not Modified`.
+ETags are more precise than dates because they change whenever the
+content changes, regardless of the clock. They also handle the edge
+case where a resource is modified, then reverted -- the date changes
+but the content is the same. An ETag catches that.
+
+[cols="1a,2a"]
+|===
+|Request Header|Meaning
+
+|`If-Modified-Since`
+|Send the resource only if it changed after this date.
+
+|`If-None-Match`
+|Send the resource only if its ETag differs from this value.
+
+|`If-Match`
+|Proceed only if the resource's current ETag matches. Used to prevent
+overwriting someone else's changes during an update.
+
+|`If-Unmodified-Since`
+|Proceed only if the resource has not changed since this date.
+
+|===
+
+Conditional requests are the foundation of efficient caching. Without
+them, every page view would require a full download even if nothing
+changed.
+
+== Cache-Control
+
+Caching is one of the most consequential behaviors that headers govern.
+The `Cache-Control` header tells every cache along the path -- the
+browser, any proxy, any CDN -- how to store, reuse, and validate
+responses. Getting caching right can make a site feel instant; getting
+it wrong can serve stale data or defeat the cache entirely.
+
+`Cache-Control` carries one or more comma-separated directives:
+
+[source]
+----
+Cache-Control: public, max-age=86400, must-revalidate
+----
+
+This says: any cache may store the response (`public`), it is fresh
+for 86,400 seconds -- one day (`max-age`), and after that the cache
+must check with the server before reusing it (`must-revalidate`).
+
+The most important directives:
+
+[cols="1a,3a"]
+|===
+|Directive|Meaning
+
+|`public`
+|Any cache (browser or shared proxy) may store the response. Even
+responses that would normally be private become cacheable.
+
+|`private`
+|Only the user's browser may cache this response. Shared caches like
+CDNs must not store it. Useful for responses tailored to one user.
+
+|`no-cache`
+|A cache may store the response, but must revalidate with the server
+before every reuse. This guarantees freshness without giving up caching
+entirely.
+
+|`no-store`
+|The response must not be stored by any cache at all. Used for
+sensitive data like banking pages or personal health records.
+
+|`max-age=<seconds>`
+|How long the response stays fresh, in seconds from the time of the
+request. Replaces the older `Expires` header.
+
+|`s-maxage=<seconds>`
+|Like `max-age`, but applies only to shared (proxy) caches.
+
+|`must-revalidate`
+|Once the response becomes stale, a cache must not serve it without
+first confirming with the server. Prevents serving expired content
+during outages.
+
+|===
+
+A static asset like a CSS file or an image that never changes can
+carry an aggressive cache policy:
+
+[source]
+----
+Cache-Control: public, max-age=31536000, immutable
+----
+
+This tells caches the resource is good for an entire year and will
+never change at that URL. The `immutable` directive prevents browsers
+from revalidating even when the user hits reload.
+
+By contrast, a personalized dashboard page might use:
+
+[source]
+----
+Cache-Control: private, no-cache
+----
+
+Only the browser may store it, and it must check with the server every
+time. This balances performance (the browser avoids a full download if
+the content has not changed) with correctness (the user always sees
+fresh data).
+
+== Content-Type in Depth
+
+The `Content-Type` header deserves special attention because it affects
+how every participant in the chain interprets the body. Its value is a
+media type, optionally followed by parameters:
+
+[source]
+----
+Content-Type: text/html; charset=utf-8
+----
+
+The media type `text/html` tells the receiver the body is an HTML
+document. The `charset=utf-8` parameter specifies the character
+encoding. Without the charset, the receiver must guess -- and guessing
+often goes wrong, producing garbled text.
+
+Common `Content-Type` values you will encounter constantly:
+
+[cols="1a,2a"]
+|===
+|Value|Typical Use
+
+|`text/html; charset=utf-8`
+|Web pages
+
+|`application/json`
+|API responses and request bodies
+
+|`application/x-www-form-urlencoded`
+|HTML form submissions (the default encoding)
+
+|`multipart/form-data`
+|File uploads and forms with binary data
+
+|`image/png`, `image/jpeg`, `image/webp`
+|Images
+
+|`application/octet-stream`
+|Arbitrary binary data -- the "I don't know what this is" fallback
+
+|===
+
+When a client sends a POST request with a JSON body, it must set
+`Content-Type` so the server knows how to parse the payload:
+
+[source]
+----
+POST /api/orders HTTP/1.1
+Host: www.example.com
+Content-Type: application/json
+Content-Length: 61
+
+{"item":"hammer","quantity":2,"shipping":"express"}
+----
+
+If the client omits `Content-Type`, the server has no reliable way to
+determine whether the body is JSON, XML, form data, or something else.
+This is the most common cause of "400 Bad Request" errors in API work.
+
+== Cookies and State
+
+HTTP is stateless -- the server remembers nothing about previous
+requests. But real applications need continuity: a shopping cart must
+persist across page views, a login must survive navigation. Cookies
+solve this by using two headers to graft state onto a stateless
+protocol.
+
+The server creates a cookie by including a `Set-Cookie` header in the
+response:
+
+[source]
+----
+HTTP/1.1 200 OK
+Set-Cookie: session_id=xyz789; Path=/; HttpOnly; Secure; Max-Age=3600
+----
+
+The browser stores this cookie and returns it in a `Cookie` header on
+every subsequent request to the same site:
+
+[source]
+----
+GET /cart HTTP/1.1
+Host: www.example.com
+Cookie: session_id=xyz789
+----
+
+The server reads `session_id` and looks up the associated session -- the
+user's cart, their login state, their preferences. The protocol itself
+has not changed; it is still a standalone request and response. The
+cookie is simply a token that lets the server correlate requests.
+
+The attributes on `Set-Cookie` control security and scope:
+
+[cols="1a,3a"]
+|===
+|Attribute|Effect
+
+|`Path=/`
+|The cookie is sent for every path on the site.
+
+|`HttpOnly`
+|JavaScript cannot access this cookie, reducing the risk of cross-site
+scripting (XSS) attacks stealing session tokens.
+
+|`Secure`
+|The cookie is only sent over HTTPS connections.
+
+|`Max-Age=3600`
+|The cookie expires after 3,600 seconds (one hour). Without `Max-Age`
+or `Expires`, the cookie lives only until the browser is closed.
+
+|`SameSite=Lax`
+|The cookie is not sent on cross-site requests initiated by third-party
+sites, protecting against cross-site request forgery (CSRF).
+
+|===
+
+Cookies are the most widely used mechanism for session management on the
+web. They work because both sides cooperate: the server issues the token,
+the client returns it, and the protocol never needs to know what it
+means.
+
+== Extension and Custom Headers
+
+HTTP is designed to be extended. Any sender can introduce a new header
+name, and receivers that do not recognize it simply pass it through
+unchanged. This extensibility is one of the reasons HTTP has thrived for
+over three decades -- new capabilities are added by defining new headers,
+not by changing the protocol.
+
+Historically, custom headers used an `X-` prefix to signal that they
+were experimental or non-standard:
+
+[source]
+----
+X-Request-ID: 8f14e45f-ceea-467f-a8f1-06f3b7c9d6e2
+X-RateLimit-Remaining: 42
+----
+
+This convention was deprecated in 2012 (RFC 6648) because too many
+`X-` headers became permanent standards, and the prefix added confusion
+rather than clarity. Modern practice is to choose a descriptive name
+without the prefix and register it with IANA if it gains widespread
+use.
+
+Custom headers are common in APIs. Rate-limiting headers tell clients
+how many requests they have left. Tracing headers like `X-Request-ID`
+correlate a single user action across multiple services. CDN headers
+report cache hit status. These all work because HTTP's header mechanism
+is open-ended by design.
+
+== A Complete Exchange
+
+Putting it all together, here is an annotated exchange that uses many
+of the headers discussed in this section:
+
+[source]
+----
+GET /products/42 HTTP/1.1              <1>
+Host: api.example.com                  <2>
+Accept: application/json               <3>
+Accept-Encoding: gzip                  <4>
+If-None-Match: "b5c8d3e"              <5>
+Authorization: Bearer eyJhbGci...      <6>
+Cookie: session_id=abc123              <7>
+----
+
+<1> Request line -- fetch product 42
+<2> Which server to talk to
+<3> The client wants JSON
+<4> The client can decompress gzip
+<5> Conditional: skip the body if the ETag has not changed
+<6> Authentication credentials
+<7> Session cookie
+
+[source]
+----
+HTTP/1.1 200 OK                        <1>
+Date: Sat, 07 Feb 2026 14:30:00 GMT   <2>
+Content-Type: application/json         <3>
+Content-Encoding: gzip                 <4>
+Content-Length: 412                     <5>
+ETag: "c9a1f0b"                        <6>
+Cache-Control: private, max-age=60     <7>
+Set-Cookie: prefs=dark; Path=/; Secure <8>
+
+{"id":42,"name":"Claw Hammer",...}     <9>
+----
+
+<1> Success
+<2> When the response was generated
+<3> The body is JSON
+<4> Compressed with gzip
+<5> 412 bytes after compression
+<6> New ETag for this version of the resource
+<7> Only the browser should cache this, fresh for 60 seconds
+<8> A cookie recording the user's theme preference
+<9> The JSON payload
+
+Nine request headers and eight response headers, and the entire
+interaction is self-describing. The client knows how to decompress and
+parse the body. The server knows the client is authenticated and prefers
+JSON. The browser knows how long to cache the result and which cookie to
+store. Every decision is made by reading headers -- no out-of-band
+knowledge required.
+
+This is the design insight that makes HTTP so durable. New requirements
+-- compression, authentication, caching, rate limiting, content
+negotiation -- are all layered on through headers rather than baked into
+the protocol's core syntax. The message format has not changed since
+1997, yet it handles workloads that its designers never imagined.

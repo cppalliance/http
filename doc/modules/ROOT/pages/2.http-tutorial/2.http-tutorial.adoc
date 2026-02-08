@@ -1,0 +1,43 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Introduction to HTTP
+
+Every time you click a link, a small conversation takes place between
+two machines. One asks a question; the other answers it. The language
+they speak is HTTP, and it is the most widely used application protocol
+on Earth. Billions of requests flow through it every hour--web pages,
+images, API calls, video streams--all carried by the same simple
+exchange of text messages that Tim Berners-Lee sketched on a notepad
+in 1990.
+
+You are about to learn that language from the ground up.
+
+We start with the basics: what HTTP actually is, and how clients and
+servers find each other through URLs. From there you will look inside
+the messages themselves--their structure, the methods that give them
+purpose, and the status codes that report what happened. You will see
+how headers quietly orchestrate everything from content types to
+caching policies, and how content negotiation lets a single resource
+serve different representations to different clients.
+
+Then the picture gets more interesting. You will learn how connections
+are opened, reused, and closed--and why getting this right matters more
+than most people realize. Caching will show you how the Web avoids
+doing the same work twice. Authentication will reveal how identity and
+trust are woven into the protocol without breaking its stateless design.
+
+Finally, you will follow HTTP's evolution into its modern forms: the
+binary multiplexing of HTTP/2, and the QUIC-based transport of HTTP/3
+that eliminates decades-old performance bottlenecks at the transport
+layer.
+
+None of this requires prior networking experience. Each section builds
+on the last, and by the end you will read raw HTTP traffic the way a
+mechanic reads an engine--seeing not just what is happening, but _why_.

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="boost::http::detail::header">
+    <DisplayString Condition="prefix==0">[{count}]</DisplayString>
+    <DisplayString>{cbuf,[prefix-2]s} [{count}]</DisplayString>
+    <Expand>
+      <CustomListItems>
+        <Variable Name="i" InitialValue="0"/>
+        <Variable Name="ft" InitialValue="((boost::http::detail::header::entry const*)(cbuf + cap))"/>
+        <Loop>
+          <Break Condition="i == this->count"/>
+          <Item Name="[{i}]">
+            buf+prefix+ft[-1-i].np,
+            [ft[-1-i].vp + ft[-1-i].vn - ft[-1-i].np]s
+          </Item>
+          <Exec>i++</Exec>
+        </Loop>
+      </CustomListItems>
+      <Synthetic Name="[fields]" Condition="this->kind == detail::kind::fields">
+        <DisplayString></DisplayString>
+        <Expand><ExpandedItem>this,!</ExpandedItem></Expand>
+      </Synthetic>
+      <Synthetic Name="[request]" Condition="this->kind == detail::kind::request">
+        <DisplayString>{this->req}</DisplayString>
+        <Expand><ExpandedItem>this,!</ExpandedItem></Expand>
+      </Synthetic>
+      <Synthetic Name="[response]" Condition="this->kind == detail::kind::response">
+        <DisplayString>{this->res}</DisplayString>
+        <Expand><ExpandedItem>this,!</ExpandedItem></Expand>
+      </Synthetic>
+    </Expand>
+  </Type>
+
+  <Type Name="boost::http::fields_base">
+    <DisplayString>{ h_ }</DisplayString>
+    <Expand>
+        <ExpandedItem>h_</ExpandedItem>
+    </Expand>
+  </Type>
+
+  <Type Name="boost::http::parser">
+    <DisplayString>{ h_ }</DisplayString>
+    <Expand>
+        <ExpandedItem>h_</ExpandedItem>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>
