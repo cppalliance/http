@@ -37,9 +37,58 @@ the template complexity that comes from parameterizing on body type.
 
 |===
 
+These types form an inheritance hierarchy rooted at `fields_base`:
+
+[mermaid]
+----
+classDiagram
+    fields_base <|-- fields
+    fields_base <|-- message_base
+    message_base <|-- request_base
+    message_base <|-- response_base
+    request_base <|-- request
+    request_base <|-- static_request
+    response_base <|-- response
+    response_base <|-- static_response
+
+    class fields_base["fields_base"] {
+        field storage and iteration
+    }
+    class message_base["message_base"] {
+        version, payload, keep-alive
+    }
+    class fields["fields"] {
+        standalone header collection
+    }
+    class request_base["request_base"] {
+        method, target
+    }
+    class response_base["response_base"] {
+        status code, reason
+    }
+    class request["request"] {
+        dynamic storage
+    }
+    class static_request["static_request"] {
+        externally-provided storage
+    }
+    class response["response"] {
+        dynamic storage
+    }
+    class static_response["static_response"] {
+        externally-provided storage
+    }
+----
+
 All containers maintain this invariant: **contents are always valid HTTP**.
 Operations that would produce malformed output throw an exception. This
 means you can safely serialize any container at any time.
+
+WARNING: Syntactic validity does not imply semantic correctness. A
+container will happily hold contradictory headers, nonsensical status
+codes, or fields that create security vulnerabilities such as response
+splitting. The caller is responsible for ensuring the contents reflect
+intent.
 
 == Working with Fields
 
@@ -462,4 +511,4 @@ container is modified.
 Now that you can build and inspect HTTP messages, learn how to parse
 incoming messages from the network:
 
-* xref:parsing.adoc[Parsing] — parse request and response messages
+* xref:3.messages/3c.parsing.adoc[Parsing] — parse request and response messages

@@ -505,4 +505,4 @@ These patterns are invalid and produce parse errors:
 
 == See Also
 
-* xref:router.adoc[Router] - request dispatch and handler registration
+* xref:4.servers/4c.routers.adoc[Routers] - request dispatch and handler registration

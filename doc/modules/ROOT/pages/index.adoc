@@ -9,27 +9,29 @@
 
 = Boost.HTTP
 
-HTTP powers the web, but implementing it correctly is surprisingly hard. Boost.HTTP
-is a portable C++ library that provides containers and algorithms for the HTTP/1.1
-protocol, giving you RFC-compliant message handling without the usual implementation
-headaches.
+HTTP powers the web, but implementing it correctly in C++ is surprisingly hard.
+Boost.HTTP gives you the entire HTTP/1.1 protocol stack — from raw parsing up
+to complete clients and servers — without tying you to any network library.
 
 == What This Library Does
 
-* Provides modifiable containers for HTTP requests and responses
-* Parses incoming HTTP messages with configurable limits
-* Serializes outgoing messages with automatic chunked encoding
-* Handles content encodings (gzip, deflate, brotli)
-* Offers an Express.js-style router for request dispatch
-* Enforces RFC 9110 compliance to prevent common security issues
+* Implements HTTP at multiple levels of abstraction, from low-level parsing and
+  serialization to complete clients and servers
+* Sans-I/O from top to bottom — zero dependency on Asio, Corosio, or any
+  transport; you bring your own
+* Coroutines-only execution model built on Capy
+* Type-erased streams reflecting buffer-oriented I/O
+* Express.js-style router with pattern matching and middleware composition
+* High-level components: static file serving, form processing, cookie handling,
+  cryptographic utilities
+* Content encodings (gzip, deflate, brotli)
+* Strict RFC 9110 compliance to prevent common security issues
 
 == What This Library Does Not Do
 
-* Network I/O — this is a Sans-I/O library by design
+* Provide a network transport — this is a Sans-I/O library by design
 * HTTP/2 or HTTP/3 protocol support
 * TLS/SSL handling
-* Cookie management or session state
-* Full HTTP client/server implementation (see Boost.Beast2 for I/O)
 
 == Target Audience
 
@@ -38,37 +40,42 @@ handling. You should have:
 
 * Familiarity with TCP/IP networking concepts
 * Understanding of the HTTP request/response model
-* Experience with C++ move semantics and memory management
+* Experience with C++ coroutines
 
 == Design Philosophy
 
-The library follows a Sans-I/O architecture that separates protocol logic from
-network operations. This design choice yields several benefits:
+Boost.HTTP follows a Sans-I/O architecture at every layer. Even high-level
+clients and servers operate on abstract, type-erased stream interfaces rather
+than concrete sockets. The library has no dependency on any I/O or networking
+library — not even in its implementation files.
 
-**Reusability.** The same protocol code works with any I/O framework — Asio,
-io_uring, or platform-specific APIs. Write the HTTP logic once, integrate
-it anywhere.
+This separation yields concrete benefits:
 
-**Testability.** Tests run as pure function calls without sockets, timers,
-or network delays. Coverage is higher, execution is faster, results are
+**Reusability.** The same code works with any I/O framework — Asio, io_uring,
+or platform-specific APIs. Write the HTTP logic once, plug in any transport.
+
+**Testability.** Tests run as pure function calls without sockets, timers, or
+network delays. Coverage is higher, execution is faster, results are
 deterministic.
 
-**Security.** The parser is strict by default. Malformed input that could
-enable request smuggling or header injection is rejected immediately.
+**Security.** The parser is strict by default. Malformed input that could enable
+request smuggling or header injection is rejected immediately.
+
+The execution model is coroutines-only, built on Capy. All asynchronous
+operations are naturally expressed as coroutine awaits over type-erased
+streams that reflect buffer-oriented I/O.
 
 == Requirements
 
-* C++11 compiler (see tested compilers below)
-* Boost libraries (core, system, optional)
+* C++20 compiler with coroutine support
+* Boost libraries (core, system)
 * Link to the static or dynamic library
-
-The library supports `-fno-exceptions` and detects this automatically.
 
 === Tested Compilers
 
-* GCC: 5 to 14 (except 8.0.1)
-* Clang: 3.9, 4 to 18
-* MSVC: 14.1 to 14.42
+* GCC: 11 to 14
+* Clang: 14 to 18
+* MSVC: 14.3 to 14.42
 
 == Code Conventions
 
@@ -122,13 +129,11 @@ Content-Length: 42
 
 == Next Steps
 
-* xref:http-protocol.adoc[Introduction to HTTP] — understand HTTP sessions and message flow
-* xref:containers.adoc[Containers] — work with requests, responses, and fields
-* xref:parsing.adoc[Parsing] — parse incoming HTTP messages
-* xref:serializing.adoc[Serializing] — produce outgoing HTTP messages
-* xref:router.adoc[Router] — dispatch requests to handlers
-* xref:compression/zlib.adoc[ZLib Compression] — DEFLATE and gzip support
-* xref:compression/brotli.adoc[Brotli Compression] — high-ratio compression
+* xref:2.http-tutorial/2.http-tutorial.adoc[HTTP Tutorial] — learn the HTTP protocol
+* xref:3.messages/3.messages.adoc[HTTP Messages] — containers, serializing, and parsing
+* xref:4.servers/4.servers.adoc[HTTP Servers] — workers, route handlers, routers, and built-in middleware
+* xref:5.compression/5.compression.adoc[Compression] — gzip, deflate, brotli
+* xref:7.reference/7.reference.adoc[Reference] — complete API reference
 
 == Acknowledgments
 

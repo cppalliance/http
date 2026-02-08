@@ -866,4 +866,4 @@ to _install_ a handler -- how to tell the router "when a `GET` request
 arrives at `/posts/:id`, call _this_ function."
 
 That is the job of the router, and it is the subject of the
-xref:server/router.adoc[next page].
+xref:4.servers/4c.routers.adoc[next page].

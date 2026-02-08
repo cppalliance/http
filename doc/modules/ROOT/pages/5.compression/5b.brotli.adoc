@@ -160,4 +160,4 @@ ser_cfg.apply_brotli_encoder = true;
 
 == See Also
 
-* xref:zlib.adoc[ZLib] — DEFLATE/gzip compression
+* xref:5.compression/5a.zlib.adoc[ZLib] — DEFLATE/gzip compression

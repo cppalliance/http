@@ -254,7 +254,7 @@ appropriate for local development but not for production.
 
 == See Also
 
-* xref:server/serve-static.adoc[Serving Static Files] — file serving
+* xref:4.servers/4e.serve-static.adoc[Serving Static Files] — file serving
   middleware that pairs with `serve_index`
-* xref:server/route-patterns.adoc[Route Patterns] — how request paths
+* xref:4.servers/4d.route-patterns.adoc[Route Patterns] — how request paths
   are matched to handlers

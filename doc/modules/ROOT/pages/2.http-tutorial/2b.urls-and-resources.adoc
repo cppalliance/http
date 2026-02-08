@@ -1,0 +1,319 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= URLs and Resources
+
+Every building in a city has an address. Without addresses, you could
+describe a building by its appearance or its neighborhood, but you could
+never tell a taxi driver exactly where to go. Before URLs existed, finding
+something on the Internet was like that -- you needed to know which
+application to open, which server to connect to, which protocol to speak,
+and which directory to look in. URLs collapsed all of that into a single
+string that anyone could share, bookmark, or click.
+
+This section explains what resources are, how URLs name them, and how
+the pieces of a URL work together to tell an HTTP client exactly what
+to fetch and from where.
+
+== Resources
+
+A resource is anything that can be served over the web. The term is
+deliberately broad. A resource might be a static file sitting on disk -- an
+HTML page, a JPEG photograph, a PDF manual. It might also be a program
+that generates content on demand: a search engine returning results for
+your query, a stock ticker streaming live prices, or an API endpoint
+returning JSON.
+
+What makes something a resource is not its format or its origin, but the
+fact that it can be identified by a name and retrieved by a client. HTTP
+does not care whether the bytes come from a file, a database, a camera
+feed, or a script. As far as the protocol is concerned, a resource is
+whatever the server sends back.
+
+=== Media Types
+
+When a server sends a resource, the client needs to know what kind of data
+it is receiving. A stream of bytes could be an image, a web page, or a
+compressed archive -- the bits alone do not say. HTTP solves this with
+*media types* (also called MIME types), a labeling system borrowed from
+email.
+
+A media type is a two-part string: a primary type and a subtype, separated
+by a slash:
+
+[cols="1a,2a"]
+|===
+|Media Type|Meaning
+
+|`text/html`
+|An HTML document
+
+|`text/plain`
+|Plain text with no formatting
+
+|`image/jpeg`
+|A JPEG photograph
+
+|`image/png`
+|A PNG image
+
+|`application/json`
+|JSON-formatted data
+
+|`application/octet-stream`
+|Arbitrary binary data (the catch-all)
+
+|===
+
+The server communicates the media type in the `Content-Type` header:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: image/png
+Content-Length: 4096
+
+<...4096 bytes of image data...>
+----
+
+The client reads this header and decides how to handle the body. A browser
+renders `text/html` as a web page, displays `image/jpeg` as a picture, and
+might offer to download `application/octet-stream` as a file. Media types
+are the reason the web can serve every kind of content through a single
+protocol.
+
+== URLs
+
+A Uniform Resource Locator (URL) is the address of a resource on the
+Internet. It tells a client three things at once: _how_ to access the
+resource (the protocol), _where_ the resource lives (the server), and
+_which_ resource to retrieve (the path).
+
+[source]
+----
+http://www.example.com/seasonal/index-fall.html
+----
+
+This single string replaces what used to be a paragraph of instructions:
+"Open your FTP client, connect to this server, log in with these
+credentials, navigate to this directory, switch to binary mode, and
+download this file." A URL encodes all of that context into a compact,
+shareable format.
+
+URLs are a subset of a broader concept called Uniform Resource Identifiers
+(URIs). The HTTP specification uses the term URI, but in practice nearly
+every URI you encounter is a URL. The distinction matters mainly in
+specifications; for day-to-day work with HTTP, the two terms are
+interchangeable.
+
+=== Anatomy of a URL
+
+A URL can contain up to nine components. Most URLs use only a few of them,
+but the full general form is:
+
+[source]
+----
+scheme://user:password@host:port/path?query#fragment
+----
+
+The three most important parts are the *scheme*, the *host*, and the
+*path*. Here is how they break down for a typical HTTP URL:
+
+[source]
+----
+  http://www.example.com:8080/tools/hammers?color=blue&sort=price#reviews
+  \__/   \______________/\__/\____________/ \____________________/\_____/
+scheme        host       port    path             query          fragment
+----
+
+[cols="1a,3a"]
+|===
+|Component|Description
+
+|*scheme*
+|The protocol to use. For web traffic this is `http` or `https`. The scheme
+ends at the first `:` character and is case-insensitive.
+
+|*host*
+|The server's address -- either a domain name like `www.example.com` or an
+IP address like `192.168.1.1`. This is where the client will open a
+connection.
+
+|*port*
+|The TCP port on the server. If omitted, the default for the scheme is used
+(80 for `http`, 443 for `https`).
+
+|*path*
+|The specific resource on the server, structured like a filesystem path.
+Each segment is separated by `/`.
+
+|*query*
+|Additional parameters passed to the server, introduced by `?`. Query
+strings are typically formatted as `name=value` pairs separated by `&`.
+
+|*fragment*
+|A reference to a specific section _within_ the resource, introduced by
+`#`. Fragments are used only by the client -- they are never sent to the
+server.
+
+|===
+
+=== Schemes
+
+The scheme is the first thing a client reads. It determines which protocol
+to use for retrieving the resource. Although HTTP and HTTPS dominate the
+web, URLs support many schemes:
+
+[cols="1a,3a"]
+|===
+|Scheme|Example
+
+|`http`
+|`\http://www.example.com/index.html` -- standard web traffic, port 80
+
+|`https`
+|`\https://www.example.com/secure` -- HTTP over TLS, port 443
+
+|`ftp`
+|`ftp://ftp.example.com/pub/readme.txt` -- file transfer
+
+|`mailto`
+|`mailto:user@example.com` -- email address
+
+|`file`
+|`file:///home/user/notes.txt` -- local filesystem
+
+|===
+
+For HTTP programming, you will work almost exclusively with `http` and
+`https`. The scheme tells your code whether to open a plain TCP connection
+or negotiate a TLS handshake before sending the first request.
+
+=== The Request-Target
+
+When a client sends an HTTP request, the URL does not appear in the
+message exactly as you see it in a browser's address bar. The scheme and
+host are stripped away, and only the *request-target* is placed on the
+request line. For most requests, the request-target is the path plus any
+query string:
+
+[source]
+----
+GET /tools/hammers?color=blue HTTP/1.1
+Host: www.example.com
+----
+
+The host is conveyed separately in the `Host` header. This split exists
+because a single server can host many domain names (virtual hosting), and
+the request-target alone would not identify which site the client wants.
+
+For requests sent through a proxy, the full URL (called the *absolute
+form*) may appear on the request line instead:
+
+[source]
+----
+GET http://www.example.com/tools/hammers HTTP/1.1
+----
+
+Understanding the request-target matters because when you build or parse
+HTTP messages, you are working with this extracted piece of the URL, not
+the full address.
+
+== Percent-Encoding
+
+URLs were designed to be transmitted safely across every protocol on the
+Internet, so they are restricted to a small set of characters: letters,
+digits, and a handful of punctuation marks. Any character outside this safe
+set must be *percent-encoded* -- replaced with a `%` sign followed by two
+hexadecimal digits representing the character's byte value.
+
+[cols="1a,1a,1a"]
+|===
+|Character|ASCII Code|Encoded Form
+
+|space
+|32 (0x20)
+|`%20`
+
+|`#`
+|35 (0x23)
+|`%23`
+
+|`%`
+|37 (0x25)
+|`%25`
+
+|`/`
+|47 (0x2F)
+|`%2F`
+
+|`?`
+|63 (0x3F)
+|`%3F`
+
+|===
+
+For example, a search query containing spaces and special characters:
+
+[source]
+----
+GET /search?q=hello%20world%21 HTTP/1.1
+Host: www.example.com
+----
+
+Here `%20` represents a space and `%21` represents an exclamation mark.
+
+Several characters have reserved meanings inside a URL -- `/` separates
+path segments, `?` introduces the query, `#` marks a fragment, and `:`
+separates the scheme. If you need these characters to appear as literal
+data (for instance, a filename that contains a question mark), you must
+percent-encode them. Conversely, encoding characters that are already safe
+is technically allowed but can cause interoperability problems, so it is
+best avoided.
+
+Applications should encode unsafe characters before transmitting a URL and
+decode them when processing one. Getting this wrong is a common source of
+bugs: double-encoding a URL that is already encoded, or failing to encode
+a user-supplied value before inserting it into a path or query string.
+
+== Relative URLs
+
+Not every URL needs to spell out the scheme and host. A *relative URL*
+is a shorthand that omits the parts which can be inferred from context.
+If you are already viewing a page at
+`\http://www.example.com/tools/index.html`, a link to `./hammers.html` is
+understood to mean `\http://www.example.com/tools/hammers.html`.
+
+The URL from which missing parts are inherited is called the *base URL*.
+It is usually the URL of the document that contains the link:
+
+[source]
+----
+Base URL:        http://www.example.com/tools/index.html
+Relative URL:    ./hammers.html
+Resolved URL:    http://www.example.com/tools/hammers.html
+----
+
+Relative URLs make content portable. A set of HTML pages that link to
+each other with relative paths can be moved to a different server or a
+different directory without breaking any links, because the references
+adjust automatically to the new base.
+
+In HTTP messages, the request-target is already relative to the server,
+so the concept shows up naturally. When your code constructs a request,
+it uses the path portion of a URL -- which is itself a relative reference
+resolved against the connection's host.
+
+== Next Steps
+
+You now know what resources are, how URLs name them, and how the pieces
+of a URL map onto an HTTP request. The next section breaks open the
+messages themselves:
+
+* xref:2.http-tutorial/2c.message-anatomy.adoc[Message Anatomy] -- start lines, headers, and bodies

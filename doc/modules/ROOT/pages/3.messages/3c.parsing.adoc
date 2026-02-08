@@ -224,8 +224,8 @@ you receive is the decoded content.
 
 For detailed information on compression services, see:
 
-* xref:compression/zlib.adoc[ZLib] — DEFLATE and gzip decompression
-* xref:compression/brotli.adoc[Brotli] — Brotli decompression
+* xref:5.compression/5a.zlib.adoc[ZLib] — DEFLATE and gzip decompression
+* xref:5.compression/5b.brotli.adoc[Brotli] — Brotli decompression
 
 == Handling Multiple Messages
 
@@ -303,4 +303,4 @@ Common errors include:
 Now that you can parse incoming messages, learn how to produce outgoing
 messages:
 
-* xref:serializing.adoc[Serializing] — produce HTTP messages for transmission
+* xref:3.messages/3b.serializing.adoc[Serializing] — produce HTTP messages for transmission

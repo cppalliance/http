@@ -221,8 +221,8 @@ co_await sink.write_eof(
 
 For detailed information on compression services, see:
 
-* xref:compression/zlib.adoc[ZLib] — DEFLATE and gzip compression
-* xref:compression/brotli.adoc[Brotli] — Brotli compression
+* xref:5.compression/5a.zlib.adoc[ZLib] — DEFLATE and gzip compression
+* xref:5.compression/5b.brotli.adoc[Brotli] — Brotli compression
 
 == Expect: 100-continue
 

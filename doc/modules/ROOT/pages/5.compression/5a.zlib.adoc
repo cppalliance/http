@@ -213,4 +213,4 @@ ser_cfg.apply_gzip_encoder = true;
 
 == See Also
 
-* xref:brotli.adoc[Brotli] — Higher compression ratio
+* xref:5.compression/5b.brotli.adoc[Brotli] — Higher compression ratio

@@ -308,5 +308,5 @@ This configuration:
 
 == See Also
 
-* xref:server/route-patterns.adoc[Route Patterns] — how request paths
+* xref:4.servers/4d.route-patterns.adoc[Route Patterns] — how request paths
   are matched to handlers

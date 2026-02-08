@@ -1171,9 +1171,9 @@ size.
 
 == See Also
 
-* xref:server/route-handlers.adoc[Route Handlers] -- the handler
+* xref:4.servers/4b.route-handlers.adoc[Route Handlers] -- the handler
   signature, `route_params`, and the `send()` method
-* xref:server/route-patterns.adoc[Route Patterns] -- the complete
+* xref:4.servers/4d.route-patterns.adoc[Route Patterns] -- the complete
   pattern syntax with detailed matching examples
-* xref:server/serve-static.adoc[Serving Static Files] -- the
+* xref:4.servers/4e.serve-static.adoc[Serving Static Files] -- the
   `serve_static` middleware

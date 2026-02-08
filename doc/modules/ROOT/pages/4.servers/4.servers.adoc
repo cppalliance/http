@@ -214,7 +214,7 @@ and passes it to the handler. This is how a single route definition
 handles thousands of different URLs.
 
 Patterns can also include wildcards, optional groups, and literal
-segments. The xref:server/route-patterns.adoc[Route Patterns] page
+segments. The xref:4.servers/4d.route-patterns.adoc[Route Patterns] page
 explores the full syntax. For now, the key insight is that routing
 transforms a flat stream of requests into organized, purpose-built
 handler functions.
@@ -496,14 +496,14 @@ effortlessly.
 
 The pages that follow dive into each component in detail:
 
-* xref:server/router.adoc[Router] -- the dispatch engine that maps
+* xref:4.servers/4c.routers.adoc[Routers] -- the dispatch engine that maps
   requests to handlers, with method matching, handler chaining,
   middleware, nested routers, and error handling
-* xref:server/route-patterns.adoc[Route Patterns] -- the full pattern
+* xref:4.servers/4d.route-patterns.adoc[Route Patterns] -- the full pattern
   syntax including named parameters, wildcards, and optional groups
-* xref:server/serve-static.adoc[Serving Static Files] -- efficient
+* xref:4.servers/4e.serve-static.adoc[Serving Static Files] -- efficient
   file serving with caching, range requests, and content negotiation
-* xref:server/serve-index.adoc[Directory Listings] -- browsable
+* xref:4.servers/4f.serve-index.adoc[Directory Listings] -- browsable
   directory views in HTML, JSON, or plain text
 
 Each page builds on the foundation laid here. The router page shows
