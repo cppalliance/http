@@ -40,6 +40,7 @@ struct test_worker
     static constexpr auto HEAD    = method::head;
     static constexpr auto DELETE_ = method::delete_;
     static constexpr auto PATCH   = method::patch;
+    static constexpr auto OPTIONS = method::options;
 
     //--------------------------------------------
     // Cached configs
