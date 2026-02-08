@@ -13,7 +13,9 @@
 #include <boost/http/detail/config.hpp>
 #include <boost/http/server/route_handler.hpp>
 #include <boost/http/server/detail/router_base.hpp>
+#include <boost/http/field.hpp>
 #include <boost/http/method.hpp>
+#include <boost/http/status.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/mp11/algorithm.hpp>
 #include <boost/assert.hpp>
@@ -598,6 +600,13 @@ public:
         router_options options = {})
         : detail::router_base(options.v_)
     {
+        set_options_handler(
+            [](P& rp, std::string_view allow) -> route_task {
+                rp.status(status::no_content);
+                rp.res.set(field::allow, allow);
+                (void)(co_await rp.send());
+                co_return route_done;
+            });
     }
 
     /** Construct a router from another router with compatible types.

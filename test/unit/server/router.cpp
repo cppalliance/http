@@ -12,6 +12,7 @@
 
 #include <boost/http/server/detail/dynamic_invoke.hpp>
 #include <boost/capy/test/run_blocking.hpp>
+#include <boost/capy/test/buffer_sink.hpp>
 #include "test_suite.hpp"
 
 namespace boost {
@@ -21,6 +22,12 @@ struct router_test
 {
     using params = route_params;
     using test_router = router<params>;
+
+    static void init_sink(params& p)
+    {
+        p.res_body = capy::any_buffer_sink(
+            capy::test::buffer_sink{});
+    }
 
     struct derived_params : params {};
 
@@ -125,6 +132,7 @@ struct router_test
         route_result rv0 = route_done)
     {
         params req;
+        init_sink(req);
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             r.dispatch(http::method::get, urls::url_view(url), req));
@@ -138,6 +146,7 @@ struct router_test
         route_result rv0 = route_done)
     {
         params req;
+        init_sink(req);
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             r.dispatch(verb, urls::url_view(url), req));
@@ -151,6 +160,7 @@ struct router_test
         route_result rv0 = route_done)
     {
         params req;
+        init_sink(req);
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             r.dispatch(verb, urls::url_view(url), req));
@@ -192,16 +202,16 @@ struct router_test
 
         // basic routing
         { test_router r; r.add(GET, "/", h_send); check(r, GET, "/"); }
-        { test_router r; r.add(GET, "/", h_next); check(r, POST, "/", route_next); }
+        { test_router r; r.add(GET, "/", h_next); check(r, POST, "/"); }
         { test_router r; r.add(POST, "/", h_send); check(r, POST, "/"); }
 
         // verb matching - case sensitive
         { test_router r; r.add(GET, "/", h_send); check(r, "GET", "/"); }
-        { test_router r; r.add(GET, "/", h_next); check(r, "get", "/", route_next); }
+        { test_router r; r.add(GET, "/", h_next); check(r, "get", "/"); }
 
         // custom verb
         { test_router r; r.add("CUSTOM", "/", h_send); check(r, "CUSTOM", "/"); }
-        { test_router r; r.add("CUSTOM", "/", h_next); check(r, "custom", "/", route_next); }
+        { test_router r; r.add("CUSTOM", "/", h_next); check(r, "custom", "/"); }
 
         // path matching
         { test_router r; r.add(GET, "/x", h_next); r.add(GET, "/y", h_send); check(r, GET, "/y"); }
@@ -426,6 +436,7 @@ struct router_test
             test_router r;
             r.use(h_next);
             params req;
+            init_sink(req);
             BOOST_TEST_THROWS(
                 capy::test::run_blocking()(r.dispatch(
                     http::method::unknown, urls::url_view("/"), req)),
@@ -437,6 +448,7 @@ struct router_test
             test_router r;
             r.use(h_next);
             params req;
+            init_sink(req);
             BOOST_TEST_THROWS(
                 capy::test::run_blocking()(r.dispatch(
                     "", urls::url_view("/"), req)),

@@ -74,10 +74,20 @@ do_http_session()
 
         {
             auto rv = co_await fr.dispatch(rp.req.method(), rp.url, rp);
+
+            if(rv.what() == route_what::close)
+                break;
+
+            if(rv.what() == route_what::next)
+            {
+                rp.status(http::status::not_found);
+                (void)(co_await rp.send());
+            }
+
             if(rv.failed())
             {
-                // VFALCO log rv.error()
-                break;
+                rp.status(http::status::internal_server_error);
+                (void)(co_await rp.send());
             }
 
             if(! rp.res.keep_alive())
