@@ -1,0 +1,231 @@
+//
+// Copyright (c) 2024 Mohammad Nejati
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Parser Design Requirements
+
+== Design
+
+=== Comparison to Boost.Beast
+
+This library builds on the experiences learned from Boost.Beast's seven years
+of success. Beast brings these unique design strengths:
+
+* Body type named requirements
+* First-class message container
+* Individual parser and serializer objects
+
+The message container suffers from these problems:
+
+* Templated on the body type.
+* Templated on Allocator
+* Node-based implementation
+* Serialization is too costly
+
+Meanwhile parsers and serializes suffer from these problems:
+
+* Buffer-at-a-time operation is clumsy.
+* Objects are not easily re-used
+* Parser is a class template because of body types
+
+==== Message Container
+
+In HTTP the message container implementation always stores the complete
+message or fields in its correctly serialized form. Insertions and modifications
+are performed in linear time. When the container is reused, the amortized cost
+of reallocation becomes zero. A small lookup table is stored past the end of
+the serialized message, permitting iteration in constant time.
+
+==== Parser
+
+The HTTP parser is designed to persist for the lifetime of the connection
+or application. It allocates a fixed size memory buffer upon construction and
+uses this memory region to perform type-erasure and apply or remove content
+encodings to the body. The parser is a regular class instead of a class
+template, which greatly improves its ease of use over the Beast parser design.
+
+==== Serializer
+
+As with the parser, the serializer is designed to persist for the lifetime of
+the connection or application and also allocates a fixed size buffer.
+
+== Memory Allocation and Memory Utilization
+
+The `parser` must use a single block of memory allocated during construction and
+guarantee that it will never exceed the specified size. It should also be able
+to reuse this space for parsing multiple HTTP messages (one message at a time).
+
+The `parser` must efficiently utilize the allocated memory for the following
+purposes:
+
+- Provide a mutable buffer for reading raw input (for example, from a socket).
+- Store HTTP headers and provide a non-owning, read-only view that allows
+  efficient access and iteration through header names and values.
+- O(1) access to important HTTP headers, including the request method, target,
+  and response status code.
+- Store all or part of an HTTP message and provide the necessary interfaces for
+  retrieving it.
+- Store the necessary state for inflate algorithms.
+
+Using a `parser` that works with a fixed-size buffer, an application can ensure
+it never exceeds capacity if all resources are provisioned at program startup.
+
+== Input Buffer Preparation
+
+The `parser` must use its understanding of the current HTTP message to provide
+an input buffer size that balances the number of I/O operations and memory
+movements. A naive approach might offer the largest possible buffer to minimize
+I/O operations, but this would result in excessive memory movement, consuming
+significant computational resources. For example:
+
+- If the exact size of the message body is known and no transformation is
+  needed, we can offer an input buffer that matches the remaining body size,
+  plus a controlled overread that balances the cost of subsequent memory
+  movement.
+- If the body type is chunked, we can provide an input buffer that accommodates
+  the remaining chunk size, plus a controlled overread to read the next chunk
+  header or the terminating chunk. This allows us to position the subsequent
+  chunk directly after the current without having to perform memory movement
+  due to the existence of a chunk header.
+
+== Two-Phase Parsing  
+
+The parser must return immediately after parsing the header and must not process
+the body until the next `parse()` call. For bodiless messages and head
+responses, it must transition directly to the `complete_in_place` state after
+parsing the header, making further `parse()` calls unnecessary (but still
+valid).
+
+This two-phase parsing offers several benefits with almost no complications on
+the API usage side:
+
+- It provides an optimization opportunity for users who want to attach a body
+  immediately after parsing the header (which is often the case), as there is no
+  need to allocate an internal buffer for the message body. This allows all
+  available space to be used for the input buffer.
+- Since parsing the body might result in an error, returning after parsing the
+  header enables users to access the header and, on the next `parse()` call,
+  encounter the error.
+- Setting the body limit during or after parsing the body doesn’t make much
+  sense, so returning immediately after parsing the header provides a window for
+  setting such limits.
+- If users attach a body immediately after parsing the header, we avoid the
+  need for an extra buffer copy operation (in case the user wants to attach an
+  elastic buffer).
+- The parsed headers remain valid and accessible even if an error occurs during
+  body parsing.
+
+== Use Cases and Interfaces
+
+To keep things simple, we will use the following synchronous free functions to
+demonstrate the flow of the parse operation in each example:
+
+[source,cpp]
+----
+void
+read_some(stream& s, parser& pr, error_code& ec)
+{
+    pr.parse(ec);
+    if(ec != condition::need_more_input)
+        return;
+
+    auto n = s.read_some(pr.prepare(), ec);
+    pr.commit(n);
+    if(ec == asio::error::eof)
+    {
+        pr.commit_eof();
+        ec = {};
+    }
+    else if(ec.failed())
+    {
+        return;
+    }
+
+    pr.parse(ec);
+}
+
+void
+read_header(stream& s, parser& pr)
+{
+    do
+    {
+        error_code ec;
+        read_some(s, pr, ec);
+        if(ec == condition::need_more_input)
+            continue;
+        if(ec.failed())
+            throw system::system_error(ec);
+    }
+    while(! pr.got_header());
+}
+
+void
+read(stream& s, parser& pr)
+{      
+    do
+    {
+        error_code ec;
+        read_some(s, pr, ec);
+        if(ec == condition::need_more_input)
+            continue;
+        if(ec.failed())
+            throw system::system_error(ec);
+    }
+    while(! pr.is_complete());
+}
+----
+
+
+=== In-Place Body
+
+It must be possible to use the internal buffer of the `parser` for storing the
+entire or part of an HTTP message body.
+
+[source,cpp]
+----
+request_parser pr{ctx};
+pr.start();
+
+read_header(stream, pr);
+
+// When the entire body can fit in-place
+read(stream, pr);
+string_view body = pr.body();
+
+// When need to read body piece by piece
+while(!pr.is_complete())
+{
+    read_some(stream, pr);
+    auto cbs = pr.pull_body();
+    pr.consume_body(buffer::buffer_size(cbs));
+}
+----
+
+
+=== Accessing Buffered Data
+
+The HTTP/1.1 protocol allows upgrading an established connection to a different
+protocol by sending an upgrade request and receiving a `101 Switching Protocols`
+status code in response. During this process, the `parser` might overread the
+HTTP response, such as reading part or all of a WebSocket frame after the
+response. The `parser` must provide a way to access this buffered data so it can
+be passed to another entity, like a WebSocket stream object.
+
+[source,cpp]
+----
+response_parser pr{ctx};
+pr.start();
+
+read_header(stream, pr);
+
+if(is_upgrade_successful(pr.get()))
+{
+    auto cbs = pr.buffered_data();
+    // Pass the buffered data to the next layer ...
+}
+----

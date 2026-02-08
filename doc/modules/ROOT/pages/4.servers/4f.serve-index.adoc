@@ -1,0 +1,260 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Directory Listings
+
+When a user navigates to a directory on your server and there's no
+`index.html` waiting for them, what should happen? A blank page? A
+404? The `serve_index` middleware answers with a browsable directory
+listing — a table of files and folders the visitor can click through,
+the way web servers have done it since the early days of the web.
+
+NOTE: Code snippets assume `using namespace boost::http;` is in effect.
+
+== Quick Start
+
+Point `serve_index` at a document root and register it as middleware:
+
+[source,cpp]
+----
+#include <boost/http/server/serve_index.hpp>
+
+router r;
+r.use( serve_index("/var/www/public") );
+----
+
+Requests that map to a directory on disk now receive a listing of that
+directory's contents. Files get a clickable link, a size column, and a
+last-modified timestamp. Directories appear with a trailing slash and
+sort to the top so they're easy to find.
+
+If the path isn't a directory, the request passes through to the next
+handler.
+
+== Pairing with serve_static
+
+`serve_index` is designed to complement `serve_static`. Used together,
+they cover every case:
+
+[source,cpp]
+----
+router r;
+r.use( serve_static(root) );
+r.use( serve_index(root) );
+----
+
+Here's what happens when a request arrives for a directory:
+
+1. `serve_static` checks for `index.html` in that directory.
+2. If found, it serves the index page. Done.
+3. If not found (and `fallthrough` is enabled), the request reaches
+   `serve_index`.
+4. `serve_index` verifies the path is a directory and generates a
+   listing.
+
+Directories with an `index.html` get a proper landing page. Directories
+without one get a browsable file listing. No request falls through the
+cracks.
+
+== Content Negotiation
+
+Not every client wants HTML. A command-line tool piping output through
+`jq` would prefer JSON. A script might want plain text it can parse
+with `awk`. The `serve_index` middleware reads the `Accept` header and
+responds in the format the client prefers.
+
+Three formats are supported:
+
+[cols="1,2,3"]
+|===
+| Format | Content-Type | When Selected
+
+| HTML
+| `text/html; charset=utf-8`
+| Default, or when `Accept` prefers `text/html`
+
+| JSON
+| `application/json; charset=utf-8`
+| When `Accept` prefers `application/json`
+
+| Plain text
+| `text/plain; charset=utf-8`
+| When `Accept` prefers `text/plain`
+|===
+
+=== HTML Response
+
+Browsers receive a styled HTML page with a table of names, sizes, and
+modification times. The styling is minimal and modern — no external
+dependencies, no JavaScript, just clean semantic HTML and a few lines
+of CSS.
+
+=== JSON Response
+
+API clients receive a JSON array of entry objects:
+
+[source,json]
+----
+[
+  {"name":"docs","type":"directory","size":0,"mtime":1738886400},
+  {"name":"readme.txt","type":"file","size":2048,"mtime":1738800000}
+]
+----
+
+Each object includes:
+
+* `name` — the file or directory name
+* `type` — either `"file"` or `"directory"`
+* `size` — size in bytes (0 for directories)
+* `mtime` — modification time as a Unix epoch
+
+=== Plain Text Response
+
+Scripts and minimal clients receive one filename per line, with a
+trailing `/` on directories:
+
+----
+docs/
+readme.txt
+----
+
+You can test content negotiation from the command line:
+
+[source,bash]
+----
+# HTML (default)
+curl http://localhost:8080/files/
+
+# JSON
+curl -H "Accept: application/json" http://localhost:8080/files/
+
+# Plain text
+curl -H "Accept: text/plain" http://localhost:8080/files/
+----
+
+== Configuration
+
+Pass a `serve_index::options` struct to customize behavior:
+
+[source,cpp]
+----
+serve_index::options opts;
+opts.hidden      = true;   // show dotfiles
+opts.show_parent = false;  // hide ".." link
+opts.fallthrough = false;  // return 405 for non-GET/HEAD
+
+router r;
+r.use( serve_index("/var/www/public", opts) );
+----
+
+=== Options Reference
+
+[cols="2,1,4"]
+|===
+| Option | Default | Description
+
+| `hidden`
+| `false`
+| Show hidden files (names starting with `.`). When `false`, dotfiles
+  are silently omitted from the listing.
+
+| `show_parent`
+| `true`
+| Include a `..` link to the parent directory. Automatically suppressed
+  when the listed directory is the document root itself.
+
+| `fallthrough`
+| `true`
+| When a non-GET/HEAD request arrives, pass it to the next handler
+  instead of returning `405 Method Not Allowed`.
+|===
+
+== Sorting
+
+Entries are sorted with directories first, then files, both in
+case-insensitive alphabetical order. This keeps the listing
+predictable across platforms — a directory tree looks the same
+whether the server runs on Linux, macOS, or Windows.
+
+== Trailing Slash Redirect
+
+When a request arrives for a directory path without a trailing slash,
+`serve_index` responds with a `301 Moved Permanently` redirect to
+the same path with a slash appended. This ensures that relative links
+within the HTML listing resolve correctly.
+
+For example, a request for `/files` redirects to `/files/`, and the
+listing is then served at the canonical URL.
+
+== Hidden Files
+
+By default, files and directories whose names start with a dot are
+excluded from listings. Configuration files like `.env`, `.git`, and
+`.htaccess` don't appear.
+
+Enable them when you need full visibility:
+
+[source,cpp]
+----
+serve_index::options opts;
+opts.hidden = true;
+
+router r;
+r.use( serve_index(root, opts) );
+----
+
+This only controls whether dotfiles appear in listings. It does not
+affect whether they can be downloaded — that's the job of
+`serve_static` and its `dotfiles_policy`.
+
+== The Parent Directory Link
+
+The `..` entry at the top of a listing lets visitors navigate up to
+the parent directory. It appears by default, but `serve_index`
+automatically hides it when the current directory is the document
+root. There's nowhere "up" to go from root.
+
+You can also disable it entirely:
+
+[source,cpp]
+----
+serve_index::options opts;
+opts.show_parent = false;
+----
+
+This is useful when the listing is embedded in a larger page layout
+where separate navigation handles the hierarchy.
+
+== Example: Development File Browser
+
+A development server that exposes a project tree with full visibility:
+
+[source,cpp]
+----
+serve_index::options idx_opts;
+idx_opts.hidden      = true;
+idx_opts.show_parent = true;
+
+serve_static_options static_opts;
+static_opts.dotfiles = dotfiles_policy::allow;
+
+router r;
+r.use( serve_static(root, static_opts) );
+r.use( serve_index(root, idx_opts) );
+----
+
+Every file is visible and downloadable — dotfiles included. This is
+appropriate for local development but not for production.
+
+== See Also
+
+* xref:4.servers/4e.serve-static.adoc[Serving Static Files] — file serving
+  middleware that pairs with `serve_index`
+* xref:4.servers/4d.route-patterns.adoc[Route Patterns] — how request paths
+  are matched to handlers

@@ -1,0 +1,869 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Route Handlers
+
+A route handler is the smallest unit of server logic. It is a single
+function that receives an HTTP request, decides what to do, and tells
+the server what happened. Every page your server renders, every API
+endpoint it exposes, every access check it performs -- each begins life
+as a route handler.
+
+Understanding route handlers thoroughly is the foundation for everything
+that follows. Once you know what a handler _is_, how it communicates
+with the server, and what tools it has at its disposal, the rest of the
+framework clicks into place.
+
+
+== The Signature
+
+A route handler is a coroutine with this signature:
+
+[source,cpp]
+----
+route_task my_handler(route_params& rp);
+----
+
+Three things to notice:
+
+1. It returns `route_task`.
+2. It takes a single parameter: a reference to `route_params`.
+3. It is a coroutine -- the body uses `co_return` and may use `co_await`.
+
+That is the entire contract. If you can write a function with this
+shape, you can handle HTTP requests. Everything else is details about
+what you do _inside_ the function.
+
+
+== Why a Coroutine?
+
+Handling an HTTP request often involves waiting: reading the request
+body from the network, querying a database, writing a response back
+over the wire. In a traditional blocking server, each of these waits
+ties up an OS thread. A server handling thousands of simultaneous
+connections would need thousands of threads, which is expensive and
+does not scale.
+
+Coroutines solve this elegantly. When a handler reaches a point where
+it must wait -- say, to send the response body over the network -- it
+_suspends_ instead of blocking. The thread is free to run other
+handlers. When the I/O completes, the handler _resumes_ exactly where
+it left off, with all its local variables intact.
+
+The result is code that reads like straightforward sequential logic:
+
+[source,cpp]
+----
+route_task greet(route_params& rp)
+{
+    rp.status(status::ok);
+    auto [ec] = co_await rp.send("Hello, World!");
+    if(ec)
+        co_return route_error(ec);
+    co_return route_done;
+}
+----
+
+No callbacks. No state machines. No manual continuation passing. The
+`co_await` on `rp.send(...)` suspends the coroutine while the response
+bytes travel over the network, then resumes it to check the result.
+`co_return` delivers the final directive to the router.
+
+`route_task` is defined as `capy::task<route_result>` -- a coroutine
+task type that produces a `route_result` when it completes. You never
+construct a `route_task` directly; the compiler creates one when you
+write a function body containing `co_return` or `co_await`.
+
+
+== The Return Value
+
+When a handler finishes, it must tell the router what happened. It does
+this by returning (via `co_return`) a `route_result`. There are four
+predefined directive constants, plus the ability to return an error:
+
+[cols="1,3"]
+|===
+|Directive |Meaning
+
+|`route_done`
+|The handler completed successfully. A response was sent (or prepared
+to be sent). The request is finished.
+
+|`route_next`
+|The handler is declining this request. The router should continue and
+try the next handler in the chain.
+
+|`route_next_route`
+|Skip all remaining handlers on the current route and jump to the next
+matching route entirely.
+
+|`route_close`
+|Close the connection immediately. No response is sent.
+|===
+
+And for errors:
+
+[source,cpp]
+----
+co_return route_error(ec);  // from a system::error_code
+----
+
+These five outcomes cover every situation a handler can encounter. Most
+handlers end with either `route_done` (I handled it) or `route_next`
+(not my problem, pass it along).
+
+=== The Pipeline Metaphor
+
+Think of handlers as stations on an assembly line. A request enters
+the line and passes through each station in order. Each station
+inspects the request and decides: "I'll handle this" (`route_done`),
+"not for me, next station please" (`route_next`), or "skip ahead"
+(`route_next_route`). The first station that claims the request
+finishes it.
+
+This is a powerful pattern. It means you can decompose complex request
+processing into small, focused functions. An authentication handler
+checks credentials and returns `route_next` if valid, or sends a 401
+and returns `route_done` if not. A logging handler records the request
+and always returns `route_next`. A business-logic handler does the
+real work and returns `route_done`.
+
+[source,cpp]
+----
+route_task log_request(route_params& rp)
+{
+    std::cout << rp.req.method_text()
+              << " " << rp.url.encoded_path() << "\n";
+    co_return route_next;
+}
+
+route_task require_auth(route_params& rp)
+{
+    if(! rp.req.exists(field::authorization))
+    {
+        rp.status(status::unauthorized);
+        co_await rp.send("Authentication required");
+        co_return route_done;
+    }
+    co_return route_next;
+}
+
+route_task serve_dashboard(route_params& rp)
+{
+    rp.status(status::ok);
+    co_await rp.send("<html><body>Dashboard</body></html>");
+    co_return route_done;
+}
+----
+
+These three handlers, chained together on the same route, give you
+logging, access control, and content delivery -- each in a clean,
+testable function. The router runs them in order and stops at the
+first `route_done`.
+
+
+== The route_params Object
+
+The single parameter to every handler, `route_params`, is the handler's
+entire world. It holds the incoming request, the outgoing response,
+captured URL parameters, I/O channels for the body, and general-purpose
+storage. Rather than passing a dozen arguments, the framework bundles
+everything into one coherent object.
+
+Let's walk through each field.
+
+
+=== req -- The Request
+
+[source,cpp]
+----
+http::request req;
+----
+
+The parsed HTTP request. This is where you find out what the client
+wants. The most important operations:
+
+[source,cpp]
+----
+// The HTTP method
+auto m = rp.req.method();           // http::method::get, post, etc.
+auto s = rp.req.method_text();      // "GET", "POST", etc.
+
+// The request target
+auto t = rp.req.target();           // "/api/users?page=2"
+
+// HTTP version
+auto v = rp.req.version();          // http::version::http_1_1
+
+// Header fields
+auto host = rp.req.at(field::host);          // throws if missing
+bool has_auth = rp.req.exists(field::authorization);
+auto ct = rp.req.find(field::content_type);  // iterator, or end()
+
+// Connection semantics
+bool ka = rp.req.keep_alive();      // persistent connection?
+bool chunked = rp.req.chunked();    // chunked transfer encoding?
+----
+
+The request object inherits from `fields_base`, giving you full access
+to iterate, search, and inspect every header field. Headers are stored
+in a flat buffer that can be examined with range-for:
+
+[source,cpp]
+----
+for(auto const& f : rp.req)
+    std::cout << f.name_string() << ": " << f.value() << "\n";
+----
+
+The `is_method` convenience function on `route_params` provides a quick
+way to test the method without accessing `req` directly:
+
+[source,cpp]
+----
+if(rp.is_method(method::post))
+{
+    // handle POST
+}
+----
+
+
+=== res -- The Response
+
+[source,cpp]
+----
+http::response res;
+----
+
+The response you are building. When the handler finishes, the server
+serializes this object and sends it to the client. You control every
+aspect of it:
+
+[source,cpp]
+----
+// Status code (also available via the convenience method below)
+rp.res.set_status(status::ok);
+rp.res.set_status(status::not_found);
+
+// Response headers
+rp.res.set(field::content_type, "application/json");
+rp.res.set(field::cache_control, "max-age=3600");
+rp.res.append(field::set_cookie, "session=abc123; HttpOnly");
+
+// Connection semantics
+rp.res.set_keep_alive(true);
+----
+
+Like `req`, the response inherits from `fields_base`, so the same
+field manipulation methods apply. You can `set()` (replace), `append()`
+(add another), `erase()`, and `exists()` on any header.
+
+
+=== url -- The Parsed URL
+
+[source,cpp]
+----
+urls::url_view url;
+----
+
+The complete request target, parsed into its components by Boost.URL.
+While `req.target()` gives you the raw string, `url` gives you
+structured access:
+
+[source,cpp]
+----
+auto path   = rp.url.encoded_path();    // "/api/users"
+auto query  = rp.url.encoded_query();   // "page=2&sort=name"
+bool has_q  = rp.url.has_query();       // true
+----
+
+This is especially useful for extracting query parameters or inspecting
+path segments without manual string parsing.
+
+
+=== path and base_path
+
+[source,cpp]
+----
+core::string_view path;
+core::string_view base_path;
+----
+
+When routers are nested (a common pattern for organizing large
+applications), the URL path is split into two parts. `base_path` is
+the portion that was consumed by the parent router to reach this
+handler. `path` is the remaining portion that this handler should
+consider.
+
+For a request to `/api/v2/users/42` handled by a sub-router mounted
+at `/api/v2`:
+
+* `base_path` = `"/api/v2"`
+* `path` = `"/users/42"`
+
+If there is no nesting, `base_path` is empty and `path` is the full
+decoded path.
+
+
+=== params -- Captured Parameters
+
+[source,cpp]
+----
+std::vector<std::pair<std::string, std::string>> params;
+----
+
+When the route pattern contains named parameters (`:id`) or wildcards
+(`*path`), the router extracts the matched text and stores it here as
+name-value pairs:
+
+[source,cpp]
+----
+// For pattern "/users/:id/posts/:pid"
+// matching URL "/users/42/posts/7"
+
+for(auto const& [name, value] : rp.params)
+    std::cout << name << " = " << value << "\n";
+// Output:
+//   id = 42
+//   pid = 7
+----
+
+Parameters are stored in the order they appear in the pattern. You
+can search by name with a simple loop, or use them positionally if
+your pattern is fixed:
+
+[source,cpp]
+----
+route_task show_user(route_params& rp)
+{
+    // Find by name
+    for(auto const& [name, value] : rp.params)
+    {
+        if(name == "id")
+        {
+            rp.status(status::ok);
+            co_await rp.send("User: " + value);
+            co_return route_done;
+        }
+    }
+    rp.status(status::bad_request);
+    co_await rp.send("Missing user id");
+    co_return route_done;
+}
+----
+
+
+=== req_body -- Reading the Request Body
+
+[source,cpp]
+----
+capy::any_buffer_source req_body;
+----
+
+Not every request has a body, but `POST` and `PUT` requests typically
+do. The `req_body` field is a type-erased buffer source that lets you
+read the incoming body data asynchronously. The body may arrive over
+the network in chunks, and `req_body` abstracts this away.
+
+The source supports two interfaces:
+
+* **BufferSource** (`pull` / `consume`): the source provides you with
+  filled buffers that you consume at your own pace.
+* **ReadSource** (`read_some` / `read`): you provide a buffer and the
+  source fills it.
+
+For most handlers, the simplest approach is to read the entire body
+into a string using a dynamic buffer:
+
+[source,cpp]
+----
+route_task handle_upload(route_params& rp)
+{
+    std::string body;
+    for(;;)
+    {
+        auto [ec, bufs] = co_await rp.req_body.pull();
+        if(ec)
+            co_return route_error(ec);
+        if(bufs.empty())
+            break; // end of body
+        for(auto buf : bufs)
+            body.append(
+                static_cast<char const*>(buf.data()),
+                buf.size());
+        rp.req_body.consume(bufs.size());
+    }
+    // body now contains the complete request body
+    rp.status(status::ok);
+    co_await rp.send("Received " +
+        std::to_string(body.size()) + " bytes");
+    co_return route_done;
+}
+----
+
+
+=== res_body -- Writing the Response Body
+
+[source,cpp]
+----
+capy::any_buffer_sink res_body;
+----
+
+The counterpart to `req_body`. This is a type-erased buffer sink
+connected to the network. When you write data to it, the bytes travel
+to the client.
+
+You can write to `res_body` directly for fine-grained control over
+streaming:
+
+[source,cpp]
+----
+route_task stream_data(route_params& rp)
+{
+    rp.status(status::ok);
+    rp.res.set(field::content_type, "text/plain");
+
+    // Stream chunks incrementally
+    auto [ec1, n1] = co_await rp.res_body.write(
+        capy::make_buffer("chunk one\n"));
+    if(ec1)
+        co_return route_error(ec1);
+
+    auto [ec2, n2] = co_await rp.res_body.write(
+        capy::make_buffer("chunk two\n"));
+    if(ec2)
+        co_return route_error(ec2);
+
+    // Signal end of body
+    co_await rp.res_body.write_eof();
+    co_return route_done;
+}
+----
+
+For most cases, however, you won't touch `res_body` directly. The
+`send()` convenience method (described next) handles everything.
+
+
+=== route_data and session_data
+
+[source,cpp]
+----
+http::datastore route_data;
+http::datastore session_data;
+----
+
+These are type-erased containers for storing arbitrary objects. They
+use a `polystore` under the hood, which lets you insert and retrieve
+objects by type:
+
+[source,cpp]
+----
+struct user_info
+{
+    std::string name;
+    int role;
+};
+
+// In an authentication middleware:
+route_task auth_middleware(route_params& rp)
+{
+    auto token = rp.req.at(field::authorization);
+    auto user = validate_token(token);
+    rp.route_data.emplace<user_info>(user.name, user.role);
+    co_return route_next;
+}
+
+// In a later handler:
+route_task admin_panel(route_params& rp)
+{
+    auto& user = rp.route_data.get<user_info>();
+    if(user.role < 1)
+    {
+        rp.status(status::forbidden);
+        co_await rp.send("Admins only");
+        co_return route_done;
+    }
+    rp.status(status::ok);
+    co_await rp.send("Welcome, " + user.name);
+    co_return route_done;
+}
+----
+
+`route_data` is scoped to the current request -- it is cleared between
+requests. `session_data` persists across requests on the same
+connection, making it suitable for per-connection state like
+authentication tokens or connection metadata.
+
+
+== The status() Method
+
+[source,cpp]
+----
+route_params& status(http::status code);
+----
+
+A convenience method that sets the response status code. It returns
+a reference to `route_params`, so you can chain it:
+
+[source,cpp]
+----
+rp.status(status::ok);
+rp.status(status::not_found);
+rp.status(status::internal_server_error);
+----
+
+This is equivalent to `rp.res.set_status(code)` but shorter in the
+common case. Use whichever you prefer -- both modify the same response
+object.
+
+
+== The send() Method
+
+[source,cpp]
+----
+capy::io_task<> send(std::string_view body = {});
+----
+
+This is where the real magic happens. `send()` is an asynchronous
+operation that takes a string body (or no body at all) and transmits
+the complete response to the client. But it does far more than raw I/O.
+
+Here is what `send()` does automatically:
+
+1. **Status-specific behavior.** For `204 No Content` and
+   `304 Not Modified`, it strips `Content-Type`, `Content-Length`,
+   and `Transfer-Encoding` headers and sends no body, regardless of
+   what you passed. For `205 Reset Content`, it sets
+   `Content-Length: 0` and sends no body. The HTTP specification
+   requires this, and `send()` enforces it so you don't have to
+   remember.
+
+2. **Content-Type inference.** If you haven't set `Content-Type`
+   yourself, `send()` guesses: if the body starts with `<`, it sets
+   `text/html; charset=utf-8`; otherwise `text/plain; charset=utf-8`.
+   You can always override this by setting the header before calling
+   `send()`.
+
+3. **ETag generation.** If no `ETag` header is present, `send()`
+   computes one from the body content. This enables conditional
+   request handling without any effort on your part.
+
+4. **Freshness checking.** After setting the ETag, `send()` checks
+   the request's `If-None-Match` and `If-Modified-Since` headers
+   against the response. If the client already has a fresh copy, the
+   response is automatically replaced with `304 Not Modified` and the
+   body is not sent. Your handler doesn't need to know about
+   conditional requests at all.
+
+5. **HEAD request handling.** If the request method is `HEAD`, the
+   response headers are sent but the body is omitted. Again,
+   automatic.
+
+6. **Body transmission.** Finally, the body bytes are written to the
+   response body sink and the stream is finalized.
+
+Because `send()` is asynchronous, you must `co_await` it:
+
+[source,cpp]
+----
+route_task my_handler(route_params& rp)
+{
+    rp.status(status::ok);
+    auto [ec] = co_await rp.send("Hello!");
+    if(ec)
+        co_return route_error(ec);
+    co_return route_done;
+}
+----
+
+The return type is `io_task<>`, which yields a single `error_code`
+through structured bindings. If the send succeeds, `ec` is
+non-failing. If the client disconnected or a write error occurred,
+`ec` describes the failure and you can propagate it with
+`route_error(ec)`.
+
+=== When to Use send() vs. res_body Directly
+
+Use `send()` when you have the entire response body available as a
+string. It handles content negotiation, ETags, conditional responses,
+and HEAD requests for you.
+
+Use `res_body` directly when:
+
+* You need to stream data incrementally (the body is too large to hold
+  in memory, or it is generated over time)
+* You need fine-grained control over chunked encoding
+* The response body comes from a non-string source (a file, a
+  generator, another stream)
+
+For the overwhelming majority of API handlers, `send()` is the right
+choice.
+
+
+== Error Handlers
+
+Handlers sometimes encounter errors: a database connection fails, a
+file cannot be read, an upstream service is down. When a handler
+returns `route_error(ec)`, the router switches into _error dispatch
+mode_. Instead of trying the next regular handler, it searches for an
+error handler.
+
+An error handler has a different signature than a regular handler. It
+takes two parameters:
+
+[source,cpp]
+----
+route_task my_error_handler(
+    route_params& rp,
+    system::error_code ec)
+{
+    rp.status(status::internal_server_error);
+    rp.res.set(field::content_type, "text/plain");
+    co_await rp.send("Something went wrong: " + ec.message());
+    co_return route_done;
+}
+----
+
+The second parameter is the `error_code` that caused the failure. The
+router detected the error handler's arity automatically -- there is no
+special registration method. You install error handlers the same way
+you install middleware, using `use()`:
+
+[source,cpp]
+----
+// Global error handler
+router.use(my_error_handler);
+
+// Error handler scoped to /api routes
+router.use("/api",
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        rp.res.set(field::content_type, "application/json");
+        co_await rp.send(
+            "{\"error\":\"" + ec.message() + "\"}");
+        co_return route_done;
+    });
+----
+
+The router distinguishes regular handlers from error handlers by
+inspecting their signature at compile time. A callable that accepts
+`(route_params&)` is a regular handler. A callable that accepts
+`(route_params&, system::error_code)` is an error handler. They
+can coexist in the same `use()` call.
+
+=== Error Propagation
+
+Error handlers form their own chain. If an error handler returns
+`route_next`, the router continues to the next error handler.
+This lets you layer error handling the same way you layer regular
+processing:
+
+[source,cpp]
+----
+// Log the error, then pass it along
+router.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        std::cerr << "Error: " << ec.message() << "\n";
+        co_return route_next; // let another handler respond
+    });
+
+// Send a user-facing response
+router.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Internal Server Error");
+        co_return route_done;
+    });
+----
+
+The first error handler logs, then yields to the second one, which
+sends the response. Clean separation. If an error handler returns
+`route_done`, error dispatch stops and the response is sent.
+
+=== Path-Scoped Error Handlers
+
+Because error handlers are registered with `use()`, they can be scoped
+to path prefixes. An API might return JSON error responses while a
+web frontend returns HTML:
+
+[source,cpp]
+----
+router.use("/api",
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        rp.res.set(field::content_type, "application/json");
+        co_await rp.send(
+            "{\"error\":\"" + ec.message() + "\"}");
+        co_return route_done;
+    });
+
+router.use(
+    [](route_params& rp, system::error_code ec)
+        -> route_task
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send(
+            "<html><body><h1>Error</h1><p>"
+            + ec.message() + "</p></body></html>");
+        co_return route_done;
+    });
+----
+
+Errors from `/api` routes hit the JSON handler first. Errors from
+other routes fall through to the HTML handler. The router's path
+matching works identically for error handlers and regular handlers.
+
+
+== Exception Handlers
+
+Error codes are the preferred error mechanism in Boost.Http, but
+exceptions can still occur -- from third-party libraries, from
+standard library operations, or from user code. When an exception
+escapes a handler, the router catches it and switches into _exception
+dispatch mode_.
+
+Exception handlers have their own distinct signature:
+
+[source,cpp]
+----
+route_task my_exception_handler(
+    route_params& rp,
+    std::exception_ptr ep)
+{
+    try
+    {
+        std::rethrow_exception(ep);
+    }
+    catch(std::exception const& e)
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send(e.what());
+    }
+    catch(...)
+    {
+        rp.status(status::internal_server_error);
+        co_await rp.send("Unknown error");
+    }
+    co_return route_done;
+}
+----
+
+The second parameter is a `std::exception_ptr` carrying the caught
+exception. To inspect it, use the standard `rethrow_exception` /
+`catch` pattern.
+
+Exception handlers are registered with `except()`, not `use()`:
+
+[source,cpp]
+----
+router.except(my_exception_handler);
+
+// Or with a path prefix
+router.except("/api",
+    [](route_params& rp, std::exception_ptr ep)
+        -> route_task
+    {
+        try
+        {
+            std::rethrow_exception(ep);
+        }
+        catch(std::exception const& e)
+        {
+            rp.status(status::internal_server_error);
+            rp.res.set(field::content_type,
+                "application/json");
+            co_await rp.send(
+                "{\"error\":\"" +
+                std::string(e.what()) + "\"}");
+        }
+        co_return route_done;
+    });
+----
+
+The dedicated `except()` method exists because exception handlers and
+regular handlers serve fundamentally different purposes. Error handlers
+deal with anticipated failures represented by error codes -- network
+timeouts, missing files, invalid input. Exception handlers are the
+safety net for the unexpected. Keeping them separate makes intent
+explicit and prevents accidental interactions.
+
+Like error handlers, exception handlers chain. Return `route_next` to
+defer to the next exception handler. Return `route_done` to finalize
+the response.
+
+
+== Putting It Together
+
+You now know the anatomy of a route handler: its signature, its return
+values, every field of `route_params`, and the three kinds of handlers
+(regular, error, exception). Here is a handler that ties several
+concepts together:
+
+[source,cpp]
+----
+route_task create_post(route_params& rp)
+{
+    // Read the request body
+    std::string body;
+    for(;;)
+    {
+        auto [ec, bufs] = co_await rp.req_body.pull();
+        if(ec)
+            co_return route_error(ec);
+        if(bufs.empty())
+            break;
+        for(auto buf : bufs)
+            body.append(
+                static_cast<char const*>(buf.data()),
+                buf.size());
+        rp.req_body.consume(bufs.size());
+    }
+
+    // Validate
+    if(body.empty())
+    {
+        rp.status(status::bad_request);
+        co_await rp.send("Body required");
+        co_return route_done;
+    }
+
+    // Persist (hypothetical)
+    auto post_id = save_to_database(body);
+
+    // Respond
+    rp.status(status::created);
+    rp.res.set(field::location,
+        "/posts/" + std::to_string(post_id));
+    co_await rp.send("{\"id\":" +
+        std::to_string(post_id) + "}");
+    co_return route_done;
+}
+----
+
+This handler reads a body, validates it, saves it, sets the `Location`
+header for the newly created resource, and returns JSON. The `send()`
+call handles `Content-Type`, `ETag`, conditional requests, and HEAD
+automatically. If anything goes wrong with the I/O, the error code
+propagates to the error handler chain.
+
+But there is a question we have carefully avoided. You can _write_ a
+handler. You know what it receives and what it returns. You know about
+error handlers and exception handlers. What you don't yet know is how
+to _install_ a handler -- how to tell the router "when a `GET` request
+arrives at `/posts/:id`, call _this_ function."
+
+That is the job of the router, and it is the subject of the
+xref:4.servers/4c.routers.adoc[next page].
