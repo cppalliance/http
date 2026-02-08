@@ -1,0 +1,434 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Content Negotiation and Body Encoding
+
+A single URL can mean different things to different clients. A French
+speaker and an English speaker visiting the same page should each get
+content in their own language. A modern browser that understands WebP
+images should not be forced to download a larger JPEG. A phone on a
+slow cellular link should receive a compressed response, not the raw
+megabyte that a desktop on fiber could swallow without noticing.
+
+HTTP solves this through two related mechanisms. _Content negotiation_
+lets the client describe what it prefers and the server choose the best
+available representation. _Body encoding_ lets either side compress or
+transform the payload so it travels efficiently across the wire. Together
+they turn a single resource into something that adapts--to languages,
+formats, and network conditions--without requiring a different URL for
+every variation.
+
+== The Problem of Multiple Representations
+
+Consider a documentation site that publishes the same article in English,
+French, and Japanese. Each version lives on the server as a separate
+file, but the URL that users share and bookmark is the same:
+
+[source]
+----
+https://docs.example.com/guide/getting-started
+----
+
+When a request arrives for that URL, the server must decide which file
+to send. It could guess. It could ask the client to choose from a list.
+Or it could look at the request headers, where the client has already
+declared its preferences, and pick the best match automatically.
+
+HTTP calls these different files _variants_ of the same resource. The
+process of selecting among them is content negotiation. The idea extends
+beyond language: a resource might have variants in different media types
+(HTML versus JSON), different character encodings, or different
+compression formats.
+
+== Server-Driven Negotiation
+
+The most common approach is _server-driven_ (or _proactive_)
+negotiation. The client sends preference headers with every request.
+The server examines them, compares them against the available variants,
+and returns the best match.
+
+This happens transparently. The user clicks a link; the browser sends
+its preferences; the server picks a variant; the page loads. No extra
+round-trips, no menus to click through.
+
+The downside is that the server must guess when the client's preferences
+do not perfectly match any available variant. If the server has English
+and French but the client wants Spanish, the server has to decide what
+to do--return English, return French, or reject the request. HTTP gives
+the server tools to make a reasonable choice, but it cannot read minds.
+
+== The Accept Headers
+
+Clients express preferences through four request headers, each
+corresponding to a different dimension of the response:
+
+[cols="2a,3a"]
+|===
+|Header|Controls
+
+|`Accept`
+|Which media types the client can handle. Matched against the response's
+`Content-Type`.
+
+|`Accept-Language`
+|Which human languages the client prefers. Matched against
+`Content-Language`.
+
+|`Accept-Encoding`
+|Which content encodings (compression algorithms) the client supports.
+Matched against `Content-Encoding`.
+
+|`Accept-Charset`
+|Which character sets the client can display. Matched against the
+`charset` parameter of `Content-Type`.
+
+|===
+
+A real browser request carries several of these at once:
+
+[source]
+----
+GET /guide/getting-started HTTP/1.1
+Host: docs.example.com
+Accept: text/html, application/xhtml+xml, */*
+Accept-Language: fr, en;q=0.8
+Accept-Encoding: gzip, br
+----
+
+This request says: "I prefer HTML or XHTML, but will accept anything.
+I want French if you have it, with English as a fallback. I can
+decompress gzip and Brotli."
+
+== Quality Values
+
+Not every preference is equal. A client might strongly prefer French but
+tolerate English in a pinch, and refuse Turkish entirely. HTTP expresses
+this with _quality values_--a numeric weight between `0.0` and `1.0`
+attached to each option with the `q` parameter.
+
+[source]
+----
+Accept-Language: fr;q=1.0, en;q=0.8, de;q=0.5, tr;q=0.0
+----
+
+A quality of `1.0` means "this is exactly what I want." A quality of
+`0.0` means "do not send this under any circumstances." If no `q`
+parameter is present, the default is `1.0`.
+
+The server reads these values, compares them against the variants it
+has, and picks the one with the highest combined match. If the best
+available match has a quality of `0.0`, the server should not return
+it--a `406 Not Acceptable` response is more appropriate.
+
+Quality values apply to all four Accept headers. A media type preference
+list might look like this:
+
+[source]
+----
+Accept: text/html;q=1.0, application/json;q=0.9, text/plain;q=0.5
+----
+
+The server learns that HTML is most desired, JSON is almost as good,
+and plain text is acceptable but not ideal. This flexibility lets
+clients degrade gracefully rather than fail when the server lacks a
+perfect match.
+
+=== Wildcards
+
+The `*` character serves as a wildcard in Accept headers.
+`Accept: text/*` means any text subtype is acceptable. `Accept: \*/*`
+means any media type at all is acceptable. Wildcards typically carry
+a lower quality value than specific types, so the server prefers an
+exact match when one exists:
+
+[source]
+----
+Accept: text/html;q=1.0, text/*;q=0.5, */*;q=0.1
+----
+
+Here the client strongly prefers HTML, will accept other text formats,
+and will grudgingly take anything else rather than get nothing.
+
+== The 406 Response
+
+When the server cannot satisfy any of the client's stated preferences
+and all matching qualities are zero, it responds with:
+
+[source]
+----
+HTTP/1.1 406 Not Acceptable
+Content-Type: text/html
+
+<html><body>
+<p>The requested resource is only available in Japanese.</p>
+</body></html>
+----
+
+In practice, many servers choose to send the closest available variant
+anyway, reasoning that _something_ is better than an error page. The
+specification permits this--`406` is a tool, not a mandate.
+
+== The Vary Header
+
+Content negotiation creates a complication for caches. A cache stores a
+response keyed by its URL. But if the same URL can produce different
+responses depending on `Accept-Language`, a cache that blindly serves
+the first response it stored will send French pages to English speakers.
+
+The `Vary` header solves this. The server includes it in the response to
+tell caches which request headers influenced the choice of variant:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Language: fr
+Vary: Accept-Language
+----
+
+This tells any cache: "I chose this response based on the
+`Accept-Language` header. If a future request has a different
+`Accept-Language` value, do not serve this cached copy--ask the origin
+server again."
+
+A `Vary` header can list multiple fields:
+
+[source]
+----
+Vary: Accept-Language, Accept-Encoding
+----
+
+Caches that implement `Vary` correctly store multiple variants of the
+same URL and match incoming requests against the stored request headers.
+Getting `Vary` right is essential for any system that sits between
+clients and origin servers--proxies, CDNs, and reverse caches all
+depend on it.
+
+== Content Encoding
+
+Content negotiation decides _what_ to send. Content encoding decides
+_how to compress it_ before it travels across the network.
+
+When a server has a large HTML page, sending it uncompressed wastes
+bandwidth and time. If the client supports compression, the server can
+encode the body with an algorithm like gzip, Brotli, or deflate, and
+the client decompresses it on arrival. The original media type does not
+change--a gzip-compressed HTML page is still `text/html`. Only the
+transport representation changes.
+
+=== The Content-Encoding Process
+
+The flow is straightforward:
+
+. The client sends `Accept-Encoding` listing the algorithms it supports.
+. The server picks one (or none) and compresses the body.
+. The server adds a `Content-Encoding` header naming the algorithm.
+. The client reads `Content-Encoding`, decompresses, and processes the
+  original content.
+
+[source]
+----
+GET /report.html HTTP/1.1
+Host: www.example.com
+Accept-Encoding: gzip, br
+----
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Encoding: gzip
+Content-Length: 3907
+
+<...3907 bytes of gzip-compressed HTML...>
+----
+
+The `Content-Length` reflects the compressed size, not the original.
+The `Content-Type` still says `text/html` because that is what the
+body _is_ once decompressed.
+
+=== Common Content-Encoding Algorithms
+
+[cols="1a,3a"]
+|===
+|Token|Description
+
+|`gzip`
+|The most widely supported algorithm. Based on the DEFLATE algorithm
+wrapped in the gzip file format. Virtually every HTTP client and server
+understands it.
+
+|`deflate`
+|Raw DEFLATE compression in the zlib format. Less common than gzip in
+practice due to historical ambiguity in implementations.
+
+|`br`
+|Brotli, a newer algorithm developed by Google. Achieves better
+compression ratios than gzip, especially for text. Supported by all
+modern browsers, typically only over HTTPS.
+
+|`identity`
+|No encoding applied. This token exists so clients can explicitly
+express a preference for uncompressed content using quality values.
+
+|===
+
+A client that wants to explicitly reject uncompressed responses can
+send:
+
+[source]
+----
+Accept-Encoding: gzip;q=1.0, identity;q=0.0
+----
+
+If the server cannot compress the response, it should send a
+`406 Not Acceptable` rather than ignore the prohibition--though, again,
+real-world servers vary in how strictly they follow this.
+
+== Transfer Encoding
+
+Content encoding compresses the _payload_. Transfer encoding changes
+how the _message_ is delivered. The distinction matters: content
+encoding is about the resource, transfer encoding is about the
+transport.
+
+The primary transfer encoding in HTTP/1.1 is _chunked encoding_. It
+exists to solve a specific problem: how do you send a response when
+you do not know its total size in advance?
+
+=== The Problem
+
+Normally, a server declares the body size in `Content-Length` so the
+client knows when the body ends. But if the server is generating
+content dynamically--streaming search results, compressing on the fly,
+assembling a page from multiple database queries--it may not know the
+total size until it is finished. Without `Content-Length`, and on a
+persistent connection, the client has no way to tell where one response
+ends and the next begins.
+
+=== Chunked Encoding
+
+Chunked transfer encoding breaks the body into a series of chunks, each
+preceded by its size in hexadecimal. A zero-length chunk signals the
+end of the body:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/plain
+Transfer-Encoding: chunked
+
+1a
+We hold these truths to be
+1c
+self-evident, that all men
+0
+
+----
+
+Each chunk begins with a line containing the chunk size (in hex),
+followed by a CRLF, then that many bytes of data, then another CRLF.
+The final chunk has a size of `0`, and after it the body is complete.
+
+This mechanism lets the server begin transmitting before the entire
+response is generated, reducing latency for the client. It also
+preserves persistent connections--the client reads chunks until it
+sees the terminating zero-length chunk, then it knows the next bytes
+on the connection belong to a new response.
+
+=== Combining Content and Transfer Encoding
+
+Content encoding and transfer encoding can be applied together. A
+server might gzip-compress a dynamically generated HTML page and then
+send the compressed data in chunks:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Encoding: gzip
+Transfer-Encoding: chunked
+
+a3f
+<...chunk of gzip-compressed data...>
+7b2
+<...another chunk...>
+0
+
+----
+
+The client first reassembles the chunks, then decompresses the gzip
+payload, and finally processes the HTML. The two encodings serve
+different purposes and are reversed in opposite order: transfer
+encoding is unwrapped first, content encoding second.
+
+== Character Sets
+
+Text-based media types carry an optional `charset` parameter on the
+`Content-Type` header that tells the client how to decode bytes into
+characters:
+
+[source]
+----
+Content-Type: text/html; charset=utf-8
+----
+
+Without this parameter, the client must guess the encoding--and guessing
+is a reliable source of garbled text. UTF-8 has become the dominant
+encoding on the web, handling virtually every script in use today. Older
+encodings like `iso-8859-1` (Latin-1) still appear, particularly on
+legacy systems.
+
+Clients can declare character-set preferences in the `Accept-Charset`
+header, but modern practice has largely moved past this. Most clients
+support UTF-8 and most servers send it. The header remains in the
+specification for completeness, but you will rarely need to set it
+explicitly.
+
+== A Complete Negotiated Exchange
+
+Here is an exchange that exercises several negotiation mechanisms at
+once. The client is a browser in France requesting a documentation page:
+
+[source]
+----
+GET /guide/getting-started HTTP/1.1
+Host: docs.example.com
+Accept: text/html;q=1.0, application/json;q=0.5
+Accept-Language: fr;q=1.0, en;q=0.7
+Accept-Encoding: gzip, br
+----
+
+The server has a French HTML variant and decides to compress it with
+Brotli:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Language: fr
+Content-Encoding: br
+Content-Length: 8421
+Vary: Accept-Language, Accept-Encoding
+
+<!DOCTYPE html>
+<html lang="fr">
+...
+----
+
+The response headers tell the full story: the body is HTML in UTF-8
+(`Content-Type`), written in French (`Content-Language`), compressed
+with Brotli (`Content-Encoding`), and 8421 bytes in compressed form
+(`Content-Length`). The `Vary` header warns caches that both language
+and encoding influenced the choice, so future requests with different
+values for those headers need a fresh lookup.
+
+The client decompresses the Brotli payload and renders the French HTML
+page. The entire negotiation--language selection, format preference,
+compression--happened in a single round-trip, guided entirely by headers.

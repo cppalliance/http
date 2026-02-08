@@ -1,0 +1,439 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Connection Management
+
+Opening a TCP connection is like dialing a phone number before you can
+speak. There is a pause--a handshake--where both sides agree that a
+line is open. In the early days of the Web, every single HTTP request
+paid that cost: dial, say one thing, hang up, dial again, say the next
+thing. A page with ten images meant eleven phone calls. The Web
+worked, but the wasted time was enormous. Connection management is the
+story of how HTTP learned to keep the line open, send more per call,
+and eventually carry entire conversations over a single wire.
+
+== The Cost of a New Connection
+
+Before any HTTP message can travel, the client and server must
+establish a TCP connection through a three-way handshake:
+
+. The client sends a *SYN* packet.
+. The server responds with *SYN+ACK*.
+. The client replies with *ACK*.
+
+Only after this exchange can data flow. The handshake adds one full
+round-trip of latency before the first byte of the request is even
+sent. Between New York and London, that round-trip takes roughly 56
+milliseconds over fiber. For a small resource--a 304 Not Modified
+response, a tiny icon--the handshake can consume more than half the
+total time.
+
+[source]
+----
+Client                          Server
+  |--- SYN ----------------------->|
+  |<------------- SYN+ACK --------|
+  |--- ACK ----------------------->|
+  |--- GET /index.html HTTP/1.1 -->|
+  |<------------ HTTP/1.1 200 OK --|
+----
+
+TCP also starts slowly on purpose. A new connection uses _slow start_,
+throttling the amount of data in flight until the network proves it
+can handle more. Each successful acknowledgment doubles the sender's
+congestion window. A fresh connection cannot send data at full speed;
+it needs time to ramp up. A connection that has already exchanged a
+modest amount of data is significantly faster than a new one.
+
+These two costs--handshake delay and slow start--make opening a new
+connection surprisingly expensive. Every optimization in this section
+exists to avoid paying them more than necessary.
+
+== HTTP/1.0: One Request, One Connection
+
+The original HTTP/1.0 protocol treated every request as an isolated
+event. The client opened a TCP connection, sent one request, received
+one response, and the connection was torn down. Loading a web page
+with an HTML document and three images required four separate TCP
+connections:
+
+[source]
+----
+[connect] GET /page.html   → 200 OK [close]
+[connect] GET /logo.png    → 200 OK [close]
+[connect] GET /photo.jpg   → 200 OK [close]
+[connect] GET /style.css   → 200 OK [close]
+----
+
+Each connection paid the handshake cost. Each started with a fresh
+slow-start window. As web pages grew richer--dozens of images,
+stylesheets, and scripts--the accumulated overhead became the dominant
+source of latency. Users stared at blank screens while their browsers
+quietly opened and closed connections.
+
+== Persistent Connections
+
+The fix was obvious: keep the connection open. Rather than hanging up
+after each response, the client and server could reuse the same TCP
+connection for multiple requests.
+
+HTTP/1.0 introduced this informally through a `Connection:
+Keep-Alive` header. If the client included this header, and the server
+echoed it back, the connection stayed open after the response:
+
+[source]
+----
+GET /page.html HTTP/1.0
+Host: www.example.com
+Connection: Keep-Alive
+
+----
+
+[source]
+----
+HTTP/1.0 200 OK
+Content-Type: text/html
+Content-Length: 3104
+Connection: Keep-Alive
+
+...
+----
+
+Both sides had to agree. If the server did not return `Connection:
+Keep-Alive`, the client assumed the connection would close. Every
+request that wanted persistence had to ask for it explicitly.
+
+HTTP/1.1 reversed the default. Persistent connections became automatic.
+An HTTP/1.1 connection stays open after every response unless one side
+explicitly signals otherwise with `Connection: close`:
+
+[source]
+----
+GET /style.css HTTP/1.1
+Host: www.example.com
+Connection: close
+
+----
+
+This single change eliminated enormous overhead. With connection reuse,
+the handshake cost is paid once, TCP slow start ramps up once, and all
+subsequent requests on that connection benefit from a warmed-up pipe.
+For a page requiring N resources from the same server, persistent
+connections save (N-1) round trips--often seconds of real-world
+latency.
+
+Either side can close a persistent connection at any time, even without
+sending `Connection: close` first. Servers close idle connections to
+free resources. Clients close connections they no longer need. The
+protocol requires that both sides tolerate unexpected closes and be
+prepared to retry requests.
+
+== The Connection Header
+
+The `Connection` header controls per-hop connection behavior. It is
+a hop-by-hop header, meaning it applies only to the immediate link
+between two participants and must not be forwarded by proxies.
+
+The header carries three kinds of values:
+
+* **`close`** -- signals that the connection should be shut down after
+  the current request/response.
+* **`Keep-Alive`** -- in HTTP/1.0, explicitly requests persistence.
+  Unnecessary in HTTP/1.1, where persistence is the default.
+* **Header field names** -- lists other hop-by-hop headers that must
+  be removed before forwarding. This "protects" headers from
+  accidental propagation through proxy chains.
+
+[source]
+----
+Connection: close
+----
+
+[source]
+----
+Connection: Keep-Alive
+Keep-Alive: timeout=30, max=100
+----
+
+The `Keep-Alive` header (when present alongside `Connection:
+Keep-Alive`) can include hints about how long the sender expects to
+hold the connection open and how many more requests it anticipates.
+These are advisory, not guarantees. A server that says `timeout=30`
+may still close the connection after five seconds if it needs the
+resources.
+
+A critical rule for intermediaries: proxies must parse the
+`Connection` header, remove it and every header it names, and then
+forward the message. A proxy that blindly relays `Connection:
+Keep-Alive` to an origin server creates a well-known failure called
+the "dumb proxy" problem--the server believes the proxy wants
+persistence, the proxy does not understand persistence, and the
+connection hangs.
+
+== Parallel Connections
+
+While persistent connections eliminated repeated handshakes, they did
+not solve another problem: serialization. On a single persistent
+connection, each request had to wait for the previous response to
+finish. If the server took 500 milliseconds to generate one resource,
+everything behind it queued up.
+
+Browsers worked around this by opening multiple TCP connections in
+parallel. Instead of one pipe, they opened several--typically six per
+host in modern browsers:
+
+[source]
+----
+Connection 1:  GET /page.html  →  200 OK  →  GET /app.js   →  200 OK
+Connection 2:  GET /style.css  →  200 OK  →  GET /font.woff →  200 OK
+Connection 3:  GET /logo.png   →  200 OK
+Connection 4:  GET /hero.jpg   →  200 OK
+Connection 5:  GET /icon.svg   →  200 OK
+Connection 6:  GET /data.json  →  200 OK
+----
+
+Parallel connections overlap the delays. While one connection waits
+for a response, others are already transferring data. Users see
+images loading simultaneously across the page, which feels faster even
+when the wall-clock time is similar.
+
+The downsides are real:
+
+* Each connection pays its own handshake and slow-start costs.
+* Six connections consume six times the memory and CPU on both client
+  and server.
+* Under limited bandwidth, parallel streams compete for the same
+  pipe, and each one moves proportionally slower.
+* A hundred users each opening six connections means 600 connections
+  for the server to manage.
+
+Parallel connections are a pragmatic workaround, not an elegant
+solution. They exist because HTTP/1.x lacks multiplexing.
+
+== Pipelining
+
+HTTP/1.1 introduced _pipelining_ as an attempt at better concurrency
+within a single connection. With pipelining, a client can send several
+requests in a row without waiting for responses:
+
+[source]
+----
+Client                              Server
+  |--- GET /a.html ----------------->|
+  |--- GET /b.css ------------------>|
+  |--- GET /c.js ------------------->|
+  |<------------- 200 OK (a.html) ---|
+  |<------------- 200 OK (b.css) ----|
+  |<------------- 200 OK (c.js) -----|
+----
+
+By dispatching requests early, the client eliminates the dead time
+between sending a request and receiving the previous response. The
+server can even begin processing requests in parallel internally.
+
+But pipelining has a fatal constraint: **responses must arrive in the
+same order as the requests.** HTTP/1.1 messages carry no sequence
+numbers, so neither side can match responses to requests if they
+arrive out of order. This requirement creates _head-of-line blocking_.
+
+=== Head-of-Line Blocking
+
+Suppose the client pipelines three requests and the server can
+generate the second and third responses quickly, but the first takes
+a long time. The fast responses must wait, fully buffered, until the
+slow one finishes:
+
+[source]
+----
+Client                                Server
+  |--- GET /slow  ------------------->|
+  |--- GET /fast1 ------------------->|  fast1 ready, but must wait
+  |--- GET /fast2 ------------------->|  fast2 ready, but must wait
+  |                                   |  ...processing /slow...
+  |<------------ 200 OK (/slow) -----|
+  |<------------ 200 OK (/fast1) ----|
+  |<------------ 200 OK (/fast2) ----|
+----
+
+A single slow response blocks everything behind it. The server wastes
+memory buffering completed responses. If the connection fails
+mid-pipeline, the client must re-request everything it has not
+received--possibly triggering duplicate processing for non-idempotent
+requests.
+
+Additional problems made pipelining fragile in practice:
+
+* Many proxies and intermediaries did not support it correctly.
+* Servers had to buffer potentially large responses out of order.
+* Detecting whether an intermediary supports pipelining was unreliable.
+* Only idempotent requests (GET, HEAD) were safe to pipeline.
+
+Due to these issues, browser support for pipelining remained limited.
+Most browsers shipped with it disabled by default. The idea was
+sound--eliminating round-trip delays is always valuable--but the
+execution within HTTP/1.1's constraints was impractical. The real
+solution required a protocol-level change.
+
+== Closing Connections
+
+Connection management is not just about opening and keeping
+connections alive. Knowing _when_ and _how_ to close them correctly
+is equally important.
+
+=== Signaled Close
+
+Either party can signal its intent to close by including `Connection:
+close` in a request or response. After the client sends this header,
+it must not send additional requests on that connection. After the
+server sends it, the client knows the connection will end once the
+response is fully received.
+
+=== Idle Timeouts
+
+Servers close persistent connections that sit idle too long. A
+connection consuming resources but carrying no traffic is a liability.
+Typical idle timeouts range from 5 to 120 seconds, depending on the
+server's load and configuration. Clients must be prepared for the
+connection to vanish at any time and should reopen a new one when
+needed.
+
+=== Graceful Close
+
+TCP connections are bidirectional--each side has an independent
+input and output channel. A _full close_ shuts down both channels
+at once. A _half close_ shuts down only one, leaving the other
+open.
+
+The HTTP specification recommends that applications perform a _graceful
+close_ by first closing their output channel (signaling "I have
+nothing more to send") and then waiting for the peer to close its
+output channel. This avoids a dangerous race condition: if you close
+the input channel while the peer is still sending, the operating
+system may issue a TCP RST (reset), which erases any data the peer
+had buffered but you had not yet read.
+
+This matters most with pipelined connections. Imagine you pipelined
+ten requests and have received responses for the first eight, sitting
+unread in your buffer. Now request eleven arrives at a server that
+has already decided to close. The server's RST wipes your buffer, and
+you lose the eight perfectly good responses you already had.
+
+The graceful close protocol:
+
+. Close your output channel (half close).
+. Continue reading from the input channel.
+. When the peer also closes, or a timeout expires, close fully.
+
+=== Retries and Idempotency
+
+When a connection closes unexpectedly, the client must decide whether
+to retry the request. For idempotent methods--GET, HEAD, PUT,
+DELETE--retrying is safe because repeating the operation produces
+the same result. For non-idempotent methods like POST, retrying risks
+duplication. This is why browsers warn before resubmitting a form:
+the connection may have closed after the server processed the request
+but before the response arrived.
+
+== How HTTP/2 Changed the Picture
+
+HTTP/2 addressed HTTP/1.1's connection limitations at the protocol
+level. Rather than opening multiple TCP connections or attempting
+fragile pipelining, HTTP/2 introduced _multiplexing_ over a single
+connection.
+
+An HTTP/2 connection breaks messages into small binary _frames_,
+each tagged with a stream identifier. Multiple streams flow
+concurrently over the same TCP connection, and their frames can
+interleave freely:
+
+[source]
+----
+Single TCP connection:
+  [stream 1: request ]
+  [stream 3: request ]
+  [stream 1: response frame 1]
+  [stream 3: response frame 1]
+  [stream 1: response frame 2]
+  [stream 3: response frame 2]
+----
+
+Because each frame identifies its stream, responses can arrive in any
+order and be reassembled correctly. Head-of-line blocking at the HTTP
+layer is eliminated. A slow response on stream 1 no longer blocks a
+fast response on stream 3.
+
+The consequences for connection management are dramatic:
+
+* **One connection per origin.** HTTP/2 uses a single TCP connection
+  between client and server, eliminating the overhead of multiple
+  parallel connections.
+* **No domain sharding.** With multiplexing, the workaround of
+  splitting resources across subdomains becomes counterproductive--it
+  prevents the protocol from prioritizing and compressing effectively.
+* **Stream prioritization.** The client can indicate which streams
+  matter most, allowing the server to allocate bandwidth intelligently.
+* **Flow control.** Both per-stream and per-connection flow control
+  prevent any one stream from monopolizing the pipe.
+
+However, HTTP/2 still runs over TCP, which imposes its own ordering
+constraints. If a TCP packet is lost, the entire connection stalls
+until that packet is retransmitted--even streams whose data was not
+in the lost packet. This is _transport-layer_ head-of-line blocking,
+and it is the problem that HTTP/3, built on QUIC over UDP, was
+designed to solve. But that is a story for a later section.
+
+== Practical Summary
+
+The evolution of HTTP connection management follows a clear arc toward
+doing more with fewer connections:
+
+[cols="1,2,3"]
+|===
+|Era |Strategy |Connection behavior
+
+|**HTTP/1.0**
+|One request per connection
+|Open, request, respond, close. Expensive and wasteful.
+
+|**HTTP/1.0+**
+|Keep-Alive
+|Opt-in persistence via `Connection: Keep-Alive`. A significant
+improvement, but both sides had to agree explicitly.
+
+|**HTTP/1.1**
+|Persistent by default
+|Connections stay open unless `Connection: close` is sent. Pipelining
+attempted but largely failed due to head-of-line blocking.
+
+|**Browsers**
+|Parallel connections
+|Up to six TCP connections per host to work around HTTP/1.x
+serialization. Effective but resource-heavy.
+
+|**HTTP/2**
+|Multiplexed streams
+|One connection per origin. Binary framing eliminates HTTP-layer
+head-of-line blocking. Stream priorities and flow control replace
+the need for multiple connections.
+|===
+
+The lesson running through all of this is that connections are
+expensive, and the protocol's history is a series of increasingly
+elegant solutions to that single economic fact. Keep connections open.
+Reuse them. And when one connection is not enough, multiplex rather
+than multiply.
+
+== Next Steps
+
+You now understand how HTTP connections are opened, reused, and closed,
+and why each generation of the protocol refined the strategy. The next
+section covers the mechanism that prevents the Web from doing the same
+work twice:
+
+* xref:2.http-tutorial/2i.caching.adoc[Caching] -- how clients and servers avoid redundant transfers

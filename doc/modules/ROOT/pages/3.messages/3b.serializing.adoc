@@ -1,0 +1,328 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Serializing
+
+The serializer transforms HTTP messages into bytes for transmission. It handles
+chunked encoding, content compression, and the `Expect: 100-continue` handshake
+automatically.
+
+== Basic Usage
+
+Serialization follows a two-step model: associate a message with `set_message`,
+then choose a body mode. For messages without a body, call `start` and pull
+output buffers until complete:
+
+[source,cpp]
+----
+// 1. Create serializer with configuration
+auto cfg = make_serializer_config(serializer_config{});
+serializer sr(cfg);
+
+// 2. Associate a message
+response res(status::ok);
+res.set_payload_size(0);
+sr.set_message(res);
+sr.start();
+
+// 3. Pull output and write to socket
+while (!sr.is_done())
+{
+    auto result = sr.prepare();
+    if (!result)
+        throw system::system_error(result.error());
+
+    co_await socket.write(*result);
+    sr.consume(capy::buffer_size(*result));
+}
+----
+
+== Configuration
+
+Serializer behavior is controlled through configuration:
+
+[source,cpp]
+----
+serializer_config cfg;
+
+// Content encoding (compression)
+cfg.apply_gzip_encoder = true;       // Enable gzip compression
+cfg.apply_deflate_encoder = false;   // Enable deflate compression
+cfg.apply_brotli_encoder = false;    // Requires separate service
+
+// Compression settings
+cfg.zlib_comp_level = 6;             // 0-9 (0=none, 9=best)
+cfg.zlib_window_bits = 15;           // 9-15
+cfg.zlib_mem_level = 8;              // 1-9
+
+// Brotli settings (if enabled)
+cfg.brotli_comp_quality = 5;         // 0-11
+cfg.brotli_comp_window = 18;         // 10-24
+
+// Buffer settings
+cfg.payload_buffer = 8192;           // Internal buffer size
+
+auto shared_cfg = make_serializer_config(cfg);
+serializer sr(shared_cfg);
+----
+
+== Writing Body Data
+
+The serializer provides two interfaces for writing body data through a
+`sink` object. Both are accessed through `sink_for`:
+
+[source,cpp]
+----
+auto sink = sr.sink_for(socket);
+----
+
+=== WriteSink (Caller-Owned Buffers)
+
+Write body data from your own buffers. The sink copies the data through
+the serializer automatically. This is the simplest approach when you
+already have the body data in memory:
+
+[source,cpp]
+----
+response res(status::ok);
+res.set(field::content_type, "text/plain");
+res.set_payload_size(13);
+sr.set_message(res);
+
+auto sink = sr.sink_for(socket);
+co_await sink.write_eof(
+    capy::make_buffer(std::string_view("Hello, world!")));
+----
+
+For large bodies or incremental generation, use multiple writes:
+
+[source,cpp]
+----
+response res(status::ok);
+res.set_chunked(true);
+sr.set_message(res);
+
+auto sink = sr.sink_for(socket);
+co_await sink.write(capy::make_buffer(part1));
+co_await sink.write(capy::make_buffer(part2));
+co_await sink.write_eof();
+----
+
+=== BufferSink (Zero-Copy)
+
+Write directly into the serializer's internal buffer for zero-copy
+body generation. This avoids copying when the body is produced
+incrementally (reading from a file, generating on-the-fly):
+
+[source,cpp]
+----
+response res(status::ok);
+res.set_chunked(true);
+sr.set_message(res);
+
+auto sink = sr.sink_for(socket);
+
+// Get writable buffers
+capy::mutable_buffer arr[16];
+auto bufs = sink.prepare(arr);
+
+// Write directly into serializer memory
+auto n = read_from_file(file, bufs);
+co_await sink.commit(n);
+
+// More data...
+bufs = sink.prepare(arr);
+n = read_from_file(file, bufs);
+co_await sink.commit_eof(n);
+----
+
+=== Lazy Start
+
+The sink starts the serializer automatically on first use. You do not
+need to call `start_writes` or `start_buffers` explicitly when using
+the sink:
+
+* `prepare` / `commit` / `commit_eof` trigger `start_writes`
+* `write` / `write_eof` trigger `start_buffers`
+
+== Sink Lifetime
+
+The sink is a lightweight handle that can be created once and reused
+across multiple messages. The serializer must outlive the sink:
+
+[source,cpp]
+----
+serializer sr(cfg);
+auto sink = sr.sink_for(socket);
+
+for (auto& req : requests)
+{
+    response res = handle(req);
+    sr.set_message(res);
+    co_await sink.write_eof(
+        capy::make_buffer(body));
+    sr.reset();
+}
+----
+
+== Chunked Encoding
+
+The serializer uses chunked transfer encoding automatically when:
+
+* No `Content-Length` header is set
+* The body size is unknown at start time
+
+[source,cpp]
+----
+response res(status::ok);
+res.set(field::content_type, "text/event-stream");
+sr.set_message(res);
+
+auto sink = sr.sink_for(socket);
+
+// Send chunks as events occur
+for (auto& event : events)
+    co_await sink.write(
+        capy::make_buffer(format_event(event)));
+
+co_await sink.write_eof();
+----
+
+== Content Encoding
+
+When compression is enabled and the client accepts it, the serializer
+compresses the body automatically:
+
+[source,cpp]
+----
+// Enable in config
+serializer_config cfg;
+cfg.apply_gzip_encoder = true;
+cfg.apply_brotli_encoder = true;
+
+// Check Accept-Encoding from request
+if (request_accepts_gzip(req))
+{
+    res.set(field::content_encoding, "gzip");
+    // Body will be compressed
+}
+
+sr.set_message(res);
+auto sink = sr.sink_for(socket);
+co_await sink.write_eof(
+    capy::make_buffer(large_body));
+----
+
+For detailed information on compression services, see:
+
+* xref:5.compression/5a.zlib.adoc[ZLib] — DEFLATE and gzip compression
+* xref:5.compression/5b.brotli.adoc[Brotli] — Brotli compression
+
+== Expect: 100-continue
+
+The serializer handles the 100-continue handshake. When `prepare`
+returns `error::expect_100_continue`, the header has been sent and
+the serializer is waiting for the caller to decide whether to
+continue sending the body:
+
+[source,cpp]
+----
+sr.set_message(res);
+
+auto sink = sr.sink_for(socket);
+// Write body data
+co_await sink.write_eof(
+    capy::make_buffer(body));
+----
+
+For low-level control over the handshake:
+
+[source,cpp]
+----
+sr.set_message(res);
+sr.start_writes();
+
+// Pull header
+while (!sr.is_done())
+{
+    auto result = sr.prepare();
+
+    if (result.error() == error::expect_100_continue)
+    {
+        // Send 100 Continue interim response
+        break;
+    }
+
+    if (!result)
+        throw system::system_error(result.error());
+
+    co_await socket.write(*result);
+    sr.consume(capy::buffer_size(*result));
+}
+
+// Continue with body...
+----
+
+== Error Handling
+
+Serializer errors are reported through the result type:
+
+[source,cpp]
+----
+auto result = sr.prepare();
+
+if (!result)
+{
+    auto ec = result.error();
+
+    if (ec == error::expect_100_continue)
+    {
+        // Not an error - handle 100-continue
+    }
+    else if (ec == error::need_data)
+    {
+        // Stream body needs more input
+    }
+    else
+    {
+        // Real error
+        std::cerr << "Serialization error: "
+            << ec.message() << "\n";
+    }
+}
+----
+
+== Multiple Messages
+
+Reuse the serializer for multiple messages on the same connection:
+
+[source,cpp]
+----
+serializer sr(cfg);
+auto sink = sr.sink_for(socket);
+
+for (auto& request : requests)
+{
+    response res = handle(request);
+    sr.set_message(res);
+
+    co_await sink.write_eof(
+        capy::make_buffer(response_body));
+
+    sr.reset();
+}
+----
+
+== Next Steps
+
+With parsing and serialization covered, you can now build complete HTTP
+processing pipelines. For server applications, the router provides
+request dispatch:
+
+* xref:router.adoc[Router] — dispatch requests to handlers

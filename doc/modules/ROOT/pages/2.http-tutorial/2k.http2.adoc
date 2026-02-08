@@ -1,0 +1,487 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= HTTP/2
+
+For twenty years, HTTP/1.1 carried the Web on its back. It was
+reliable, well understood, and ubiquitous. It was also, by modern
+standards, painfully slow. Every browser window that loaded a complex
+page was quietly opening six TCP connections to the same server,
+queuing dozens of requests behind each other, and wasting bandwidth
+on headers that repeated the same information request after request.
+Developers invented clever workarounds--image sprites, domain sharding,
+inlined resources--but these were band-aids on a protocol that had
+never been designed for the Web it created.
+
+HTTP/2, standardized in 2015 as RFC 7540 and later revised as
+RFC 9113, replaces the text-based wire format of HTTP/1.1 with a
+binary framing layer. The semantics are identical: methods, status
+codes, headers, URIs--everything your application already understands
+remains unchanged. What changes is how those messages are encoded,
+transported, and multiplexed over the network. The result is faster
+page loads, fewer connections, less overhead, and a simpler deployment
+story.
+
+== Why HTTP/1.1 Hit a Wall
+
+To appreciate what HTTP/2 fixes, you need to see what was broken.
+
+HTTP/1.1 delivers responses _sequentially_ on each connection. If a
+client sends two requests on the same connection, the server must
+finish sending the first response before it can begin the second. This
+is called _head-of-line blocking_. While the server is busy with a
+slow database query for request one, request two--which might be a
+tiny icon file ready to go--waits in line.
+
+Browsers compensated by opening up to six parallel connections per
+origin. A page with sixty resources across two origins could use twelve
+simultaneous connections. But each connection requires a TCP handshake
+(one round-trip) and, over HTTPS, a TLS handshake (another round-trip
+or two). On a transatlantic link with 80ms round-trip time, those
+handshakes alone cost hundreds of milliseconds before a single byte
+of content arrives.
+
+HTTP/1.1 pipelining was supposed to help: the client could send
+several requests without waiting for responses. In practice it was
+fragile, poorly supported by intermediaries, and never widely deployed.
+The problem needed a deeper solution.
+
+== From SPDY to HTTP/2
+
+Google began experimenting with an alternative in 2009 under the name
+SPDY (pronounced "speedy"). The goals were ambitious: cut page load
+times in half without requiring website authors to change their
+content. Lab tests on the top 25 websites showed pages loading up to
+55% faster.
+
+By 2012, SPDY was supported in Chrome, Firefox, and Opera, and major
+sites like Google, Twitter, and Facebook were serving traffic over it.
+Seeing this momentum, the IETF HTTP Working Group adopted SPDY as the
+starting point for an official successor to HTTP/1.1. Over the next
+three years, SPDY and the emerging HTTP/2 standard coevolved: SPDY
+served as the experimental branch where proposals were tested in
+production before being folded into the specification.
+
+In May 2015, RFC 7540 (HTTP/2) and RFC 7541 (HPACK header compression)
+were published. Google retired SPDY shortly after. By the time the
+standard was approved, dozens of production-ready client and server
+implementations already existed--an unusually smooth launch for a
+major protocol revision.
+
+== The Binary Framing Layer
+
+The single most important change in HTTP/2 is invisible to
+applications: the replacement of HTTP/1.1's newline-delimited text
+format with a binary framing layer.
+
+In HTTP/1.1, a request looks like this on the wire:
+
+[source]
+----
+GET /index.html HTTP/1.1\r\n
+Host: www.example.com\r\n
+Accept: text/html\r\n
+\r\n
+----
+
+Parsing this requires scanning for line endings, handling optional
+whitespace, and dealing with varying termination sequences--a process
+that is error-prone and surprisingly expensive at scale.
+
+HTTP/2 replaces this with fixed-length binary frames. Each frame
+begins with a nine-byte header:
+
+[source]
+----
++-----------------------------------------------+
+|                Length (24 bits)                |
++-------+-+-------------------------------------+
+| Type  |  Flags  |
+| (8)   |  (8)    |
++-------+-+-------+-----------------------------+
+|R|          Stream Identifier (31 bits)        |
++-+---------------------------------------------+
+|              Frame Payload (0...)              |
++-----------------------------------------------+
+----
+
+* **Length** tells the receiver how many bytes of payload follow.
+* **Type** identifies what the frame carries (headers, data, settings,
+  and so on).
+* **Flags** carry frame-specific signals, such as "this is the last
+  frame of the message."
+* **Stream Identifier** tags every frame with the stream it belongs to,
+  so frames from different streams can be interleaved on a single
+  connection.
+
+Binary framing is more compact, faster to parse, and unambiguous.
+The client and server handle the encoding transparently--applications
+continue to work with the same HTTP methods, headers, and status codes
+they always have.
+
+== Streams, Messages, and Frames
+
+HTTP/2 introduces three layers of abstraction within a single TCP
+connection:
+
+**Frame**::
+The smallest unit of communication. Every frame has a type--`HEADERS`,
+`DATA`, `SETTINGS`, `WINDOW_UPDATE`, `PUSH_PROMISE`, `PING`,
+`GOAWAY`, `RST_STREAM`, `PRIORITY`, or `CONTINUATION`--and carries
+the stream identifier in its header.
+
+**Message**::
+A complete HTTP request or response, composed of one or more frames.
+A `HEADERS` frame begins the message; zero or more `DATA` frames
+carry the body; a flag on the final frame marks the end.
+
+**Stream**::
+A bidirectional flow of frames within the connection, identified by
+a unique integer. Client-initiated streams use odd identifiers (1, 3,
+5, ...); server-initiated streams use even identifiers. Both sides
+increment a simple counter to avoid collisions.
+
+All communication happens over a single TCP connection. The connection
+carries many concurrent streams. Each stream carries one message
+exchange. Each message is broken into frames that can be interleaved
+with frames from other streams. On the receiving end, frames are
+reassembled into messages using the stream identifier.
+
+This layering is the foundation of everything else HTTP/2 offers.
+
+== Multiplexing
+
+Multiplexing is the headline feature. It solves head-of-line blocking
+at the HTTP layer in a single stroke.
+
+In HTTP/1.1, loading a page with a stylesheet, a script, and three
+images from the same origin requires the browser to either queue
+requests behind each other on one connection or open multiple
+connections. With HTTP/2, all five requests can be sent immediately
+on a single connection, and the server can interleave the responses:
+
+[source]
+----
+Connection (single TCP)
+  ├─ Stream 1:  GET /page.html       → 200 OK (HTML body)
+  ├─ Stream 3:  GET /style.css       → 200 OK (CSS body)
+  ├─ Stream 5:  GET /app.js          → 200 OK (JS body)
+  ├─ Stream 7:  GET /hero.jpg        → 200 OK (image data)
+  └─ Stream 9:  GET /logo.png        → 200 OK (image data)
+----
+
+The server does not have to finish sending the CSS before it starts
+on the JavaScript. It can send a chunk of the image, then a chunk of
+the HTML, then more of the image--whatever order is optimal. Frames
+from different streams are interleaved freely and reassembled by the
+receiver.
+
+The practical consequences are significant:
+
+* A single connection replaces the six-connection workaround, reducing
+  TLS handshakes, memory, and socket overhead.
+* Domain sharding becomes unnecessary--and in fact harmful, because it
+  splits the single compression context and priority tree.
+* Image sprites and CSS/JS concatenation lose their primary motivation.
+  Individual files can be cached, invalidated, and loaded independently.
+* Page load times drop because requests are no longer blocked behind
+  unrelated responses.
+
+== Stream Prioritization
+
+When dozens of streams are in flight at once, not all of them are
+equally urgent. The CSS that unblocks page rendering matters more than
+a background image below the fold. HTTP/2 lets the client express these
+priorities so the server can allocate bandwidth and processing time
+intelligently.
+
+Each stream can be assigned a _weight_ (an integer from 1 to 256) and
+a _dependency_ on another stream. Together, these form a prioritization
+tree:
+
+* Streams that depend on a parent should receive resources only after
+  the parent is served.
+* Sibling streams share resources in proportion to their weights.
+
+For example, if stream A (weight 12) and stream B (weight 4) are
+siblings, stream A should receive three-quarters of the available
+bandwidth and stream B one-quarter. If stream C depends on stream D,
+then D should be fully served before C begins receiving data.
+
+The client can update priorities at any time--when the user scrolls,
+for instance, images that have moved on-screen can be reprioritized
+above those that have scrolled off.
+
+Priorities are _hints_, not mandates. The server should respect them,
+but it is free to adapt. A good HTTP/2 server interleaves frames from
+multiple priority levels so that a slow high-priority stream does not
+starve everything else.
+
+== Header Compression (HPACK)
+
+HTTP/1.1 headers are verbose and repetitive. Every request to the same
+origin sends the same `Host`, `User-Agent`, `Accept`, and cookie
+headers--often 500 to 800 bytes of identical text, request after
+request. On pages that generate dozens of requests, the header overhead
+alone can fill the initial TCP congestion window and add an entire
+round-trip of latency.
+
+HTTP/2 addresses this with HPACK (RFC 7541), a compression scheme
+designed specifically for HTTP headers. HPACK uses two techniques:
+
+**Static table.**  A predefined table of 61 common header field/value
+pairs (`:method: GET`, `:status: 200`, `content-type: text/html`, and
+so on). These can be referenced by index instead of transmitted in
+full.
+
+**Dynamic table.**  A per-connection table that both sides maintain.
+When a header field is sent for the first time, it is added to the
+dynamic table. Subsequent requests that use the same field can
+reference the table entry instead of retransmitting the value.
+
+The result is dramatic. On the second request to the same origin, most
+headers are transmitted as single-byte index references. If nothing
+has changed between requests--common for polling--the header overhead
+drops to nearly zero.
+
+Consider two successive requests:
+
+[source]
+----
+Request 1:
+  :method: GET
+  :path: /api/items
+  :authority: api.example.com
+  accept: application/json
+  cookie: session=abc123
+
+Request 2:
+  :method: GET
+  :path: /api/items/42       ← only this changed
+  :authority: api.example.com
+  accept: application/json
+  cookie: session=abc123
+----
+
+In HTTP/1.1, both requests transmit every header in full. In HTTP/2,
+the second request transmits only the changed `:path` value; everything
+else is implied by the dynamic table. Where HTTP/1.1 might send 400
+bytes of headers on the second request, HTTP/2 sends perhaps 20.
+
+HPACK was designed to resist the CRIME attack that compromised earlier
+compression approaches (SPDY originally used zlib). By using index-based
+referencing and Huffman coding instead of general-purpose compression,
+HPACK avoids leaking secrets through compression side channels.
+
+== Flow Control
+
+Multiplexing many streams on one connection creates a resource
+allocation problem: a large download should not starve smaller,
+time-sensitive requests. HTTP/2 solves this with a flow control
+mechanism modeled on TCP's own window-based approach, but applied at
+the stream level.
+
+Each side of the connection advertises a _flow control window_--the
+number of bytes it is willing to receive--for each stream and for the
+connection as a whole. The default window is 65,535 bytes. As data
+is received, the window shrinks; the receiver sends `WINDOW_UPDATE`
+frames to replenish it.
+
+Key properties of HTTP/2 flow control:
+
+* It is _per-stream and per-connection_. A receiver can throttle one
+  stream without affecting others.
+* It is _directional_. Each side independently controls how much data
+  it is willing to accept.
+* It is _credit-based_. The sender can only transmit as many `DATA`
+  bytes as the receiver has permitted.
+* It is _hop-by-hop_, not end-to-end. A proxy between client and
+  server manages its own flow control windows on each side.
+
+Flow control applies only to `DATA` frames. Control frames like
+`HEADERS` and `SETTINGS` are always delivered without flow control,
+ensuring that the connection can always be managed even when data
+windows are exhausted.
+
+== Server Push
+
+HTTP/2 introduced _server push_: the ability for a server to send
+resources to the client before the client requests them. When the
+server knows that an HTML page will need a particular stylesheet and
+script, it can push those resources alongside the initial response,
+eliminating the round-trip the client would spend discovering and
+requesting them.
+
+The mechanism works through `PUSH_PROMISE` frames. The server sends
+a `PUSH_PROMISE` containing the headers of the resource it intends
+to push. The client can accept the push (letting it populate the cache)
+or reject it with a `RST_STREAM` if the resource is already cached.
+
+In theory, server push was elegant. In practice, it proved difficult
+to use effectively. Servers had to guess what clients already had
+cached, and incorrect guesses wasted bandwidth. The overhead of
+implementing push correctly on both sides outweighed the latency
+savings in many deployments.
+
+RFC 9113, the 2022 revision of the HTTP/2 specification, formally
+deprecated server push. Browsers have largely removed support for it.
+The same goal--hinting to the client about needed resources before the
+page HTML is fully parsed--is now better served by `103 Early Hints`
+responses, which tell the client what to preload without the complexity
+of push streams.
+
+== Connection Establishment
+
+HTTP/2 runs over TCP, and in practice almost exclusively over TLS.
+All major browsers require HTTPS for HTTP/2 connections, even though
+the specification technically allows cleartext HTTP/2.
+
+For HTTPS connections, the client and server negotiate HTTP/2 during
+the TLS handshake using _ALPN_ (Application-Layer Protocol
+Negotiation). The client includes `h2` in its list of supported
+protocols in the TLS ClientHello message. If the server also supports
+HTTP/2, it selects `h2` in the ServerHello, and both sides begin
+speaking HTTP/2 immediately after the handshake completes. No extra
+round-trips are needed.
+
+Once the TLS handshake finishes, both sides send a _connection
+preface_: a `SETTINGS` frame declaring their configuration (maximum
+concurrent streams, initial window size, maximum header list size, and
+so on). The client also sends a well-known 24-byte magic string as a
+sanity check:
+
+[source]
+----
+PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n
+----
+
+This string is designed to fail clearly if an HTTP/1.1 server
+accidentally receives it, preventing silent protocol mismatches.
+
+For the rare case of cleartext HTTP/2, the client can use the HTTP/1.1
+`Upgrade` mechanism:
+
+[source]
+----
+GET / HTTP/1.1
+Host: example.com
+Connection: Upgrade, HTTP2-Settings
+Upgrade: h2c
+----
+
+If the server supports HTTP/2, it responds with `101 Switching
+Protocols` and both sides switch to binary framing. If not, the
+exchange continues as normal HTTP/1.1.
+
+== One Connection Per Origin
+
+HTTP/2 is designed around a single connection per origin. Where
+HTTP/1.1 browsers opened six connections to achieve parallelism,
+HTTP/2 multiplexes everything onto one. This has several benefits:
+
+* **Better compression.** A single HPACK dynamic table covers all
+  requests to the origin, maximizing header compression.
+* **Consistent prioritization.** All streams compete in a single
+  priority tree rather than across independent connections.
+* **Reduced overhead.** One TLS handshake, one TCP slow-start ramp,
+  fewer sockets consuming memory on client and server alike.
+* **Friendlier to the network.** Fewer competing TCP flows mean less
+  congestion and better utilization of available bandwidth.
+
+There is a trade-off. Because all streams share one TCP connection,
+a single lost packet forces TCP to retransmit and stalls _every_
+stream on that connection--head-of-line blocking returns, but at the
+transport layer rather than the application layer. On lossy networks
+(mobile, satellite), this can hurt performance.
+
+In practice, the benefits of compression, prioritization, and reduced
+overhead outweigh the TCP-level blocking penalty for most deployments.
+The transport-layer limitation is the primary motivation for HTTP/3,
+which replaces TCP with QUIC to give each stream independent loss
+recovery.
+
+== Frame Types at a Glance
+
+HTTP/2 defines ten frame types. Understanding them gives you a
+complete picture of what the protocol can express:
+
+[cols="2,4"]
+|===
+|Frame Type |Purpose
+
+|`DATA`
+|Carries the body of a request or response.
+
+|`HEADERS`
+|Opens a new stream and carries compressed HTTP headers.
+
+|`PRIORITY`
+|Declares a stream's weight and dependency.
+
+|`RST_STREAM`
+|Immediately terminates a stream (error or cancellation).
+
+|`SETTINGS`
+|Exchanges connection configuration between endpoints.
+
+|`PUSH_PROMISE`
+|Announces a server-initiated push stream (deprecated).
+
+|`PING`
+|Measures round-trip time and verifies connection liveness.
+
+|`GOAWAY`
+|Initiates graceful connection shutdown, telling the peer the
+last stream ID that was processed.
+
+|`WINDOW_UPDATE`
+|Adjusts the flow control window for a stream or the connection.
+
+|`CONTINUATION`
+|Continues a header block that did not fit in a single `HEADERS`
+or `PUSH_PROMISE` frame.
+|===
+
+The `GOAWAY` frame deserves special mention. It allows a server to
+drain gracefully: the server tells the client which streams were
+processed and which were not, so the client can safely retry
+unprocessed requests on a new connection. This is essential for
+zero-downtime deployments.
+
+== What HTTP/2 Means for Applications
+
+Because HTTP/2 preserves HTTP semantics, existing applications work
+without modification. But understanding the protocol lets you stop
+fighting it:
+
+* **Stop sharding domains.** Multiple origins prevent HTTP/2 from
+  using a single connection and split the compression context.
+  Consolidate resources onto one origin where possible.
+* **Stop concatenating and spriting.** Individual files multiplex
+  efficiently, cache independently, and invalidate granularly.
+  Bundling large files delays execution and wastes cache space when
+  a single component changes.
+* **Stop inlining resources.** Small CSS or JavaScript inlined into
+  HTML cannot be cached separately. With multiplexing, the cost of
+  an additional request is negligible.
+* **Do use priority hints.** Modern browsers set stream priorities
+  automatically, but server-side awareness of priorities (serving
+  critical CSS before background images) further improves perceived
+  performance.
+* **Do tune your TCP stack.** HTTP/2's single connection depends
+  heavily on TCP performance. A server with an initial congestion
+  window of 10 segments, TLS session resumption, and ALPN support
+  gives HTTP/2 the best foundation.
+
+HTTP/2 adoption crossed 35% of all websites by early 2026, and
+virtually all modern browsers support it. It remains the workhorse
+protocol for the majority of encrypted web traffic, even as HTTP/3
+gains ground with its QUIC-based transport. Understanding HTTP/2 is
+not just historical context--it is the protocol most of your requests
+travel over today.

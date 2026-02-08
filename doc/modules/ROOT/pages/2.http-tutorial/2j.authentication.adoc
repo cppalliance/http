@@ -1,0 +1,425 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Authentication and Security
+
+HTTP is stateless. The server remembers nothing about the last request
+when the next one arrives. Yet the Web is full of private data--bank
+accounts, medical records, corporate documents, personal photographs.
+Someone has to stand at the door and ask, "Who are you, and can you
+prove it?"
+
+Authentication is how HTTP answers that question. The protocol does not
+store passwords or manage sessions; it simply defines a conversation
+pattern--a _challenge_ from the server, a _response_ from the client--
+that lets identity be proven within each request. This pattern is
+general enough to support simple password checks, cryptographic digests,
+and modern token-based systems, all using the same pair of headers and
+the same status code that HTTP has carried since 1996.
+
+== The Challenge/Response Framework
+
+Every HTTP authentication exchange follows the same shape, regardless of
+the scheme in use. The server challenges, and the client responds.
+
+When a client requests a protected resource without credentials, the
+server does not simply refuse. It tells the client _how_ to
+authenticate:
+
+[source]
+----
+GET /account/balance HTTP/1.1
+Host: bank.example.com
+----
+
+[source]
+----
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Basic realm="Online Banking"
+----
+
+The `401 Unauthorized` status code means: "I know what you asked for,
+but I need proof of who you are before I hand it over." The
+`WWW-Authenticate` header tells the client which authentication scheme
+to use and provides any parameters the scheme requires.
+
+The client gathers credentials--usually by prompting the user--and
+retries the request with an `Authorization` header:
+
+[source]
+----
+GET /account/balance HTTP/1.1
+Host: bank.example.com
+Authorization: Basic YWxpY2U6czNjcjN0
+----
+
+If the credentials are valid, the server returns the resource normally:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"balance": 4217.83}
+----
+
+If they are not, the server sends another `401` and the cycle repeats.
+This three-step dance--request, challenge, authorized request--is the
+foundation of all HTTP authentication.
+
+== Security Realms
+
+A single server often protects different resources with different
+passwords. A corporate intranet might have one set of credentials for
+financial reports and another for the employee directory. HTTP handles
+this through _realms_.
+
+The `realm` parameter in the `WWW-Authenticate` header names the
+protected area:
+
+[source]
+----
+WWW-Authenticate: Basic realm="Corporate Financials"
+----
+
+When the browser encounters this challenge, it displays the realm name
+to the user, so they know _which_ username and password to enter. A
+request to a different part of the same server might trigger a different
+challenge:
+
+[source]
+----
+WWW-Authenticate: Basic realm="Employee Directory"
+----
+
+Realms let a server partition its resources into independent protection
+spaces, each with its own set of authorized users. The browser
+remembers which credentials belong to which realm and sends them
+automatically on subsequent requests to the same space.
+
+== Basic Authentication
+
+Basic authentication is the oldest and simplest HTTP authentication
+scheme. It is supported by virtually every client and server, and it
+works like this:
+
+. The client joins the username and password with a colon:
+  `alice:s3cr3t`
+. It encodes the result using Base64: `YWxpY2U6czNjcjN0`
+. It sends the encoded string in the `Authorization` header.
+
+A complete exchange:
+
+[source]
+----
+GET /family/photos HTTP/1.1
+Host: www.example.com
+----
+
+[source]
+----
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Basic realm="Family"
+----
+
+[source]
+----
+GET /family/photos HTTP/1.1
+Host: www.example.com
+Authorization: Basic YWxpY2U6czNjcjN0
+----
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<html>...</html>
+----
+
+Base64 is an encoding, not encryption. Anyone who intercepts the
+`Authorization` header can trivially decode it and read the password in
+plain text. Basic authentication is only safe when the connection itself
+is encrypted with TLS--that is, when the URL begins with `https`. Over
+plain HTTP, it is no more secure than shouting your password across a
+crowded room.
+
+Despite this weakness, Basic authentication remains useful. It is easy
+to implement, universally understood, and perfectly adequate when
+layered on top of HTTPS. Many internal tools and APIs still rely on it.
+
+== Digest Authentication
+
+Digest authentication was designed to fix Basic's most glaring flaw:
+sending the password in the clear. Instead of transmitting the actual
+password, the client sends a _digest_--a one-way cryptographic hash
+that proves knowledge of the password without revealing it.
+
+=== The Core Idea
+
+The server and the client both know the secret password. Instead of
+sending that password, the client computes a hash of the password mixed
+with other values, and sends the hash. The server performs the same
+computation and compares results. If they match, the client must have
+known the password. An attacker who intercepts the hash cannot reverse
+it to recover the original password.
+
+=== Preventing Replay Attacks
+
+A hash alone is not enough. If an attacker captures the digest, they
+could replay it to the server and gain access without knowing the
+password. Digest authentication prevents this with a _nonce_--a unique
+value the server generates for each challenge.
+
+The client mixes the nonce into its hash computation. Because the nonce
+changes with each challenge, yesterday's captured digest is useless
+today.
+
+=== A Digest Exchange
+
+[source]
+----
+GET /financials/forecast.xlsx HTTP/1.1
+Host: corp.example.com
+----
+
+[source]
+----
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Digest
+  realm="Corporate Financials",
+  nonce="7c4f8e2a9b3d1c5f",
+  qop="auth"
+----
+
+The server provides a realm, a fresh nonce, and the quality of
+protection (`qop`) it supports.
+
+[source]
+----
+GET /financials/forecast.xlsx HTTP/1.1
+Host: corp.example.com
+Authorization: Digest
+  username="bob",
+  realm="Corporate Financials",
+  nonce="7c4f8e2a9b3d1c5f",
+  uri="/financials/forecast.xlsx",
+  qop=auth,
+  nc=00000001,
+  cnonce="a1b2c3d4",
+  response="3b8a21f6c4e7d9b0a5f2e8c1d4b7a6e3"
+----
+
+The `response` field is the hash. It incorporates the username,
+password, realm, nonce, request method, URI, and a client-generated
+nonce (`cnonce`). The `nc` (nonce count) tracks how many times the
+client has used this nonce, adding another layer of replay protection.
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: application/vnd.ms-excel
+
+<...spreadsheet data...>
+----
+
+Digest authentication never sends the password over the wire. However,
+it has seen limited adoption. In practice, most deployments choose Basic
+authentication over TLS, which provides stronger overall security with
+less complexity.
+
+== Bearer Tokens
+
+Modern APIs rarely ask users for a password on every request. Instead,
+the client authenticates once--typically through a login page or an
+OAuth 2.0 flow--and receives a _token_. This token is a string that
+represents the client's identity and permissions. On subsequent
+requests, the client presents the token rather than a username and
+password.
+
+The `Bearer` scheme carries these tokens:
+
+[source]
+----
+GET /api/user/profile HTTP/1.1
+Host: api.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+----
+
+The server validates the token--checking its signature, its expiration,
+and the permissions it grants--and either serves the resource or rejects
+the request.
+
+Bearer tokens are opaque to the protocol. HTTP does not know or care
+what is inside them. They might be JSON Web Tokens (JWTs) containing
+encoded claims, or random strings that the server looks up in a
+database. The protocol's only job is to carry them in the
+`Authorization` header.
+
+Like Basic authentication, Bearer tokens must be protected by TLS. A
+stolen token grants the same access as a stolen password, and tokens
+travel in every request header. HTTPS ensures they stay confidential.
+
+== 401 Versus 403
+
+Two status codes relate to authentication and authorization, and the
+distinction between them matters:
+
+[cols="1a,3a"]
+|===
+|Status|Meaning
+
+|`401 Unauthorized`
+|The server does not know who you are. Provide valid credentials and
+try again. The response includes a `WWW-Authenticate` header describing
+how to authenticate.
+
+|`403 Forbidden`
+|The server knows who you are, but you are not allowed to access this
+resource. Re-authenticating will not help--your identity is established,
+but your permissions are insufficient.
+
+|===
+
+A `401` is a question: "Who are you?" A `403` is a verdict: "I know
+who you are, and the answer is no."
+
+Some servers return `404 Not Found` instead of `403` to hide the
+existence of a resource from unauthorized users. If an attacker cannot
+tell whether a URL leads to a protected page or nothing at all, that
+itself is a layer of defense.
+
+== Proxy Authentication
+
+Authentication can happen at intermediaries, not just origin servers. A
+corporate proxy might require employees to identify themselves before
+any request reaches the open Internet. HTTP supports this with a
+parallel set of headers and a dedicated status code.
+
+[cols="1a,1a"]
+|===
+|Origin Server|Proxy Server
+
+|`401 Unauthorized`
+|`407 Proxy Authentication Required`
+
+|`WWW-Authenticate`
+|`Proxy-Authenticate`
+
+|`Authorization`
+|`Proxy-Authorization`
+
+|===
+
+The exchange follows the same challenge/response pattern. The proxy
+sends a `407` with a `Proxy-Authenticate` header; the client retries
+with `Proxy-Authorization`. Both origin-server and proxy authentication
+can coexist in the same request, each using its own set of headers.
+
+== HTTPS and Transport Security
+
+HTTP authentication proves _identity_, but it does not protect the
+_conversation_. Headers, bodies, and credentials all travel as readable
+text unless the connection is encrypted. This is where TLS--Transport
+Layer Security--enters the picture.
+
+When a URL begins with `https`, the client and server perform a TLS
+handshake before any HTTP data is exchanged. This handshake establishes
+three properties:
+
+**Encryption.** All data between client and server is encrypted.
+Eavesdroppers see only opaque bytes.
+
+**Server authentication.** The server presents a certificate proving
+its identity. The client verifies the certificate against a trusted
+chain of certificate authorities. This prevents an attacker from
+impersonating the server.
+
+**Integrity.** Every message includes a cryptographic checksum. If a
+single byte is altered in transit, the receiver detects the tampering
+and discards the message.
+
+TLS does not replace HTTP authentication--it complements it. HTTP
+authentication answers "who is the client?" TLS answers "is this really
+the server, and is anyone listening?" Together they provide both ends of
+the trust equation.
+
+Without TLS, Basic credentials are exposed, Bearer tokens can be
+stolen, and even Digest authentication is vulnerable to sophisticated
+attacks. In modern practice, HTTPS is not optional for any
+authenticated endpoint. It is the foundation on which all other
+security mechanisms rest.
+
+== A Complete Authenticated Exchange
+
+Here is an annotated exchange that ties together the concepts from this
+section. A client accesses a protected API endpoint:
+
+[source]
+----
+GET /api/orders HTTP/1.1                    <1>
+Host: api.example.com                       <2>
+----
+
+<1> The client requests a protected resource
+<2> Over an HTTPS connection (implied by the API)
+
+The server challenges:
+
+[source]
+----
+HTTP/1.1 401 Unauthorized                   <1>
+WWW-Authenticate: Bearer realm="Orders API" <2>
+----
+
+<1> Authentication required
+<2> The server expects a Bearer token
+
+The client authenticates (perhaps through an OAuth flow) and retries:
+
+[source]
+----
+GET /api/orders HTTP/1.1                    <1>
+Host: api.example.com                       <2>
+Authorization: Bearer eyJhbGciOi...         <3>
+----
+
+<1> Same request, repeated
+<2> Same host
+<3> Now carrying a valid token
+
+The server validates the token and responds:
+
+[source]
+----
+HTTP/1.1 200 OK                             <1>
+Content-Type: application/json              <2>
+Cache-Control: private, no-store            <3>
+
+[{"id": 1, "item": "Claw Hammer"}, ...]     <4>
+----
+
+<1> Success
+<2> JSON response
+<3> Sensitive data--no caching allowed
+<4> The protected resource
+
+The `Cache-Control: private, no-store` directive is worth noting.
+Authenticated responses often contain data specific to one user. Caching
+such responses in a shared proxy would leak private data to other users.
+The `no-store` directive tells every cache along the path--browser,
+proxy, CDN--that this response must never be stored.
+
+Authentication, authorization, and transport security each solve a
+different piece of the same puzzle. Authentication proves identity.
+Authorization determines what that identity may access. TLS ensures
+the entire conversation remains private. HTTP weaves all three into its
+stateless request/response model through a handful of headers and status
+codes--no sessions, no stored state, just a protocol-level conversation
+that scales to billions of requests per day.

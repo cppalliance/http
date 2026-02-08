@@ -1,0 +1,16 @@
+name: http
+version: ~
+title: Boost.HTTP
+start_page: index.adoc
+asciidoc:
+  attributes:
+    source-language: asciidoc@
+    table-caption: false
+nav:
+  - modules/ROOT/nav.adoc
+ext:
+  cpp-reference:
+    config: doc/mrdocs.yml
+  cpp-tagfiles:
+    using-namespaces:
+      - boost::http

@@ -1,0 +1,403 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= What is HTTP
+
+Every time you click a link, load a webpage, or submit a form, a
+quiet conversation takes place between your computer and a machine
+somewhere else in the world. The language they speak is HTTP--the
+Hypertext Transfer Protocol. It is the protocol that moves the Web:
+billions of images, pages, videos, and API calls, every single day.
+
+Tim Berners-Lee designed HTTP in 1990-91 at CERN, the European
+particle physics lab in Geneva. The Internet already existed, but
+there was no uniform way to request a document from another machine
+and know what you got back. Was it a picture? A text file? A
+spreadsheet? HTTP solved both problems at once: it gave computers a
+standard way to ask for things _and_ a standard way to describe
+what those things are. That single insight--that retrieving data is
+useless unless you know its type--became the foundation of the World
+Wide Web.
+
+== Clients and Servers
+
+HTTP is a client-server protocol. One program, the _client_, opens a
+connection and sends a request. Another program, the _server_, receives
+the request and sends back a response. Then the cycle can repeat.
+
+The most familiar client is your web browser. When you type
+`http://example.com/index.html` into the address bar, the browser
+connects to the server at `example.com` and asks for the resource
+`/index.html`. The server locates the file, wraps it in a response,
+and sends it back. The browser then renders what it received.
+
+But clients are not just browsers. A command-line tool like `curl`,
+a mobile app fetching JSON from an API, or a search-engine crawler
+indexing pages--these are all HTTP clients. Anything that sends an
+HTTP request qualifies.
+
+Servers, likewise, range from a single laptop running a test server
+to vast clusters of machines behind a load balancer serving millions
+of requests per second. The protocol does not care about scale; the
+conversation is the same.
+
+== URLs: Naming Resources
+
+Before HTTP can fetch something, it needs to know _where_ that
+something is. This is the job of the URL, or Uniform Resource Locator.
+A URL has three essential parts:
+
+[source]
+----
+http://www.example.com:80/docs/tutorial.html
+^^^^   ^^^^^^^^^^^^^^^^ ^^ ^^^^^^^^^^^^^^^^^^^
+scheme      host       port       path
+----
+
+* The **scheme** (`http`) tells the client which protocol to use.
+* The **host** (`www.example.com`) identifies the server, either as a
+  domain name or an IP address.
+* The **port** (`80`) selects the specific service on that host. Port 80
+  is the default for HTTP and is usually omitted.
+* The **path** (`/docs/tutorial.html`) names the resource on the server.
+
+When the port is left out, the client assumes 80 for `http` and 443
+for `https`. This is why you almost never see `:80` in everyday URLs.
+
+URLs are powerful because they are universal. The same format works
+for web pages, images, API endpoints, and resources accessed through
+other protocols like FTP (`ftp://files.example.com/report.pdf`). They
+replaced a world where accessing a remote file meant knowing the right
+tool, the right login sequence, and the right series of commands.
+
+== Requests and Responses
+
+An HTTP conversation is a simple exchange: one request, one response.
+Every request asks the server to do something; every response reports
+what happened.
+
+=== The Request
+
+A request begins with a _request line_ that contains three pieces of
+information: the method, the request target, and the HTTP version.
+
+[source]
+----
+GET /index.html HTTP/1.1
+Host: www.example.com
+Accept: text/html
+----
+
+The first line says: "Using HTTP/1.1, please `GET` me the resource at
+`/index.html`." The lines that follow are _headers_--metadata about the
+request. Here, `Host` tells the server which website is being addressed
+(a single server can host many sites), and `Accept` says the client
+prefers HTML.
+
+=== The Response
+
+The server answers with a _status line_ followed by its own headers and,
+optionally, a body:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 137
+
+<html>
+<head><title>Hello</title></head>
+<body><p>Welcome to the tutorial.</p></body>
+</html>
+----
+
+The status line reports the protocol version, a numeric status code
+(`200`), and a human-readable reason phrase (`OK`). The headers describe
+the payload: its type (`text/html`) and size in bytes (`137`). After a
+blank line, the body carries the actual content.
+
+This request-response pattern is the heartbeat of the Web. Every link
+you click, every image that loads, every API call your app makes follows
+exactly this structure.
+
+== Methods
+
+The _method_ in the request line tells the server what action to
+perform. HTTP defines several methods, but three dominate everyday use:
+
+[cols="1,4"]
+|===
+|Method |Purpose
+
+|**GET**
+|Retrieve a resource. This is what browsers use when you navigate to a
+page or load an image. A GET should never change anything on the server;
+it is purely a read operation.
+
+|**POST**
+|Send data to the server for processing. Form submissions, file uploads,
+and API calls that create new records typically use POST. The data
+travels in the request body.
+
+|**HEAD**
+|Identical to GET, but the server returns only the headers--no body.
+This is useful for checking whether a resource exists or has changed
+without downloading the entire thing.
+|===
+
+Other methods exist (`PUT`, `DELETE`, `PATCH`, `OPTIONS`), and they play
+important roles in RESTful APIs. But GET and POST account for the vast
+majority of traffic on the Web.
+
+The distinction between GET and POST matters. GET requests can be
+bookmarked, cached, and repeated safely. POST requests carry side
+effects--submitting an order twice is not the same as submitting it
+once. This is why browsers warn you before resubmitting a form.
+
+== Status Codes
+
+The three-digit status code in the response is how the server
+communicates outcome. Codes are grouped by their first digit:
+
+[cols="1,3,3"]
+|===
+|Range |Category |Examples
+
+|**1xx**
+|Informational
+|`100 Continue`
+
+|**2xx**
+|Success
+|`200 OK`, `201 Created`, `204 No Content`
+
+|**3xx**
+|Redirection
+|`301 Moved Permanently`, `302 Found`, `304 Not Modified`
+
+|**4xx**
+|Client error
+|`400 Bad Request`, `403 Forbidden`, `404 Not Found`
+
+|**5xx**
+|Server error
+|`500 Internal Server Error`, `503 Service Unavailable`
+|===
+
+A `200` means everything worked. A `404` means the resource does not
+exist--probably the most recognizable error code in the world. A `301`
+tells the client the resource has moved and provides the new URL in a
+`Location` header. A `500` means something went wrong on the server's
+side.
+
+The reason phrase (`OK`, `Not Found`) is for humans reading raw
+messages. Software uses the numeric code exclusively. You could replace
+`200 OK` with `200 All Good` and nothing would break.
+
+== Headers
+
+Headers are the metadata layer of HTTP. They appear in both requests
+and responses as `Name: value` pairs, one per line, between the start
+line and the body.
+
+Some headers you will encounter constantly:
+
+**Request headers:**
+
+* `Host` -- the domain name of the server (required in HTTP/1.1)
+* `User-Agent` -- identifies the client software
+* `Accept` -- media types the client is willing to receive
+* `Accept-Language` -- preferred human languages
+* `If-Modified-Since` -- makes the request conditional, asking the
+  server to send the resource only if it changed after a given date
+
+**Response headers:**
+
+* `Content-Type` -- the media type of the body
+* `Content-Length` -- size of the body in bytes
+* `Date` -- when the response was generated
+* `Server` -- identifies the server software
+* `Last-Modified` -- when the resource was last changed
+* `Location` -- the URL to redirect to (used with 3xx status codes)
+* `Cache-Control` -- directives for caching behavior
+
+Headers make HTTP extensible. A client and server can agree on new
+headers without changing the protocol itself. This openness is one of
+the reasons HTTP has survived and thrived for over three decades.
+
+== Content Types
+
+When a server sends a response, how does the client know whether the
+body is HTML, a JPEG image, or a JSON document? The answer is the
+`Content-Type` header, which carries a _media type_ (historically
+called a MIME type).
+
+A media type has two parts separated by a slash: a top-level type and
+a subtype.
+
+[cols="2,3"]
+|===
+|Media Type |Meaning
+
+|`text/html`
+|An HTML document
+
+|`text/plain`
+|Plain text, no formatting
+
+|`image/jpeg`
+|A JPEG photograph
+
+|`image/png`
+|A PNG image
+
+|`application/json`
+|A JSON data structure
+
+|`application/octet-stream`
+|Arbitrary binary data (the catch-all)
+
+|`video/mp4`
+|An MP4 video file
+|===
+
+The top-level type gives the client a general idea even if it does not
+recognize the specific subtype. If the browser receives `image/webp`
+and has no WebP decoder, it at least knows the content is an image and
+can decide what to do--perhaps show a placeholder or offer to
+download the file.
+
+Media types are the reason HTTP can carry anything, not just hypertext.
+A single protocol serves web pages, streams video, delivers fonts, and
+transfers API payloads, all because every response says exactly what it
+contains.
+
+== Statelessness
+
+HTTP is _stateless_: the server does not remember anything about
+previous requests. Each request is independent--the server processes
+it in isolation and forgets about it the moment the response is sent.
+
+This sounds like a limitation, but it is actually a powerful design
+choice. Statelessness means any server in a cluster can handle any
+request. There is no session to maintain, no affinity to preserve.
+Scaling becomes straightforward: add more servers and distribute the
+load.
+
+Of course, real applications need state. A shopping cart must persist
+between page views. A login must be remembered. HTTP solves this
+through _cookies_--small pieces of data that the server sends in a
+`Set-Cookie` header and the client returns in a `Cookie` header on
+subsequent requests. Cookies bolt stateful sessions onto a stateless
+protocol without changing the protocol itself.
+
+== Connections and TCP
+
+HTTP does not define how bytes travel across the network. It delegates
+that responsibility to TCP (Transmission Control Protocol), which
+guarantees reliable, in-order delivery. Before any HTTP message can be
+exchanged, the client and server establish a TCP connection through a
+three-way handshake:
+
+. The client sends a SYN packet.
+. The server responds with SYN-ACK.
+. The client replies with ACK.
+
+Only then can data flow. This handshake adds one full round-trip of
+latency before the first byte of the request is even sent. Between
+New York and London, that round-trip alone takes roughly 56
+milliseconds over fiber.
+
+Early HTTP (1.0) opened a new TCP connection for every single request.
+A page with ten images meant eleven connections: one for the HTML and
+one for each image. The overhead was enormous.
+
+HTTP/1.1 changed this with _persistent connections_. By default, the
+connection stays open after a response, ready for the next request.
+This eliminates repeated handshakes and lets TCP ramp up to full
+throughput. A `Connection: close` header signals that one party is
+done and the connection should be torn down.
+
+HTTP/1.1 also introduced _pipelining_: a client can send several
+requests in a row without waiting for responses. In practice,
+pipelining proved fragile and was rarely used, but the idea of
+eliminating round-trip delays carried forward into HTTP/2's
+multiplexing.
+
+== A Brief History
+
+HTTP has evolved in discrete steps, each addressing the shortcomings
+of the previous version:
+
+**HTTP/0.9 (1991)** -- The original one-line protocol. Only GET was
+supported. No headers, no status codes, no content types. The server
+sent back raw HTML and closed the connection.
+
+**HTTP/1.0 (1996)** -- Added version numbers, headers, status codes,
+and content-type negotiation. For the first time, HTTP could carry
+images, video, and other media--not just hypertext. Each request still
+required its own TCP connection.
+
+**HTTP/1.1 (1997)** -- The workhorse of the modern Web. Persistent
+connections, chunked transfer encoding, the `Host` header for virtual
+hosting, and cache-control directives. HTTP/1.1 corrected architectural
+flaws and introduced the performance optimizations that made the Web
+commercially viable.
+
+**HTTP/2 (2015)** -- A binary framing layer over the same semantics.
+Multiplexed streams eliminate head-of-line blocking at the application
+level. Header compression (`HPACK`) reduces overhead. Server push
+allows preemptive delivery of resources.
+
+**HTTP/3 (2022)** -- Replaces TCP with QUIC, a UDP-based transport
+with built-in encryption and independent stream multiplexing. This
+eliminates head-of-line blocking at the transport level and reduces
+connection setup to a single round-trip.
+
+Despite these changes, the fundamental model has not moved: a client
+sends a request, a server sends a response, and headers describe
+everything. Code written against HTTP/1.1 semantics still works in
+an HTTP/3 world.
+
+== Putting It All Together
+
+Here is a complete HTTP/1.1 exchange, the kind that happens invisibly
+thousands of times as you browse:
+
+[source]
+----
+GET /about.html HTTP/1.1          <1>
+Host: www.example.com             <2>
+User-Agent: Mozilla/5.0           <3>
+Accept: text/html                 <4>
+
+----
+
+[source]
+----
+HTTP/1.1 200 OK                   <1>
+Date: Sat, 07 Feb 2026 12:00:00 GMT  <2>
+Server: Apache/2.4.54             <3>
+Content-Type: text/html           <4>
+Content-Length: 82                 <5>
+
+<html>                            <6>
+<head><title>About</title></head>
+<body><p>About us.</p></body>
+</html>
+----
+
+The request identifies the resource, the protocol version, and what the
+client is prepared to accept. The response confirms success, describes
+the payload, and delivers the content. Two small text messages, and a
+page appears on screen.
+
+Every layer of the Web--browsers, servers, proxies, caches, CDNs,
+APIs--is built on this exchange. Understanding it gives you a
+foundation for everything that follows.

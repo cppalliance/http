@@ -1,0 +1,558 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Status Codes
+
+When you send someone a letter, you eventually learn what happened.
+The letter arrived and they wrote back. The letter was returned
+because they moved. The address did not exist. The post office was
+closed. In every case, the outcome falls into one of a small number
+of categories, and you adjust your next step accordingly.
+
+HTTP works the same way. Every response begins with a three-digit
+number--the _status code_--that tells the client exactly what
+happened. Did the request succeed? Did the resource move somewhere
+else? Did the client make a mistake? Did the server break? The
+status code answers all of these questions before the client reads a
+single byte of the body. It is the first thing a program checks,
+and often the only thing it needs.
+
+== The Status Line
+
+The status code lives in the first line of every response, called
+the _status line_:
+
+[source]
+----
+HTTP/1.1 200 OK
+----
+
+Three fields, separated by spaces:
+
+* **HTTP/1.1** -- the protocol version.
+* **200** -- the status code, a three-digit integer.
+* **OK** -- the _reason phrase_, a short human-readable description.
+
+Software makes decisions based on the numeric code alone. The
+reason phrase is entirely cosmetic. You could replace `OK` with
+`Everything Is Fine` or even leave it blank, and the protocol
+would still work. The phrase exists so that a human reading raw
+traffic with a packet sniffer or terminal can understand what
+happened at a glance.
+
+== The Five Classes
+
+Status codes are not random. The first digit divides all possible
+codes into five classes, each representing a fundamentally different
+kind of outcome:
+
+[cols="1,2,4"]
+|===
+|Range |Class |Meaning
+
+|**1xx**
+|Informational
+|The request was received and the server is continuing to process it.
+
+|**2xx**
+|Success
+|The request was received, understood, and accepted.
+
+|**3xx**
+|Redirection
+|The client must take additional action to complete the request.
+
+|**4xx**
+|Client Error
+|The request contains an error and cannot be fulfilled.
+
+|**5xx**
+|Server Error
+|The server failed to fulfill a valid request.
+|===
+
+This grouping is the single most useful thing to memorize about
+status codes. When you encounter an unfamiliar code, its first digit
+immediately tells you whose problem it is: a 4xx means the client
+did something wrong; a 5xx means the server did. A 3xx means nobody
+did anything wrong--the resource just is not here anymore. Even
+software that does not recognize a specific code can fall back to
+the class: an unknown `237` is treated as a generic success, and an
+unknown `569` as a generic server error.
+
+== 1xx: Informational
+
+Informational codes are provisional. The server is acknowledging the
+request but has not finished processing it yet. These responses
+never carry a body.
+
+**100 Continue.** This is the most important 1xx code. When a client
+wants to send a large body--say, a 500 MB file upload--it can ask
+the server for permission first by including an `Expect:
+100-continue` header. The server replies with `100 Continue` if it
+is willing to accept the body, or with an error code (such as `413
+Content Too Large`) if it is not. This handshake avoids wasting
+bandwidth sending a massive payload that the server would reject:
+
+[source]
+----
+PUT /uploads/backup.tar.gz HTTP/1.1
+Host: storage.example.com
+Content-Length: 524288000
+Expect: 100-continue
+
+----
+
+[source]
+----
+HTTP/1.1 100 Continue
+----
+
+Only after receiving the `100` does the client begin transmitting
+the body.
+
+**101 Switching Protocols.** The server is switching to a different
+protocol at the client's request. This is how HTTP connections
+upgrade to WebSocket: the client sends an `Upgrade: websocket`
+header, and if the server agrees, it responds with `101` and the
+connection transitions from HTTP to the WebSocket protocol.
+
+**103 Early Hints.** A relatively recent addition (RFC 8297). The
+server sends preliminary `Link` headers so the browser can start
+preloading stylesheets or fonts while the server is still computing
+the final response. When the real response arrives, the browser has
+already fetched several critical resources.
+
+== 2xx: Success
+
+These are the codes every client hopes to see. The request worked.
+
+**200 OK.** The universal success code. For a GET, it means the
+requested resource is in the body. For a POST, it means the action
+completed and the body contains the result. It is by far the most
+common status code on the Web:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 612
+
+<html>
+<head><title>Welcome</title></head>
+<body>...</body>
+</html>
+----
+
+**201 Created.** The request succeeded _and_ a new resource was
+created as a result. Servers typically return this after a POST that
+creates a record. The response includes a `Location` header
+pointing to the newly created resource:
+
+[source]
+----
+HTTP/1.1 201 Created
+Location: /api/users/4281
+Content-Type: application/json
+
+{"id":4281,"name":"Alice"}
+----
+
+**204 No Content.** The request succeeded, but there is nothing to
+send back. Common after a DELETE that removes a resource, or a PUT
+that updates one when the client does not need a copy of the result.
+The response has headers but no body:
+
+[source]
+----
+HTTP/1.1 204 No Content
+----
+
+**206 Partial Content.** The server is delivering only part of the
+resource because the client asked for a range. This is the mechanism
+behind resumable downloads and video streaming. When you pause a
+download and resume it later, the client sends a `Range` header
+asking for bytes from where it left off, and the server replies
+with `206`:
+
+[source]
+----
+GET /videos/lecture.mp4 HTTP/1.1
+Host: cdn.example.com
+Range: bytes=1048576-
+----
+
+[source]
+----
+HTTP/1.1 206 Partial Content
+Content-Range: bytes 1048576-5242879/5242880
+Content-Length: 4194304
+Content-Type: video/mp4
+
+...(bytes 1048576 through 5242879)...
+----
+
+== 3xx: Redirection
+
+Redirection codes tell the client that the resource it asked for is
+available, but somewhere else--or that the client already has a
+valid copy. The client must take one more step to get what it wants.
+
+**301 Moved Permanently.** The resource has a new, permanent URL.
+The server includes the new address in a `Location` header, and all
+future requests should use it. Search engines update their indexes
+when they see a 301. This is the code a website sends when it
+changes its domain name:
+
+[source]
+----
+HTTP/1.1 301 Moved Permanently
+Location: https://www.new-example.com/about
+
+----
+
+**302 Found.** The resource is temporarily at a different URL. The
+client should follow the `Location` header for this request but
+continue using the original URL for future requests. Login pages use
+this constantly--after you submit your credentials, the server
+redirects you to the page you originally wanted:
+
+[source]
+----
+HTTP/1.1 302 Found
+Location: /dashboard
+
+----
+
+**303 See Other.** Tells the client to retrieve the result at a
+different URL using GET, regardless of what method the original
+request used. This is the standard response after a POST that
+creates or processes something: the server says "the operation
+worked, now GET the result here." This pattern prevents the
+double-submit problem--if the user refreshes the page, the browser
+re-issues a GET rather than re-posting the form.
+
+**307 Temporary Redirect.** Like 302, but with an important
+guarantee: the client _must_ use the same method. If the original
+request was a POST, the redirect must also be a POST. HTTP/1.1
+introduced 307 to resolve an ambiguity in 302, where browsers
+historically changed POST to GET during redirects.
+
+**308 Permanent Redirect.** Like 301, but with the same
+method-preservation guarantee as 307. A POST stays a POST. Use 308
+when you permanently move an API endpoint that receives POST
+requests.
+
+**304 Not Modified.** This code has nothing to do with location
+changes. It is the server's way of saying "you already have the
+latest version." When a client sends a conditional request with an
+`If-Modified-Since` or `If-None-Match` header, the server can
+respond with 304 instead of transmitting the entire resource again.
+No body is sent--the client uses its cached copy:
+
+[source]
+----
+GET /style.css HTTP/1.1
+Host: www.example.com
+If-None-Match: "abc123"
+
+----
+
+[source]
+----
+HTTP/1.1 304 Not Modified
+ETag: "abc123"
+Cache-Control: max-age=3600
+
+----
+
+The 304 saves bandwidth and time. On a busy site, the majority of
+requests for static assets are answered this way.
+
+== 4xx: Client Error
+
+The 4xx family means the client did something wrong. The request was
+malformed, unauthorized, or asked for something that does not exist.
+The server understood the request well enough to know it cannot be
+fulfilled.
+
+**400 Bad Request.** The catch-all for malformed requests. The
+server could not parse the request because of invalid syntax, a
+missing required field, or a body that does not match the declared
+`Content-Type`. When an API returns 400, it usually includes a body
+explaining exactly what was wrong:
+
+[source]
+----
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{"error":"'email' field is required"}
+----
+
+**401 Unauthorized.** Despite its name, this code means
+_unauthenticated_. The client has not provided credentials, or the
+credentials it provided are invalid. The response includes a
+`WWW-Authenticate` header telling the client how to authenticate:
+
+[source]
+----
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="api"
+----
+
+**403 Forbidden.** The server knows who the client is but refuses
+to grant access. The difference from 401 is important: 401 means
+"I don't know who you are--please log in," while 403 means "I know
+who you are, and you are not allowed." Re-authenticating will not
+help.
+
+**404 Not Found.** The most famous status code in the world. The
+server cannot find the resource at the requested URL. Every web
+user has encountered a 404 page. In API design, servers sometimes
+return 404 instead of 403 to hide the existence of a resource from
+unauthorized clients--if you are not supposed to know it exists,
+the server tells you it does not exist.
+
+**405 Method Not Allowed.** The URL is valid, but the method is
+not supported for it. A resource might accept GET and POST but not
+DELETE. The server must include an `Allow` header listing the
+methods it does support:
+
+[source]
+----
+HTTP/1.1 405 Method Not Allowed
+Allow: GET, POST, HEAD
+----
+
+**408 Request Timeout.** The client took too long to finish sending
+its request. Servers set a timeout and, if the client has not
+completed the request within it, respond with 408 and close the
+connection.
+
+**409 Conflict.** The request conflicts with the current state of
+the resource. A common example is trying to create a user account
+with a username that already exists, or uploading a file that would
+overwrite a newer version.
+
+**429 Too Many Requests.** The client has been rate-limited. It sent
+too many requests in a given period of time. The server often
+includes a `Retry-After` header indicating how long the client
+should wait before trying again:
+
+[source]
+----
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+Content-Type: application/json
+
+{"error":"Rate limit exceeded. Try again in 30 seconds."}
+----
+
+== 5xx: Server Error
+
+The 5xx codes mean the server knows the request was valid but
+something went wrong on its side. The fault lies with the server,
+not the client.
+
+**500 Internal Server Error.** The generic server-side failure. An
+unhandled exception, a null pointer, a failed database query--
+anything that the server did not anticipate. It is the server
+equivalent of a shrug. When you see 500 in production logs, it
+means code needs to be fixed:
+
+[source]
+----
+HTTP/1.1 500 Internal Server Error
+Content-Type: text/html
+
+<html><body><h1>Something went wrong.</h1></body></html>
+----
+
+**502 Bad Gateway.** A server acting as a gateway or proxy received
+an invalid response from the upstream server it was forwarding to.
+If your application sits behind a reverse proxy like Nginx, a 502
+usually means your application process crashed or is not listening.
+
+**503 Service Unavailable.** The server is temporarily unable to
+handle requests--usually because it is overloaded or undergoing
+maintenance. Unlike 500, this code implies the problem is transient
+and the client should try again later. A `Retry-After` header may
+indicate when the server expects to recover:
+
+[source]
+----
+HTTP/1.1 503 Service Unavailable
+Retry-After: 120
+----
+
+**504 Gateway Timeout.** Like 502, but specifically about time. The
+proxy or gateway did not receive a response from the upstream server
+within the allowed time. This is the timeout version of 502.
+
+== The Redirection Maze: 301 vs. 302 vs. 303 vs. 307 vs. 308
+
+The redirect codes deserve a closer look because their history is
+tangled and the distinctions matter in practice.
+
+The original HTTP/1.0 specification defined 301 (permanent) and 302
+(temporary). The intention was that clients should preserve the
+original HTTP method when following a redirect--if you POST to a
+URL and get a 302 back, you should POST to the new URL too.
+Browsers, however, ignored this and changed POST to GET when
+following 302 redirects.
+
+HTTP/1.1 cleaned up the mess by adding three new codes:
+
+[cols="1,2,3"]
+|===
+|Code |Type |Method preserved?
+
+|**301**
+|Permanent
+|No -- browsers may change POST to GET
+
+|**302**
+|Temporary
+|No -- browsers may change POST to GET
+
+|**303**
+|Temporary (see other)
+|Always changes to GET (by design)
+
+|**307**
+|Temporary
+|Yes -- method must not change
+
+|**308**
+|Permanent
+|Yes -- method must not change
+|===
+
+The practical rule: use 301 or 308 for permanent moves, 302 or 307
+for temporary ones. If you specifically want the client to switch to
+GET after a POST (the "post/redirect/get" pattern), use 303. If you
+need the client to keep the same method, use 307 or 308.
+
+== Reading a Status Code in Context
+
+A status code never appears alone. It arrives alongside headers and
+sometimes a body that together tell the full story. Here is a
+complete exchange where the client requests a page that has moved:
+
+[source]
+----
+GET /old-page HTTP/1.1              <1>
+Host: www.example.com
+----
+
+[source]
+----
+HTTP/1.1 301 Moved Permanently      <2>
+Location: /new-page                 <3>
+Content-Length: 0
+----
+
+[source]
+----
+GET /new-page HTTP/1.1              <4>
+Host: www.example.com
+----
+
+[source]
+----
+HTTP/1.1 200 OK                     <5>
+Content-Type: text/html
+Content-Length: 94
+
+<html>
+<head><title>New Page</title></head>
+<body><p>You found the new page.</p></body>
+</html>
+----
+
+<1> The client requests the original URL
+<2> The server says the resource has permanently moved
+<3> The `Location` header provides the new URL
+<4> The client automatically follows the redirect
+<5> The resource is delivered from its new home
+
+Browsers perform this redirect chain automatically and invisibly.
+The user sees only the final page and the new URL in the address
+bar. Programs and libraries do the same, though most limit the
+number of redirects they will follow (typically 20) to avoid
+infinite loops.
+
+== Codes You Will See Every Day
+
+Out of the dozens of defined status codes, a handful appear in the
+vast majority of real-world traffic:
+
+[cols="1,3"]
+|===
+|Code |When you will see it
+
+|`200`
+|Almost every successful page load, API call, and resource fetch.
+
+|`201`
+|After creating a resource via POST in a REST API.
+
+|`204`
+|After a successful DELETE, or a PUT that needs no response body.
+
+|`301`
+|When a website changes its URL structure or migrates to a new
+domain.
+
+|`304`
+|When the browser checks its cache and the resource has not changed.
+
+|`400`
+|When an API request has missing or invalid parameters.
+
+|`401`
+|When you forget to include your authentication token.
+
+|`403`
+|When you are authenticated but lack permission.
+
+|`404`
+|When the URL does not match any resource on the server.
+
+|`500`
+|When the server has an unhandled bug.
+
+|`502`
+|When the reverse proxy cannot reach the application server.
+
+|`503`
+|When the server is overloaded or down for maintenance.
+|===
+
+Memorizing these twelve codes covers the overwhelming majority of
+HTTP traffic. The rest are important in specific contexts--range
+requests, content negotiation, WebDAV--but these are the ones that
+appear in logs, error pages, and debugging sessions day after day.
+
+== Why the First Digit Matters
+
+The five-class design is not just a convenience for humans. The HTTP
+specification (RFC 9110) requires that software treat an unrecognized
+status code as equivalent to the x00 code of its class. If a client
+receives a response with status code `299`, and it does not know what
+`299` means, it must treat it as `200`. If it receives `599`, it must
+treat it as `500`.
+
+This rule makes the protocol future-proof. New status codes can be
+defined without breaking existing clients. As long as the first digit
+is correct, old software will do something reasonable--it just will
+not do anything _specific_ to the new code. This is one of the small
+design decisions that allowed HTTP to evolve for over three decades
+without fragmenting the Web.

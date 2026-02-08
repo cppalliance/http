@@ -1,0 +1,427 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Methods
+
+The method is the verb at the beginning of every HTTP request. It tells
+the server what the client wants done. When your browser loads a page,
+it sends `GET`. When you submit a login form, it sends `POST`. When a
+deployment script uploads a new version of a file, it sends `PUT`. The
+rest of the message--headers, body, URL--supplies the nouns and
+adjectives, but the method is the action word that drives the entire
+conversation.
+
+HTTP defines a small set of standard methods, each with precise
+semantics that the rest of the Web's infrastructure relies on. Caches
+decide what to store based on the method. Proxies decide what to retry
+based on the method. Browsers decide whether to warn you about
+resubmitting a form based on the method. Understanding what each method
+means--and two critical properties called _safety_ and
+_idempotency_--is the key to understanding why HTTP works the way it
+does.
+
+== GET
+
+GET is the workhorse of the Web. It asks the server to return a
+representation of the resource identified by the request target. Every
+link you click, every image that loads, every stylesheet and script
+your browser fetches--all of them use GET.
+
+[source]
+----
+GET /docs/tutorial.html HTTP/1.1
+Host: www.example.com
+Accept: text/html
+----
+
+The server responds with the resource:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 4821
+
+<html>
+<head><title>Tutorial</title></head>
+<body>...</body>
+</html>
+----
+
+A GET request should not change anything on the server. Loading a page
+ten times should produce the same result as loading it once, and the
+server's state should be identical afterward. This property makes GET
+requests safe to bookmark, cache, prefetch, and retry on failure. It
+is the foundation that allows search engines to crawl the Web without
+accidentally placing orders or deleting files.
+
+GET requests do not carry a body. All the information the server needs
+is in the URL and the headers.
+
+== HEAD
+
+HEAD is identical to GET, with one difference: the server returns only
+the status line and headers--no body. The response headers must be
+exactly what a GET to the same resource would produce.
+
+[source]
+----
+HEAD /docs/tutorial.html HTTP/1.1
+Host: www.example.com
+----
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Length: 4821
+Last-Modified: Mon, 03 Feb 2026 09:15:00 GMT
+----
+
+This is useful in several situations:
+
+* **Checking existence.** A `200` means the resource exists; a `404`
+  means it does not. You learn this without downloading the content.
+* **Checking freshness.** By comparing the `Last-Modified` or `ETag`
+  header against a cached copy, a client can decide whether to
+  download the full resource.
+* **Discovering size.** The `Content-Length` header reveals the body
+  size before committing to the transfer, useful for progress bars or
+  deciding whether a download is worth the bandwidth.
+
+HEAD is required by the HTTP/1.1 specification. Every server that
+implements GET for a resource must also support HEAD.
+
+== POST
+
+POST sends data to the server for processing. Unlike GET, which only
+retrieves, POST is designed to cause something to happen: submit a
+form, upload a file, create a new record, trigger a computation.
+
+[source]
+----
+POST /api/orders HTTP/1.1
+Host: www.example.com
+Content-Type: application/json
+Content-Length: 58
+
+{"item":"widget","quantity":3,"shipping":"express"}
+----
+
+[source]
+----
+HTTP/1.1 201 Created
+Location: /api/orders/7742
+Content-Type: application/json
+
+{"id":7742,"status":"confirmed"}
+----
+
+The data travels in the request body, and the `Content-Type` header
+tells the server how it is encoded. Form submissions typically use
+`application/x-www-form-urlencoded`; API calls commonly use
+`application/json`; file uploads use `multipart/form-data`.
+
+POST is neither safe nor idempotent. Submitting the same order twice
+may create two orders. This is why browsers show a warning dialog when
+you try to refresh a page that was the result of a POST: "Are you sure
+you want to resubmit the form?" The browser cannot know whether
+sending the request again is harmless or catastrophic, so it asks.
+
+POST is also the most flexible method. When no other method fits--when
+the action does not map neatly to "retrieve," "replace," or
+"delete"--POST is the general-purpose fallback. Running a search that
+requires a large query body, triggering a batch job, sending a
+message--all of these are reasonable uses of POST.
+
+== PUT
+
+PUT asks the server to create or replace the resource at the given URL
+with the contents of the request body. If the resource already exists,
+PUT replaces it entirely. If it does not exist, PUT creates it.
+
+[source]
+----
+PUT /docs/readme.txt HTTP/1.1
+Host: www.example.com
+Content-Type: text/plain
+Content-Length: 34
+
+Updated product list coming soon!
+----
+
+If the resource is new, the server responds with `201 Created`. If it
+replaced an existing resource, the server responds with `200 OK` or
+`204 No Content`.
+
+The critical distinction between PUT and POST is that PUT is
+_idempotent_: sending the same PUT request ten times has exactly the
+same effect as sending it once. The final state of the resource is
+identical regardless of how many times the request is repeated. POST
+makes no such guarantee. This difference matters in unreliable
+networks: if a PUT request times out and the client does not know
+whether it succeeded, it can safely retry. A POST cannot be retried
+as safely.
+
+PUT replaces the _entire_ resource. If you PUT a document with three
+fields to a URL that previously held a document with five fields, the
+resource now has three fields. The other two are gone. For partial
+updates, use PATCH.
+
+== DELETE
+
+DELETE asks the server to remove the resource identified by the
+request target.
+
+[source]
+----
+DELETE /api/orders/7742 HTTP/1.1
+Host: www.example.com
+----
+
+[source]
+----
+HTTP/1.1 204 No Content
+----
+
+A `204 No Content` response indicates that the server successfully
+processed the deletion and has nothing more to say. A `200 OK` with a
+body is also valid if the server wants to return a confirmation message.
+
+Like PUT, DELETE is idempotent. Deleting a resource that has already
+been deleted should not produce an error in principle--the end state
+(the resource is gone) is the same. In practice, many servers return
+`404 Not Found` on repeated deletes, which is technically acceptable
+since idempotency refers to the server's state, not the response code.
+
+DELETE requests do not typically carry a body, though the protocol does
+not forbid one.
+
+== PATCH
+
+PATCH applies a partial modification to a resource. Where PUT replaces
+the whole thing, PATCH changes only the parts you specify.
+
+[source]
+----
+PATCH /api/users/42 HTTP/1.1
+Host: www.example.com
+Content-Type: application/json
+Content-Length: 27
+
+{"email":"new@example.com"}
+----
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id":42,"name":"Alice","email":"new@example.com"}
+----
+
+PATCH is neither safe nor idempotent in the general case. Whether it
+is idempotent depends on the patch format: setting a field to a
+specific value is idempotent; incrementing a counter is not. The
+protocol leaves this to the application.
+
+PATCH was not part of the original HTTP specification. It was added
+later in RFC 5789 because the lack of a partial-update method forced
+developers into awkward workarounds: either sending the entire resource
+via PUT every time a single field changed, or overloading POST for
+everything.
+
+== OPTIONS
+
+OPTIONS asks the server what communication capabilities are available
+for a given resource, or for the server as a whole.
+
+[source]
+----
+OPTIONS /api/orders HTTP/1.1
+Host: www.example.com
+----
+
+[source]
+----
+HTTP/1.1 200 OK
+Allow: GET, POST, OPTIONS
+----
+
+The `Allow` header in the response lists the methods the server
+supports for that resource. An `OPTIONS *` request (using an asterisk
+as the request target) asks about the server's general capabilities
+rather than a specific resource.
+
+OPTIONS is most visible in the context of CORS (Cross-Origin Resource
+Sharing). When a web page at `app.example.com` tries to call an API
+at `api.example.com`, the browser first sends an OPTIONS request--a
+_preflight_--to ask the API server whether cross-origin requests are
+permitted. The API server responds with headers like
+`Access-Control-Allow-Origin` and `Access-Control-Allow-Methods`. Only
+if the preflight succeeds does the browser send the actual request.
+
+== TRACE and CONNECT
+
+Two additional methods appear in the specification but serve
+specialized purposes:
+
+**TRACE** asks the server to echo back the request it received,
+allowing the client to see what intermediaries (proxies, gateways)
+may have modified along the way. TRACE is a diagnostic tool. It
+carries no body, and the response body contains the exact request
+message the server received. Most servers disable TRACE in production
+because it can expose sensitive header information.
+
+**CONNECT** asks an intermediary (usually an HTTP proxy) to establish
+a TCP tunnel to a destination server. This is how HTTPS traffic passes
+through HTTP proxies: the client sends `CONNECT api.example.com:443`,
+the proxy opens a raw TCP connection to that address, and from that
+point forward the proxy blindly relays bytes in both directions. The
+client and destination server then perform a TLS handshake through the
+tunnel.
+
+Neither method appears in everyday application code, but both are
+important pieces of HTTP's infrastructure.
+
+== Safe Methods
+
+A method is _safe_ if it does not change the state of the server. A
+safe request is an observation: it looks at something but does not
+alter it. The safe methods are:
+
+* **GET**
+* **HEAD**
+* **OPTIONS**
+* **TRACE**
+
+Safety is a promise from the protocol to the user. When you click a
+link, the browser uses GET because the protocol guarantees that
+following a link will never, by itself, cause a purchase, a deletion,
+or any other side effect. This is why search engines can crawl every
+link they find without fear of triggering dangerous actions.
+
+The promise is semantic, not absolute. A server _could_ delete a
+database row every time it receives a GET request, but it would be
+violating the protocol's contract. Intermediaries, caches, and clients
+all assume safe methods are safe and make optimization decisions
+accordingly. A server that breaks this assumption will encounter
+unpredictable behavior.
+
+== Idempotent Methods
+
+A method is _idempotent_ if making the same request multiple times
+produces the same result as making it once. The server's state after
+N identical requests is the same as after one. The idempotent methods
+are:
+
+* **GET**
+* **HEAD**
+* **PUT**
+* **DELETE**
+* **OPTIONS**
+* **TRACE**
+
+All safe methods are automatically idempotent--reading something
+twice does not change anything. PUT and DELETE are also idempotent:
+uploading the same file twice leaves one copy; deleting the same
+resource twice leaves it deleted.
+
+POST is the notable exception. Submitting the same order form twice
+creates two orders. Sending the same message twice delivers it twice.
+This is why idempotency matters: when a network error occurs after a
+request is sent but before the response arrives, the client does not
+know whether the request succeeded. For idempotent methods, the safe
+choice is to retry. For POST, the client must use other mechanisms
+(confirmation pages, unique transaction tokens) to avoid duplication.
+
+== Method Properties at a Glance
+
+[cols="1,1,1,1"]
+|===
+|Method |Safe |Idempotent |Request Body
+
+|**GET**
+|Yes
+|Yes
+|No
+
+|**HEAD**
+|Yes
+|Yes
+|No
+
+|**POST**
+|No
+|No
+|Yes
+
+|**PUT**
+|No
+|Yes
+|Yes
+
+|**DELETE**
+|No
+|Yes
+|Optional
+
+|**PATCH**
+|No
+|No
+|Yes
+
+|**OPTIONS**
+|Yes
+|Yes
+|Optional
+
+|**TRACE**
+|Yes
+|Yes
+|No
+
+|**CONNECT**
+|No
+|No
+|No
+|===
+
+This table is worth memorizing. Caches, proxies, and retry logic
+throughout the Web's infrastructure depend on these properties. A
+cache knows it can store GET responses. A proxy knows it can retry a
+PUT after a connection failure. A browser knows it must warn before
+resending a POST. Every one of these decisions flows from the method's
+safety and idempotency.
+
+== Extension Methods
+
+HTTP is extensible. The specification defines the methods above, but
+servers are free to implement additional methods. The WebDAV protocol,
+for example, adds `LOCK`, `UNLOCK`, `MKCOL`, `COPY`, and `MOVE` for
+remote file management. Application frameworks sometimes define custom
+methods for specialized operations.
+
+A server that receives a method it does not recognize should respond
+with `501 Not Implemented`. A server that recognizes a method but does
+not allow it for a particular resource should respond with
+`405 Method Not Allowed` and include an `Allow` header listing the
+methods that _are_ permitted.
+
+Proxies that encounter an unknown method should relay the request
+downstream if possible, following the principle: be conservative in
+what you send, be liberal in what you accept.
+
+== Next Steps
+
+You now know what each HTTP method means, when to use it, and the
+safety and idempotency guarantees that make the Web's infrastructure
+possible. The next section covers the other half of the conversation:
+
+* xref:2.http-tutorial/2e.status-codes.adoc[Status Codes] -- how the server reports what happened

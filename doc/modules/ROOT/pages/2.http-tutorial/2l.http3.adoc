@@ -1,0 +1,344 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= HTTP/3 and QUIC
+
+HTTP/2 solved the problem of multiplexing requests over a single
+connection, but it inherited a deeper limitation from the layer
+beneath it. TCP, the transport protocol that carries HTTP/1.1 and
+HTTP/2 alike, treats everything it delivers as one continuous stream
+of bytes. It has no idea that the bytes it carries belong to different
+HTTP transactions. When a single TCP packet is lost, every stream on
+that connection stalls until the missing packet is retransmitted--even
+streams that have nothing to do with the lost data. This is
+_head-of-line blocking_ at the transport layer, and no amount of
+clever framing at the HTTP level can fix it. The problem lives in TCP
+itself.
+
+HTTP/3, standardized as RFC 9114 in June 2022, replaces TCP with a
+new transport protocol called QUIC. The HTTP semantics you already
+know--methods, status codes, headers, bodies--remain identical. What
+changes is everything below: how connections are established, how data
+is encrypted, how streams are multiplexed, and how the protocol
+recovers from packet loss. The result is a faster, more resilient
+transport for the same familiar request-response exchange.
+
+== The TCP Problem
+
+To understand why HTTP/3 exists, you need to see the problem it was
+designed to solve.
+
+TCP guarantees that bytes arrive in the order they were sent. If packet
+number 7 out of 20 is lost in transit, packets 8 through 20 sit in the
+receiver's buffer, fully intact, waiting. TCP will not deliver any of
+them to the application until packet 7 has been retransmitted and
+received. This guarantee of in-order delivery is what makes TCP
+reliable--and it is also what makes it slow when packets go missing.
+
+With HTTP/1.1, this was manageable because browsers opened multiple TCP
+connections--six or more to the same server. A lost packet on one
+connection only blocked that connection. The others continued normally.
+
+HTTP/2 changed the picture. It multiplexes all requests over a single
+TCP connection to eliminate the overhead of multiple handshakes and to
+enable stream prioritization. But now a single lost packet can stall
+_every_ in-flight request. Under poor network conditions--a mobile user
+on a train, a congested Wi-Fi link--HTTP/2 can actually perform worse
+than HTTP/1.1. At around 2% packet loss, the older protocol with its
+multiple connections often wins.
+
+This is not a flaw in HTTP/2's design. It is a fundamental mismatch
+between what HTTP needs (independent streams) and what TCP provides
+(a single ordered byte stream). Fixing it required changing the
+transport.
+
+== What Is QUIC
+
+QUIC is a general-purpose transport protocol that runs over UDP. It
+was originally developed by Google starting around 2012, then
+standardized by the IETF as RFC 9000 in 2021. The name is not an
+acronym; it is just pronounced "quick."
+
+Running over UDP may sound alarming--UDP is a bare-bones protocol
+with no reliability guarantees, no congestion control, and no
+connection concept. A UDP datagram is just a 64-bit header (source
+port, destination port, length, checksum) and a payload. Packets can
+arrive out of order, duplicated, or not at all.
+
+But QUIC does not rely on UDP for reliability. It _reimplements_
+everything TCP provides--reliable delivery, congestion control, flow
+control, connection establishment--inside its own protocol layer. UDP
+is simply the envelope that gets QUIC packets through middleboxes,
+firewalls, and NATs that already understand UDP port numbers. QUIC
+builds a sophisticated, reliable, encrypted transport on top of a
+deliberately minimal carrier.
+
+The key innovation is that QUIC knows about _streams_. Where TCP sees
+a single undifferentiated byte stream, QUIC sees multiple independent
+streams multiplexed within a single connection. Each stream has its
+own identifier and its own ordering guarantees. If a packet carrying
+data for stream 5 is lost, only stream 5 stalls. Streams 1 through 4
+and 6 onward continue to deliver data to the application without
+waiting.
+
+== Connection Establishment
+
+Setting up a TCP connection with TLS encryption takes at least two
+round-trips. First, the TCP three-way handshake (SYN, SYN-ACK, ACK)
+consumes one round-trip. Then the TLS handshake negotiates
+cryptographic keys in at least one more round-trip (two round-trips
+with TLS 1.2). Only after both handshakes complete can the client send
+its first HTTP request.
+
+QUIC collapses these into a single round-trip. Because QUIC integrates
+TLS 1.3 directly into its transport handshake, the cryptographic key
+exchange happens alongside connection establishment. The client sends
+its first flight of data, the server responds with its own
+cryptographic material _and_ the response to the client's request
+setup, and the connection is ready.
+
+The improvement is even more dramatic on _returning_ connections.
+QUIC supports _0-RTT resumption_: when a client reconnects to a
+server it has visited before, it can send application data in its
+very first packet, before the handshake even completes. The client
+reuses cryptographic keys from the previous session to encrypt this
+early data. The server can begin processing the request immediately.
+
+[source]
+----
+First visit (1-RTT):
+  Client ----[Initial + crypto]----> Server
+  Client <---[crypto + handshake]--- Server
+  Client ----[HTTP request]--------> Server
+
+Return visit (0-RTT):
+  Client ----[Initial + crypto + HTTP request]----> Server
+  Client <---[crypto + HTTP response]-------------- Server
+----
+
+Compared to TCP+TLS 1.2, which needs three round-trips before
+the first byte of application data can be sent, 0-RTT means a
+returning client's request is already on the wire in the very first
+packet. On a path with 50 milliseconds of round-trip time, that
+saves 100 to 150 milliseconds of latency--perceptible to a human
+and significant at scale.
+
+== Built-In Encryption
+
+In the HTTP/1.1 and HTTP/2 world, encryption is optional. You can run
+plain HTTP over TCP, and TLS is a separate layer added on top.
+Millions of sites still serve traffic without encryption, and even
+encrypted connections expose TCP headers--sequence numbers, flags,
+window sizes--as plain text for any observer on the network path.
+
+QUIC makes encryption mandatory. There is no unencrypted mode. Every
+QUIC connection uses TLS 1.3, and the encryption covers not just the
+HTTP payload but most of the QUIC packet header as well. Only a small
+number of fields remain visible: a few flags and the connection ID.
+Everything else--including transport-level metadata that TCP left
+exposed--is encrypted.
+
+This is a security improvement and a practical one. Because middleboxes
+cannot inspect or modify QUIC headers, the protocol is resistant to
+ossification--the gradual process by which network equipment starts
+depending on header fields being in certain positions with certain
+values, making it impossible to evolve the protocol. TCP has suffered
+badly from ossification over the decades. QUIC sidesteps it by
+encrypting the fields that middleboxes might otherwise latch onto.
+
+== Stream Multiplexing Without Blocking
+
+This is the feature that justifies the entire endeavor.
+
+HTTP/2 multiplexes streams at the application layer, but all those
+streams share a single TCP byte stream underneath. QUIC multiplexes
+streams at the _transport_ layer. Each stream is an independent
+sequence of bytes with its own flow control. The transport knows which
+bytes belong to which stream because every QUIC frame carries a stream
+identifier.
+
+When a packet is lost, QUIC retransmits only the data for the affected
+stream. Other streams continue to deliver data to the application. The
+head-of-line blocking problem that plagued HTTP/2 over TCP simply does
+not exist.
+
+[source]
+----
+HTTP/2 over TCP (single ordered byte stream):
+
+  Stream A: [pkt1] [pkt2] [LOST] [pkt4] [pkt5]
+  Stream B: [pkt6] [pkt7] [pkt8]
+  Stream C: [pkt9]
+                           ^^^^^
+                    All streams blocked until
+                    retransmit arrives
+
+HTTP/3 over QUIC (independent streams):
+
+  Stream A: [pkt1] [pkt2] [LOST] ...waiting...
+  Stream B: [pkt6] [pkt7] [pkt8] ✓ delivered
+  Stream C: [pkt9]               ✓ delivered
+                           ^^^^^
+                    Only Stream A waits
+----
+
+The practical impact is most visible on lossy networks. A mobile user
+on cellular data experiences frequent packet loss as they move between
+towers. With HTTP/2, every lost packet freezes the entire page load.
+With HTTP/3, only the specific resource carried on the affected stream
+is delayed. The rest of the page continues to load.
+
+== Connection Migration
+
+TCP connections are identified by a four-tuple: source IP, source port,
+destination IP, destination port. If any of these change, the
+connection breaks. When a phone switches from Wi-Fi to cellular, its
+IP address changes, and every TCP connection is destroyed. The browser
+must re-establish connections from scratch--new handshakes, new
+slow-start ramp-up, new TLS negotiation.
+
+QUIC connections are identified by a _connection ID_, a token generated
+during the handshake. This ID is independent of the network addresses
+underneath. When a phone switches from Wi-Fi to cellular, the QUIC
+connection continues seamlessly--the client sends packets from its new
+IP address with the same connection ID, and the server recognizes it
+as the same connection. No new handshake, no lost state, no
+interrupted downloads.
+
+This matters for the modern web. Users walk between rooms, enter
+elevators, step outside buildings. Their devices constantly switch
+between networks. Connection migration means an HTTP/3 video stream
+does not skip, an ongoing file download does not restart, and an
+interactive application does not lose its session state.
+
+== QPACK Header Compression
+
+HTTP/2 introduced HPACK, a header compression scheme that exploits the
+redundancy in HTTP headers. Most requests to the same server carry
+nearly identical headers--the same `Host`, `User-Agent`,
+`Accept-Encoding`, and `Cookie` values over and over. HPACK maintains
+a dynamic table of recently seen header fields and replaces repeated
+values with compact index references.
+
+HPACK depends on both sides processing headers in strict order, because
+updates to the dynamic table must be synchronized. This works with
+TCP's in-order delivery but conflicts with QUIC's independent streams,
+where header blocks can arrive out of order.
+
+HTTP/3 replaces HPACK with QPACK (RFC 9204), a header compression
+scheme designed for out-of-order delivery. QPACK uses a separate
+unidirectional stream to synchronize dynamic table updates. Header
+blocks on request streams reference the table but do not modify it
+directly, so they can be processed in any order. The compression
+efficiency is comparable to HPACK, but the design respects QUIC's
+fundamental property of stream independence.
+
+== No Server Push
+
+HTTP/2 introduced _server push_, a feature that allowed the server to
+send resources to the client before the client asked for them. The
+idea was compelling: when a client requests an HTML page, the server
+already knows it will need the associated CSS and JavaScript files, so
+why wait for the client to discover and request them?
+
+In practice, server push proved difficult to use correctly. Pushed
+resources often collided with the browser's cache--the server sent
+files the client already had. The browser's prioritization of pushed
+resources was inconsistent across implementations. Many deployments
+disabled it or never enabled it.
+
+HTTP/3 (RFC 9114) still defines server push, but adoption remains
+minimal. The feature has been effectively deprecated in major browsers.
+The `103 Early Hints` status code, which tells the client to preload
+specific resources without actually pushing them, has emerged as a
+simpler and more predictable alternative.
+
+== The Protocol Stack
+
+The full HTTP/3 protocol stack differs significantly from its
+predecessors:
+
+[cols="1,1,1"]
+|===
+|HTTP/1.1 |HTTP/2 |HTTP/3
+
+|HTTP/1.1
+|HTTP/2 (binary framing, HPACK)
+|HTTP/3 (QPACK)
+
+|TLS (optional)
+|TLS (typically required)
+|_integrated into QUIC_
+
+|TCP
+|TCP
+|QUIC
+
+|IP
+|IP
+|UDP / IP
+|===
+
+The most striking change is the disappearance of TLS as a separate
+layer. In the HTTP/3 stack, encryption is not bolted on--it is woven
+into the transport. QUIC packets are encrypted by default, and the
+cryptographic handshake is inseparable from connection establishment.
+
+The move from TCP to UDP is equally significant. TCP has been the
+foundation of web traffic since the early 1990s. Replacing it with a
+protocol built on UDP--traditionally associated with real-time
+applications like DNS lookups, video calls, and gaming--represents a
+fundamental shift in how the web's transport layer works.
+
+== Discovery and Fallback
+
+A client cannot know in advance whether a server supports HTTP/3. The
+discovery mechanism works through the `Alt-Svc` (Alternative Service)
+header. When a client connects to a server over HTTP/1.1 or HTTP/2,
+the server can include this header in the response:
+
+[source]
+----
+Alt-Svc: h3=":443"; ma=86400
+----
+
+This tells the client: "I support HTTP/3 on UDP port 443. This
+information is valid for 86400 seconds (one day)." The client caches
+this hint and attempts an HTTP/3 connection on subsequent requests.
+
+If the QUIC connection fails--because a firewall blocks UDP, because
+a middlebox interferes, or because the path does not support it--the
+client falls back to HTTP/2 over TCP. This graceful degradation means
+deploying HTTP/3 on a server carries no risk of breaking existing
+clients. Older clients that do not understand `Alt-Svc` simply ignore
+the header and continue using HTTP/2 or HTTP/1.1.
+
+Modern browsers also implement _QUIC connection racing_: when they
+learn a server supports HTTP/3, they attempt both a QUIC connection
+and a TCP connection simultaneously, and use whichever succeeds first.
+This avoids the penalty of trying QUIC and waiting for a timeout
+before falling back.
+
+== What Stays the Same
+
+Despite all the changes underneath, the conversation between client and
+server is the same one it has always been. A request still has a method,
+a target, and headers. A response still has a status code and a body.
+`GET /index.html` means the same thing over HTTP/3 that it meant over
+HTTP/1.1. Status `200` still means success. `Cache-Control` still
+governs caching. `Content-Type` still describes the payload.
+
+The semantics of HTTP--the shared vocabulary defined in RFC 9110--are
+independent of the version. HTTP/3 changes the _transport_, not the
+_language_. Code that constructs requests, inspects headers, or
+interprets status codes does not need to know or care whether the
+messages traveled over TCP or QUIC. This separation of semantics from
+transport is one of HTTP's most enduring design strengths, and it is
+the reason the protocol has evolved three times without breaking the
+web.
