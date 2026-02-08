@@ -1,0 +1,37 @@
+#
+# Copyright (c) 2019 Vinnie Falco (vinnie.falco@gmail.com)
+# Copyright (c) 2025 Mohammad Nejati
+#
+# Distributed under the Boost Software License, Version 1.0. (See accompanying
+# file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+#
+# Official repository: https://github.com/CPPAlliance/http
+#
+
+import testing ;
+
+# Windows CNG library for bcrypt random number generation.
+lib bcrypt_sys : : <name>bcrypt ;
+
+project
+    : requirements
+      $(c11-requires)
+      <source>../../../url/extra/test_suite/test_main.cpp
+      <source>../../../url/extra/test_suite/test_suite.cpp
+      <include>.
+      <include>../..
+      <include>../../../url/extra/test_suite
+      <library>/boost//capy
+      <library>/boost/json//boost_json/<warnings-as-errors>off
+      <library>/boost//url
+    ;
+
+run limits.cpp /boost/http//http_sources
+    : requirements
+        <define>BOOST_HTTP_TEST_LIMITS
+        <define>BOOST_HTTP_NO_LIB
+        <define>BOOST_HTTP_STATIC_LINK
+        <link>static
+        <target-os>windows:<library>bcrypt_sys
+        <target-os>darwin:<linkflags>"-framework Security"
+    ;

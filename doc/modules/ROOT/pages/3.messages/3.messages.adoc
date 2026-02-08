@@ -1,0 +1,104 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= HTTP Messages
+
+Every HTTP interaction is a message exchange: a client sends a request,
+a server sends a response. This library gives you three complementary
+components for working with messages:
+
+* **Containers** build and inspect the start line and headers
+* **Serializer** transforms a container and body data into bytes for the wire
+* **Parser** transforms bytes from the wire into a container and body data
+
+These components are designed to work together but remain independently
+useful. You can build a message with a container, serialize it for
+transmission, and parse the reply — or use any one in isolation.
+
+== Containers Hold Headers, Not Bodies
+
+An HTTP message consists of a start line, header fields, and an optional
+body. This library keeps the body separate from the container. The
+`request` and `response` types hold only the start line and headers in
+their serialized wire format. This avoids parameterizing on body type
+and keeps the containers simple:
+
+[source,cpp]
+----
+request req(method::get, "/api/users");
+req.set(field::host, "example.com");
+req.set(field::accept, "application/json");
+
+// buffer() returns the serialized start line + headers
+std::cout << req.buffer();
+----
+
+Body data flows through the serializer or parser instead.
+
+== The Serializer and Parser Are Persistent Objects
+
+Both the serializer and parser allocate a fixed block of memory at
+construction and reuse it across every message on a connection. This
+eliminates per-message allocation and makes resource usage predictable.
+Create one of each when a connection is established and keep them alive
+for its duration:
+
+[source,cpp]
+----
+// One parser and one serializer per connection
+request_parser pr;
+serializer sr(cfg);
+
+pr.reset();
+
+while (connection_open)
+{
+    pr.start();
+    // ... parse a request ...
+    // ... serialize a response ...
+}
+----
+
+== Two-Sided Interfaces
+
+The serializer and parser each expose two sides:
+
+[cols="1,2,2"]
+|===
+| |Input Side |Output Side
+
+|**Serializer**
+|Sink — accepts a container and body data from the caller
+|Stream — emits serialized HTTP bytes for writing to a socket
+
+|**Parser**
+|Stream — accepts raw bytes read from a socket
+|Source — yields a parsed container and body data to the caller
+|===
+
+This two-sided design follows naturally from their role as transformers:
+the serializer converts structured data into bytes, and the parser
+converts bytes into structured data. Neither side performs I/O directly.
+You feed data in on one side and pull results out the other.
+
+== Sans-I/O at Every Layer
+
+None of these components touch a socket. The parser consumes buffers
+you fill; the serializer produces buffers you drain. This means the
+same code works with any transport — Asio, io_uring, or a test harness
+that feeds canned data — without recompilation or abstraction layers.
+
+== Pages in This Section
+
+* xref:3.messages/3a.containers.adoc[Containers] — build and inspect requests,
+  responses, and header field collections
+* xref:3.messages/3b.serializing.adoc[Serializing] — transform messages and body
+  data into bytes for the wire
+* xref:3.messages/3c.parsing.adoc[Parsing] — transform bytes from the wire into
+  messages and body data

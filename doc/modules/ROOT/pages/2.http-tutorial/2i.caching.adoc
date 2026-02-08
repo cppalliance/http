@@ -1,0 +1,497 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Caching
+
+The fastest HTTP request is the one that never reaches the server. Every
+time a browser fetches a stylesheet it already downloaded five seconds ago,
+or a CDN re-asks an origin for a logo that has not changed in a year, the
+network does work that produces no new information. The bytes travel the
+same wires, consume the same bandwidth, and impose the same latency--all
+to deliver an answer both sides already know.
+
+HTTP caching exists to eliminate this waste. A _cache_ stores a copy of a
+response and reuses it for subsequent matching requests, avoiding the
+round-trip to the origin server entirely when the stored copy is still
+valid. The result is faster page loads, lower bandwidth costs, and reduced
+server load. A single busy origin serving millions of users would collapse
+under the weight of redundant traffic if caches did not absorb the vast
+majority of it.
+
+The mechanism is deceptively simple in concept--save the response, serve it
+again later--but the details matter. How long is a stored response usable?
+How does a cache know when the original has changed? Who is allowed to
+store what? HTTP answers these questions through a set of headers and rules
+that give servers precise control over how their responses are cached, and
+give caches the tools to serve content efficiently without ever delivering
+stale data by accident.
+
+== Freshness: When a Stored Response is Good Enough
+
+A cached response does not stay valid forever. The server that generated
+it knows how volatile its content is, and HTTP provides two ways for the
+server to express this: a relative lifetime and an absolute expiration
+date.
+
+=== Cache-Control: max-age
+
+The modern and preferred approach is the `Cache-Control: max-age`
+directive. The value is the number of seconds the response may be
+considered _fresh_ from the moment it was generated:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Cache-Control: max-age=3600
+
+<!DOCTYPE html>
+<html>...
+----
+
+This response tells any cache that stores it: "You may serve this copy
+for the next 3600 seconds (one hour) without contacting me." During that
+window the cache satisfies requests instantly--a _cache hit_. After the
+window closes the stored copy becomes _stale_, and the cache must check
+with the server before using it again.
+
+=== The Expires Header
+
+Before `Cache-Control` existed, HTTP/1.0 used the `Expires` header to
+specify an absolute date and time after which the response should no
+longer be considered fresh:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Expires: Thu, 01 Jan 2026 00:00:00 GMT
+
+<!DOCTYPE html>
+<html>...
+----
+
+Absolute dates depend on the server's clock being accurate, which proved
+unreliable in practice. If both `Expires` and `Cache-Control: max-age`
+are present, `max-age` takes priority. New implementations should use
+`max-age`.
+
+=== The Age Header
+
+When a shared cache (such as a CDN) stores a response and later serves it,
+the `Age` header tells the next recipient how many seconds the response
+has been sitting in that cache:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Cache-Control: max-age=3600
+Age: 1800
+
+<!DOCTYPE html>
+<html>...
+----
+
+A client receiving this response knows that 1800 of the original 3600
+seconds of freshness have already elapsed, leaving 1800 seconds of
+remaining freshness. Without the `Age` header, downstream caches would
+have no way to account for time spent in upstream caches.
+
+=== Heuristic Caching
+
+If a response carries no `Cache-Control` or `Expires` header at all,
+caches do not simply refuse to store it. HTTP allows them to apply a
+_heuristic_: if the `Last-Modified` header is present, a common rule of
+thumb is to treat the response as fresh for roughly 10% of the time since
+it was last modified. A page last modified a year ago might be cached for
+about five weeks; a page modified yesterday, for about two hours.
+
+Heuristic caching is a sensible default, but it is unpredictable. Servers
+that care about caching behavior should always include an explicit
+`Cache-Control` header.
+
+== Validation: Checking Without Re-Downloading
+
+When a cached copy goes stale, the cache does not have to throw it away
+and fetch the entire response from scratch. Instead it can ask the server:
+"Has this resource changed since I last fetched it?" If the answer is no,
+the server sends back a tiny `304 Not Modified` response with no body,
+and the cache marks its existing copy as fresh again. This is called
+_revalidation_, and it can save enormous amounts of bandwidth.
+
+HTTP supports two revalidation mechanisms, each based on a different kind
+of identifier that the server attaches to the original response.
+
+=== Last-Modified and If-Modified-Since
+
+The simplest approach uses timestamps. The server includes a
+`Last-Modified` header in the response:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Last-Modified: Mon, 15 Jan 2026 10:00:00 GMT
+Cache-Control: max-age=3600
+
+<!DOCTYPE html>
+<html>...
+----
+
+When the cached copy becomes stale and a client requests the same
+resource, the cache sends a _conditional request_ with an
+`If-Modified-Since` header carrying the stored timestamp:
+
+[source]
+----
+GET /index.html HTTP/1.1
+Host: www.example.com
+If-Modified-Since: Mon, 15 Jan 2026 10:00:00 GMT
+----
+
+If the resource has not changed, the server responds:
+
+[source]
+----
+HTTP/1.1 304 Not Modified
+Cache-Control: max-age=3600
+----
+
+No body is transferred. The cache refreshes the freshness lifetime of its
+stored copy and serves it to the client. If the resource _has_ changed,
+the server responds with a full `200 OK` and the new content.
+
+=== ETags and If-None-Match
+
+Timestamps have limitations. A file might be rewritten with identical
+content, changing its modification date without changing its meaning. Or
+changes might happen faster than the one-second granularity of HTTP dates.
+_Entity tags_ (ETags) solve both problems. An ETag is an opaque identifier
+--often a hash or version string--that the server generates for a specific
+version of a resource:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+ETag: "a1b2c3d4"
+Cache-Control: max-age=3600
+
+<!DOCTYPE html>
+<html>...
+----
+
+When revalidating, the cache sends the stored ETag in an `If-None-Match`
+header:
+
+[source]
+----
+GET /index.html HTTP/1.1
+Host: www.example.com
+If-None-Match: "a1b2c3d4"
+----
+
+If the server's current ETag for the resource matches, nothing has changed
+and the server returns `304 Not Modified`. If the ETag differs, the server
+returns the new content with a `200 OK` and a new ETag.
+
+When both `If-Modified-Since` and `If-None-Match` are present in the same
+request, the ETag comparison takes precedence. Servers are encouraged to
+send both `ETag` and `Last-Modified` in responses, because each serves
+different consumers: ETags provide precise cache validation, while
+`Last-Modified` is useful for crawlers, content-management systems, and
+HTTP/1.0 caches that do not understand ETags.
+
+=== Weak Validators
+
+Sometimes a cosmetic change--a whitespace fix, a comment edit--should
+not force every cache in the world to re-download the resource. HTTP
+supports _weak validators_ for this purpose. A weak ETag is prefixed
+with `W/`:
+
+[source]
+----
+ETag: W/"v2.6"
+----
+
+A weak ETag signals that the resource is _semantically equivalent_ even
+if the bytes are not identical. Caches can still use weak ETags for
+revalidation, but certain operations that require exact byte-level
+matching (such as range requests) demand strong validators.
+
+== Cache-Control Directives
+
+The `Cache-Control` header is the primary tool for controlling caching
+behavior. Directives can appear in both responses and requests, each
+serving a different purpose. The most important response directives are
+summarized below.
+
+=== Controlling Who May Cache
+
+[cols="2a,3a"]
+|===
+|Directive|Meaning
+
+|`public`
+|Any cache--browser, proxy, CDN--may store the response. This is the
+default for most responses, but stating it explicitly can override
+restrictions that would otherwise apply (for example, to responses that
+required authentication).
+
+|`private`
+|Only the end user's browser may store the response. Shared caches such
+as proxies and CDNs must not. Use this for personalized content--a user's
+account page, a shopping cart, anything tied to a session.
+
+|===
+
+=== Controlling Storage and Reuse
+
+[cols="2a,3a"]
+|===
+|Directive|Meaning
+
+|`no-store`
+|The response must not be stored by any cache at all. Use this for
+sensitive data that should never be written to disk--bank statements,
+medical records, authentication tokens.
+
+|`no-cache`
+|The response _may_ be stored, but must not be served to a client without
+first revalidating with the origin server. Despite its misleading name,
+`no-cache` does not prevent caching--it prevents _unvalidated_ reuse.
+
+|`max-age=<seconds>`
+|The response is fresh for the given number of seconds. After that it
+becomes stale and must be revalidated.
+
+|`s-maxage=<seconds>`
+|Like `max-age`, but applies only to shared caches (proxies, CDNs). A
+response with `max-age=60, s-maxage=3600` tells browsers to revalidate
+after one minute, but allows CDNs to serve the cached copy for an hour.
+
+|===
+
+=== Controlling Stale Behavior
+
+[cols="2a,3a"]
+|===
+|Directive|Meaning
+
+|`must-revalidate`
+|Once the response becomes stale, the cache must not serve it without
+successful revalidation. If the origin server is unreachable, the cache
+must return a `504 Gateway Timeout` rather than serve stale content.
+
+|`proxy-revalidate`
+|Same as `must-revalidate`, but applies only to shared caches.
+
+|`immutable`
+|Tells the cache that the response body will never change. Even when the
+user manually reloads the page, the browser may skip revalidation. This
+is ideal for versioned static assets (like `app.v3.js`) whose URL changes
+whenever their content changes.
+
+|===
+
+=== Request-Side Directives
+
+Clients can also include `Cache-Control` directives in their requests to
+influence how caches along the path behave:
+
+[cols="2a,3a"]
+|===
+|Directive|Meaning
+
+|`no-cache`
+|Forces the cache to revalidate before serving a stored response. Browsers
+send this on a normal page reload.
+
+|`no-store`
+|Tells intermediate caches not to store the response.
+
+|`max-age=0`
+|The client will not accept a cached response older than zero
+seconds--effectively requiring revalidation.
+
+|`max-stale=<seconds>`
+|The client is willing to accept a response that has been stale for up to
+the specified number of seconds. Useful for unreliable network conditions
+where some content is better than none.
+
+|`min-fresh=<seconds>`
+|The client wants a response that will remain fresh for at least the
+specified number of seconds.
+
+|`only-if-cached`
+|The client wants a response only if it is already in the cache. If no
+cached response is available, the cache returns `504 Gateway Timeout`
+instead of fetching from the origin.
+
+|===
+
+== Types of Caches
+
+Caches exist at multiple points along the path between a client and an
+origin server. Each type serves a different purpose.
+
+=== Private Caches
+
+A _private cache_ belongs to a single user--typically the browser's
+built-in cache. It stores responses on disk or in memory and serves them
+when the same user revisits a page. Because no other user can access it, a
+private cache is the only appropriate place to store personalized content.
+
+Every modern browser maintains a private cache. When you load a page and
+then press the back button, the browser often serves the previous page
+from its cache without any network activity at all. This is why "back" is
+nearly instantaneous even on a slow connection.
+
+=== Shared Caches
+
+A _shared cache_ sits between multiple clients and the origin server.
+Shared caches come in two flavors:
+
+_Proxy caches_ are forward proxies deployed by a network operator--an ISP
+or a corporate IT department--to reduce outbound bandwidth. All users on
+the network share the same cache, so a popular resource fetched by one
+user can be served to another without reaching the origin.
+
+_Reverse proxy caches_ (including CDNs) are deployed by the content
+provider in front of the origin server. They absorb traffic, distribute
+content to servers closer to end users, and shield the origin from flash
+crowds. When millions of users request the same news article within
+seconds, the CDN serves its cached copy and the origin barely notices.
+
+The `private` and `s-maxage` directives exist specifically to let servers
+control behavior differently for browser caches and shared caches, because
+what is safe to store in a user's own browser is not always safe to store
+on a shared proxy.
+
+== Cache Keys and the Vary Header
+
+A cache identifies a stored response by its URL. Two requests for the same
+URL normally receive the same cached response. But content negotiation
+complicates this: the same URL might produce a French HTML page for one
+client and a gzip-compressed English JSON response for another.
+
+The `Vary` header, discussed in the content negotiation section, tells
+caches which request headers influenced the server's choice of response.
+A cache that respects `Vary` stores multiple variants keyed by the URL
+_plus_ the values of the headers listed in `Vary`:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html
+Content-Encoding: gzip
+Vary: Accept-Encoding, Accept-Language
+Cache-Control: max-age=3600
+----
+
+This response instructs caches to maintain separate stored copies for
+different combinations of `Accept-Encoding` and `Accept-Language`. A
+request with `Accept-Encoding: br` will not match a stored response that
+was compressed with gzip, even though the URL is identical.
+
+== Cache Busting
+
+A response cached with a long `max-age` cannot be revoked. Once a CDN
+has stored a response for a year, no header the server sends afterward
+will reach that CDN until the year expires. The server has, in effect,
+relinquished control of the URL for the duration of the freshness
+lifetime.
+
+The standard solution is _cache busting_: encoding a version identifier
+into the URL itself. When the content changes, the URL changes, and the
+old cached response is simply never requested again:
+
+[source]
+----
+<link rel="stylesheet" href="/css/style.v3.css">
+<script src="/js/app.a1b2c3d4.js"></script>
+----
+
+The HTML page that references these URLs uses `no-cache` (forcing
+revalidation on every load), while the assets themselves carry
+`max-age=31536000, immutable`--one year, and no revalidation even on
+reload. When the stylesheet changes, the HTML is updated to reference
+`style.v4.css`, and the old `v3` response ages out of caches on its own.
+
+This pattern separates _mutable resources_ (the HTML page) from
+_immutable versioned assets_ (stylesheets, scripts, images), giving
+each the caching strategy it deserves.
+
+== A Complete Caching Exchange
+
+Here is a sequence that exercises freshness, staleness, and revalidation.
+A browser requests a product page:
+
+[source]
+----
+GET /products/widget HTTP/1.1
+Host: shop.example.com
+Accept: text/html
+Accept-Encoding: gzip
+----
+
+The server responds with a fresh copy:
+
+[source]
+----
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Encoding: gzip
+Cache-Control: max-age=600, must-revalidate
+ETag: "8f14e45f"
+Last-Modified: Sat, 07 Feb 2026 12:00:00 GMT
+Content-Length: 4821
+Vary: Accept-Encoding
+
+<!DOCTYPE html>
+<html>...
+----
+
+The browser caches this response. For the next ten minutes (600 seconds),
+any request for the same URL is served directly from the browser cache
+with no network activity.
+
+After ten minutes the cached copy is stale. The user navigates to the
+same page again. The browser sends a conditional request:
+
+[source]
+----
+GET /products/widget HTTP/1.1
+Host: shop.example.com
+Accept: text/html
+Accept-Encoding: gzip
+If-None-Match: "8f14e45f"
+If-Modified-Since: Sat, 07 Feb 2026 12:00:00 GMT
+----
+
+The server checks. The product page has not changed, so it responds:
+
+[source]
+----
+HTTP/1.1 304 Not Modified
+Cache-Control: max-age=600, must-revalidate
+ETag: "8f14e45f"
+----
+
+No body is transferred. The browser resets the freshness clock on its
+stored copy and renders the page instantly. The entire revalidation
+exchange--a small request and a tiny response--consumed a fraction of
+the bandwidth that a full download would have required.
+
+If the product page _had_ changed, the server would have returned a
+`200 OK` with the new content, a new `ETag`, and a new `Last-Modified`
+date. The browser would replace its stored copy and render the updated
+page. Either way, the user sees correct content; caching only decides
+how much network work is needed to get it.

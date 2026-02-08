@@ -1,0 +1,312 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Serving Static Files
+
+Every web application eventually needs to deliver files — stylesheets,
+images, scripts, HTML pages. You could open files manually and stream
+bytes into the response, but that means handling content types, caching
+headers, conditional requests, range requests, directory traversal
+attacks, and a dozen other details that are easy to get wrong. The
+`serve_static` middleware handles all of this in a single line.
+
+NOTE: Code snippets assume `using namespace boost::http;` is in effect.
+
+== Quick Start
+
+Point `serve_static` at a directory on disk and register it as
+middleware:
+
+[source,cpp]
+----
+#include <boost/http/server/serve_static.hpp>
+
+router r;
+r.use( serve_static("/var/www/public") );
+----
+
+That's it. Requests are now mapped to files under `/var/www/public`.
+A request for `/css/style.css` serves the file
+`/var/www/public/css/style.css`. The middleware automatically:
+
+* Detects `Content-Type` from the file extension
+* Generates `ETag` and `Last-Modified` headers
+* Responds to conditional requests with `304 Not Modified`
+* Handles `Range` requests for partial content
+* Redirects directory URLs that lack a trailing slash
+* Serves `index.html` when a directory is requested
+
+If a file is not found, the request passes through to the next handler
+in the chain — exactly as you would expect from middleware.
+
+== How Requests Map to Files
+
+The mapping is straightforward. The request path is appended to the
+document root:
+
+[cols="2,2,3"]
+|===
+| Document Root | Request Path | File Served
+
+| `/var/www/public`
+| `/`
+| `/var/www/public/index.html`
+
+| `/var/www/public`
+| `/logo.png`
+| `/var/www/public/logo.png`
+
+| `/var/www/public`
+| `/js/app.js`
+| `/var/www/public/js/app.js`
+
+| `/var/www/public`
+| `/docs`
+| redirect to `/docs/`, then serve `/var/www/public/docs/index.html`
+|===
+
+Only `GET` and `HEAD` methods are served. Other methods pass through
+to the next handler (or return `405 Method Not Allowed` when
+`fallthrough` is disabled).
+
+== Configuration
+
+Pass a `serve_static_options` struct to customize behavior:
+
+[source,cpp]
+----
+serve_static_options opts;
+opts.max_age    = 86400;       // cache for one day
+opts.immutable  = true;        // assets never change at the same URL
+opts.dotfiles   = dotfiles_policy::deny;
+
+router r;
+r.use( serve_static("/var/www/public", opts) );
+----
+
+Every option has a sensible default. Override only what you need.
+
+=== Options Reference
+
+[cols="2,1,4"]
+|===
+| Option | Default | Description
+
+| `dotfiles`
+| `ignore`
+| How to handle dotfiles (`.hidden`, `.env`). See <<Dotfile Handling>>.
+
+| `max_age`
+| `0`
+| Seconds for the `Cache-Control: max-age` directive. Zero means no
+  cache header is added.
+
+| `accept_ranges`
+| `true`
+| Advertise support for range requests with `Accept-Ranges: bytes`.
+
+| `etag`
+| `true`
+| Generate an `ETag` header from file metadata.
+
+| `fallthrough`
+| `true`
+| When a file is not found, pass the request to the next handler
+  instead of returning 404.
+
+| `last_modified`
+| `true`
+| Set the `Last-Modified` header from the file's modification time.
+
+| `redirect`
+| `true`
+| Redirect directory requests that are missing a trailing slash
+  (e.g. `/docs` -> `/docs/`).
+
+| `immutable`
+| `false`
+| Append `immutable` to the `Cache-Control` header. Only takes effect
+  when `max_age` is non-zero.
+
+| `index`
+| `true`
+| Serve `index.html` when a directory is requested.
+|===
+
+== Caching
+
+Browsers and proxies rely on HTTP caching headers to avoid
+re-downloading files that haven't changed. `serve_static` supports
+three caching mechanisms that work together.
+
+=== ETags and Conditional Requests
+
+When `etag` is enabled, every response includes an `ETag` header
+derived from the file's size and modification time. On subsequent
+requests the browser sends `If-None-Match` with the stored ETag.
+If the file hasn't changed, the server responds with
+`304 Not Modified` — no body, no wasted bandwidth.
+
+The same principle applies to `Last-Modified` and `If-Modified-Since`.
+Both mechanisms are enabled by default.
+
+=== Cache-Control
+
+Set `max_age` to tell browsers how long a response is fresh:
+
+[source,cpp]
+----
+opts.max_age = 3600;  // one hour
+----
+
+For assets with content-hashed filenames (like `app.a1b2c3.js`),
+the URL changes whenever the content changes. These files can be
+cached aggressively:
+
+[source,cpp]
+----
+opts.max_age  = 31536000;  // one year
+opts.immutable = true;      // never revalidate
+----
+
+The `immutable` directive tells modern browsers they don't need to
+send conditional requests at all — the file at this URL will never
+change.
+
+== Dotfile Handling
+
+Files and directories whose names begin with a dot are often
+sensitive: `.env`, `.git`, `.htaccess`. The `dotfiles` option
+controls how `serve_static` treats them.
+
+[cols="1,4"]
+|===
+| Policy | Behavior
+
+| `dotfiles_policy::ignore`
+| Pretend the file doesn't exist. If `fallthrough` is enabled, the
+  request passes to the next handler. Otherwise, 404.
+
+| `dotfiles_policy::deny`
+| Return `403 Forbidden`. The client knows the file exists but cannot
+  access it.
+
+| `dotfiles_policy::allow`
+| Serve dotfiles like any other file.
+|===
+
+The default is `ignore`, which is the safest choice. Use `deny` when
+you want to actively reject requests for dotfiles. Use `allow` only
+when you have a specific reason to expose them.
+
+[source,cpp]
+----
+opts.dotfiles = dotfiles_policy::deny;
+----
+
+== Range Requests
+
+Large files benefit from range requests. A video player can seek to
+any position without downloading the entire file. A download manager
+can resume an interrupted transfer. When `accept_ranges` is enabled,
+`serve_static` advertises `Accept-Ranges: bytes` and honors `Range`
+headers by responding with `206 Partial Content` and the requested
+byte range.
+
+This is enabled by default. No configuration is needed.
+
+== Fallthrough
+
+The `fallthrough` option determines what happens when `serve_static`
+cannot serve a request — either because the file doesn't exist or the
+HTTP method isn't `GET`/`HEAD`.
+
+When `fallthrough` is `true` (the default), unmatched requests pass
+to the next handler. This is how middleware is supposed to work: each
+handler tries to do its job, and if it can't, it steps aside.
+
+[source,cpp]
+----
+router r;
+r.use( serve_static("/var/www/public") );  // try files first
+r.use( serve_index("/var/www/public") );   // then directory listings
+r.add( method::get, "/api/status",         // then API routes
+    [](route_params& rp) -> route_task {
+        co_await rp.send("OK");
+        co_return route_done;
+    });
+----
+
+When `fallthrough` is `false`, the middleware returns an error response
+directly (404 for missing files, 405 for wrong methods) instead of
+passing through.
+
+== Combining with serve_index
+
+A common pattern pairs `serve_static` with `serve_index` so that
+directories without an `index.html` get a browsable file listing:
+
+[source,cpp]
+----
+router r;
+r.use( serve_static(root) );
+r.use( serve_index(root) );
+----
+
+When a request arrives for a directory:
+
+1. `serve_static` looks for `index.html` in that directory.
+2. If found, it serves the index page.
+3. If not found and `fallthrough` is true, the request reaches
+   `serve_index`, which generates a directory listing.
+
+== Mounting on a Subpath
+
+Register `serve_static` under a specific route prefix to serve files
+from a namespace:
+
+[source,cpp]
+----
+router r;
+r.use( "/assets", serve_static("/var/www/assets") );
+----
+
+Now `/assets/logo.png` maps to `/var/www/assets/logo.png`, while
+requests outside `/assets/` are unaffected.
+
+== Example: Production Configuration
+
+A production-ready setup might look like this:
+
+[source,cpp]
+----
+serve_static_options opts;
+opts.max_age      = 86400;
+opts.etag         = true;
+opts.last_modified = true;
+opts.dotfiles     = dotfiles_policy::deny;
+opts.redirect     = true;
+
+router r;
+r.use( serve_static("/var/www/public", opts) );
+r.use( serve_index("/var/www/public") );
+----
+
+This configuration:
+
+* Caches files for 24 hours
+* Uses ETags and Last-Modified for revalidation
+* Blocks access to dotfiles
+* Redirects `/docs` to `/docs/`
+* Falls back to directory listings when no index file exists
+
+== See Also
+
+* xref:4.servers/4d.route-patterns.adoc[Route Patterns] — how request paths
+  are matched to handlers

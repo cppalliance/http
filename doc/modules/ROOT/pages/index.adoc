@@ -1,0 +1,142 @@
+//
+// Copyright (c) 2023 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Boost.HTTP
+
+HTTP powers the web, but implementing it correctly in C++ is surprisingly hard.
+Boost.HTTP gives you the entire HTTP/1.1 protocol stack — from raw parsing up
+to complete clients and servers — without tying you to any network library.
+
+== What This Library Does
+
+* Implements HTTP at multiple levels of abstraction, from low-level parsing and
+  serialization to complete clients and servers
+* Sans-I/O from top to bottom — zero dependency on Asio, Corosio, or any
+  transport; you bring your own
+* Coroutines-only execution model built on Capy
+* Type-erased streams reflecting buffer-oriented I/O
+* Express.js-style router with pattern matching and middleware composition
+* High-level components: static file serving, form processing, cookie handling,
+  cryptographic utilities
+* Content encodings (gzip, deflate, brotli)
+* Strict RFC 9110 compliance to prevent common security issues
+
+== What This Library Does Not Do
+
+* Provide a network transport — this is a Sans-I/O library by design
+* HTTP/2 or HTTP/3 protocol support
+* TLS/SSL handling
+
+== Target Audience
+
+This library is for C++ developers who need precise control over HTTP message
+handling. You should have:
+
+* Familiarity with TCP/IP networking concepts
+* Understanding of the HTTP request/response model
+* Experience with C++ coroutines
+
+== Design Philosophy
+
+Boost.HTTP follows a Sans-I/O architecture at every layer. Even high-level
+clients and servers operate on abstract, type-erased stream interfaces rather
+than concrete sockets. The library has no dependency on any I/O or networking
+library — not even in its implementation files.
+
+This separation yields concrete benefits:
+
+**Reusability.** The same code works with any I/O framework — Asio, io_uring,
+or platform-specific APIs. Write the HTTP logic once, plug in any transport.
+
+**Testability.** Tests run as pure function calls without sockets, timers, or
+network delays. Coverage is higher, execution is faster, results are
+deterministic.
+
+**Security.** The parser is strict by default. Malformed input that could enable
+request smuggling or header injection is rejected immediately.
+
+The execution model is coroutines-only, built on Capy. All asynchronous
+operations are naturally expressed as coroutine awaits over type-erased
+streams that reflect buffer-oriented I/O.
+
+== Requirements
+
+* C++20 compiler with coroutine support
+* Boost libraries (core, system)
+* Link to the static or dynamic library
+
+=== Tested Compilers
+
+* GCC: 11 to 14
+* Clang: 14 to 18
+* MSVC: 14.3 to 14.42
+
+== Code Conventions
+
+Code examples in this documentation assume these declarations are in effect:
+
+[source,cpp]
+----
+#include <boost/http.hpp>
+
+using namespace boost::http;
+----
+
+== Quick Example
+
+[source,cpp]
+----
+#include <boost/http.hpp>
+
+using namespace boost::http;
+
+int main()
+{
+    // Build a request
+    request req(method::get, "/api/users");
+    req.set(field::host, "example.com");
+    req.set(field::accept, "application/json");
+
+    // Build a response
+    response res(status::ok);
+    res.set(field::content_type, "application/json");
+    res.set(field::content_length, "42");
+
+    // Access the serialized form
+    std::cout << req.buffer();
+    std::cout << res.buffer();
+}
+----
+
+Output:
+
+----
+GET /api/users HTTP/1.1
+Host: example.com
+Accept: application/json
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 42
+
+----
+
+== Next Steps
+
+* xref:2.http-tutorial/2.http-tutorial.adoc[HTTP Tutorial] — learn the HTTP protocol
+* xref:3.messages/3.messages.adoc[HTTP Messages] — containers, serializing, and parsing
+* xref:4.servers/4.servers.adoc[HTTP Servers] — workers, route handlers, routers, and built-in middleware
+* xref:5.compression/5.compression.adoc[Compression] — gzip, deflate, brotli
+* xref:7.reference/7.reference.adoc[Reference] — complete API reference
+
+== Acknowledgments
+
+This library wouldn't be where it is today without the help of
+https://github.com/pdimov[Peter Dimov,window=blank_]
+for design advice and general assistance.

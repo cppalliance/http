@@ -1,0 +1,508 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Route Patterns
+
+When a request arrives at your server, the router examines its path and
+decides which handler should respond. Route patterns describe what paths
+a handler accepts. A pattern like `/users` matches only that exact path,
+but patterns can do much more.
+
+== Your First Pattern
+
+The simplest pattern is a literal path:
+
+[source,cpp]
+----
+router.add(method::get, "/health", health_check);
+----
+
+This handler responds when a client requests `GET /health`. The pattern
+`/health` matches the path `/health` exactly.
+
+Most applications need multiple routes:
+
+[source,cpp]
+----
+router.add(method::get, "/", serve_homepage);
+router.add(method::get, "/about", serve_about);
+router.add(method::get, "/contact", serve_contact);
+----
+
+Literal patterns work well for static pages, but what about dynamic content?
+
+== Named Parameters
+
+Consider a user profile page. You could write a separate route for every
+user, but that doesn't scale. Instead, use a named parameter:
+
+[source,cpp]
+----
+router.add(method::get, "/users/:id", show_user);
+----
+
+The colon introduces a parameter named `id`. This pattern matches
+`/users/alice`, `/users/42`, or `/users/john-doe`. Inside the handler,
+retrieve the captured value:
+
+[source,cpp]
+----
+router.add(method::get, "/users/:id",
+    [](route_params& p)
+    {
+        auto user_id = p.param("id");  // "alice", "42", etc.
+        // ...
+        return route_done;
+    });
+----
+
+Parameters capture text until the next `/` or end of path. They must
+capture at least one character, so `/users/` without an ID does not match.
+
+=== Multiple Parameters
+
+Patterns can include several parameters. A blog might organize posts by
+author and slug:
+
+[source,cpp]
+----
+router.add(method::get, "/blog/:author/:slug", show_post);
+----
+
+This matches `/blog/jane/my-first-post` with `author = "jane"` and
+`slug = "my-first-post"`.
+
+REST APIs commonly nest resources this way:
+
+[source,cpp]
+----
+router.add(method::get, "/users/:userId/orders/:orderId", show_order);
+----
+
+For the path `/users/1001/orders/5042`, the handler receives
+`userId = "1001"` and `orderId = "5042"`.
+
+=== Parameters with Separators
+
+Parameters can appear anywhere in a pattern, separated by literal text.
+An airline flight lookup might use:
+
+[source,cpp]
+----
+router.add(method::get, "/flights/:from-:to", find_flights);
+----
+
+This matches `/flights/LAX-JFK` with `from = "LAX"` and `to = "JFK"`.
+The hyphen acts as a delimiter, allowing both parameters to capture
+their respective values.
+
+Similarly, a taxonomy browser might use dots:
+
+[source,cpp]
+----
+router.add(method::get, "/species/:genus.:species", show_species);
+----
+
+For `/species/Canis.lupus`, this captures `genus = "Canis"` and
+`species = "lupus"`.
+
+== Wildcards
+
+Parameters stop at `/` characters. When you need to capture a path
+containing slashes, use a wildcard:
+
+[source,cpp]
+----
+router.add(method::get, "/files/*filepath", serve_file);
+----
+
+The asterisk introduces a wildcard named `filepath`. Unlike parameters,
+wildcards capture everything to the end of the path, including `/`
+characters. This pattern matches:
+
+- `/files/readme.txt` with `filepath = "readme.txt"`
+- `/files/docs/manual.pdf` with `filepath = "docs/manual.pdf"`
+- `/files/src/lib/util.cpp` with `filepath = "src/lib/util.cpp"`
+
+A wildcard must capture at least one character, so `/files/` alone does
+not match.
+
+=== GitHub-Style Routes
+
+A version control browser might use this pattern:
+
+[source,cpp]
+----
+router.add(method::get, "/:owner/:repo/blob/:branch/*path", show_file);
+----
+
+For the path `/cppalliance/http/blob/develop/include/boost/http.hpp`:
+
+- `owner = "cppalliance"`
+- `repo = "http"`
+- `branch = "develop"`
+- `path = "include/boost/http.hpp"`
+
+The named parameters capture individual segments while the wildcard
+captures the remainder.
+
+== Optional Groups
+
+Some parts of a path may be optional. An API versioning scheme might
+accept both `/api` and `/api/v2`:
+
+[source,cpp]
+----
+router.add(method::get, "/api{/v:version}/users", list_users);
+----
+
+The braces define an optional group. This pattern matches:
+
+- `/api/users` (no version parameter captured)
+- `/api/v1/users` with `version = "1"`
+- `/api/v2/users` with `version = "2"`
+
+Groups follow all-or-nothing matching. The entire group content must
+match, or the group is skipped entirely.
+
+=== Optional File Extensions
+
+A resource that supports multiple formats might use:
+
+[source,cpp]
+----
+router.add(method::get, "/data/:id{.:format}", serve_data);
+----
+
+This matches:
+
+- `/data/report` with `id = "report"` (no format)
+- `/data/report.json` with `id = "report"`, `format = "json"`
+- `/data/report.xml` with `id = "report"`, `format = "xml"`
+
+The handler can check whether `format` was captured to determine the
+response content type.
+
+=== Nested Groups
+
+Groups can contain other groups for multi-level optional paths:
+
+[source,cpp]
+----
+router.add(method::get, "/archive{/:year{/:month{/:day}}}", list_archive);
+----
+
+This matches:
+
+- `/archive` (list all)
+- `/archive/2025` (list year)
+- `/archive/2025/02` (list month)
+- `/archive/2025/02/01` (list day)
+
+Each level of specificity provides more parameters.
+
+== Escaping Special Characters
+
+The characters `:`, `*`, `{`, `}`, and `\` have special meaning in
+patterns. To match them literally, prefix with backslash:
+
+[source,cpp]
+----
+router.add(method::get, "/config\\:main", show_config);
+----
+
+This matches the literal path `/config:main`. Without the backslash,
+`:main` would be interpreted as a parameter.
+
+Other escape examples:
+
+- `/path\\*star` matches `/path*star`
+- `/path\\{brace\\}` matches `/path{brace}`
+- `/path\\\\slash` matches `/path\slash`
+
+== Quoted Parameter Names
+
+Standard parameter names follow identifier rules: they start with a
+letter, underscore, or dollar sign, followed by letters, digits,
+underscores, or dollar signs.
+
+For parameter names containing spaces or other characters, use quotes:
+
+[source,cpp]
+----
+router.add(method::get, "/query/:\"search term\"", search);
+----
+
+Quoted names can contain any characters except unescaped quotes. Escape
+quotes inside the name with backslash:
+
+[source,cpp]
+----
+router.add(method::get, "/say/:\"greeting \\\"message\\\"\"", greet);
+----
+
+== Grammar Reference
+
+The pattern syntax follows this grammar:
+
+[source,abnf]
+----
+path       = *token
+
+token      = text / param / wildcard / group
+
+text       = 1*( char / escaped )          ; literal characters
+
+param      = ":" name                      ; named parameter
+
+wildcard   = "*" name                      ; wildcard parameter
+
+group      = "{" *token "}"                ; optional group
+
+name       = identifier / quoted-name
+
+identifier = id-start *id-continue
+id-start   = "$" / "_" / ALPHA
+id-continue= "$" / "_" / ALNUM
+
+quoted-name= DQUOTE 1*quoted-char DQUOTE
+quoted-char= escaped / %x20-21 / %x23-5B / %x5D-7E  ; not " or \
+
+escaped    = "\" CHAR                      ; any escaped character
+
+char       = <any character except special>
+special    = "{" / "}" / "(" / ")" / "[" / "]" / "+" / "?" / "!" / ":" / "*" / "\"
+----
+
+The characters `( ) [ ] + ? !` are reserved. Patterns containing these
+characters unescaped produce a parse error.
+
+== Matching Behavior
+
+Understanding how the router matches paths helps write correct patterns.
+
+=== How Parameters Match
+
+A parameter captures characters until it encounters:
+
+1. The next literal character in the pattern
+2. A `/` character
+3. The end of the path
+
+Given the pattern `/:a-:b`, matching against `/hello-world`:
+
+1. `:a` starts capturing at `h`
+2. `:a` captures until it sees `-` (the next literal)
+3. `:a` captures `hello`
+4. Literal `-` matches `-`
+5. `:b` captures `world` to end of path
+
+=== How Wildcards Match
+
+A wildcard captures from its position to the end of the path, including
+all `/` characters. There can be only one wildcard per pattern, and it
+must appear at the end.
+
+=== How Groups Match
+
+Groups attempt to match their contents. If successful, any parameters
+inside are captured. If unsuccessful, the group is skipped and matching
+continues after the group.
+
+For `/api{/v:version}` matching `/api/v2/users`:
+
+1. `/api` matches `/api`
+2. Group attempts: `/v` matches `/v`, `:version` captures `2`
+3. Group succeeded
+4. Pattern ends, but path has `/users` remaining
+
+This pattern requires `end = false` (prefix matching) or an additional
+wildcard to match the full path.
+
+== Router Options
+
+Three options affect how patterns match paths.
+
+=== Case Sensitivity
+
+By default, matching is case-insensitive. The pattern `/Users` matches
+`/users`, `/USERS`, and `/Users`.
+
+[source,cpp]
+----
+router_options opts;
+opts.case_sensitive(true);
+
+basic_router<route_params> router(opts);
+router.add(method::get, "/Users/:id", show_user);
+----
+
+With case-sensitive matching, `/Users/alice` matches but `/users/alice`
+does not.
+
+=== Strict Mode
+
+By default, trailing slashes are ignored. The pattern `/api` matches
+both `/api` and `/api/`.
+
+[source,cpp]
+----
+router_options opts;
+opts.strict(true);
+
+basic_router<route_params> router(opts);
+router.add(method::get, "/api", api_root);
+----
+
+With strict matching, `/api` matches but `/api/` does not.
+
+=== Prefix Matching
+
+Routes registered with `add()` require the pattern to match the entire
+path. Routes registered with `use()` for middleware match path prefixes.
+
+Middleware on `/api` matches:
+
+- `/api`
+- `/api/`
+- `/api/users`
+- `/api/users/123`
+
+Route handlers on `/api` match only `/api` (and `/api/` in non-strict mode).
+
+== Pattern Examples
+
+[cols="2,2,1,2"]
+|===
+|Pattern |Path |Match |Captured Parameters
+
+|`/users`
+|`/users`
+|Yes
+|(none)
+
+|`/users`
+|`/users/`
+|Yes
+|(none, non-strict)
+
+|`/users`
+|`/users/123`
+|No
+|
+
+|`/users/:id`
+|`/users/42`
+|Yes
+|`id = "42"`
+
+|`/users/:id`
+|`/users/`
+|No
+|
+
+|`/users/:id/posts/:pid`
+|`/users/5/posts/99`
+|Yes
+|`id = "5"`, `pid = "99"`
+
+|`/files/*path`
+|`/files/a/b.txt`
+|Yes
+|`path = "a/b.txt"`
+
+|`/files/*path`
+|`/files/`
+|No
+|
+
+|`/api{/v:ver}`
+|`/api`
+|Yes
+|(none)
+
+|`/api{/v:ver}`
+|`/api/v2`
+|Yes
+|`ver = "2"`
+
+|`/:a-:b`
+|`/foo-bar`
+|Yes
+|`a = "foo"`, `b = "bar"`
+
+|`/file{.:ext}`
+|`/file`
+|Yes
+|(none)
+
+|`/file{.:ext}`
+|`/file.json`
+|Yes
+|`ext = "json"`
+
+|`/path\:literal`
+|`/path:literal`
+|Yes
+|(none)
+
+|`/:owner/:repo/*path`
+|`/org/proj/src/main.cpp`
+|Yes
+|`owner = "org"`, `repo = "proj"`, `path = "src/main.cpp"`
+|===
+
+== Error Cases
+
+These patterns are invalid and produce parse errors:
+
+[cols="2,3"]
+|===
+|Pattern |Error
+
+|`/users/:`
+|Missing parameter name after `:`
+
+|`/files/*`
+|Missing wildcard name after `*`
+
+|`/path{unclosed`
+|Unclosed group (missing `}`)
+
+|`/path}extra`
+|Unexpected `}` without opening `{`
+
+|`/path(group)`
+|Reserved character `(` not allowed
+
+|`/path[bracket]`
+|Reserved character `[` not allowed
+
+|`/path+`
+|Reserved character `+` not allowed
+
+|`/path?`
+|Reserved character `?` not allowed
+
+|`/path!`
+|Reserved character `!` not allowed
+
+|`:""` (empty quotes)
+|Empty quoted parameter name
+
+|`:"unterminated`
+|Unterminated quoted string
+
+|`/path\`
+|Trailing backslash with nothing to escape
+|===
+
+== See Also
+
+* xref:4.servers/4c.routers.adoc[Routers] - request dispatch and handler registration

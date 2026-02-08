@@ -1,0 +1,98 @@
+//
+// Copyright (c) 2024 Mohammad Nejati
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at https://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Serializer Design Requirements
+
+
+== Use Cases and Interfaces
+
+
+=== Empty Body
+
+The interface allows for sending bodiless requests or responses; it's possible to reuse the existing `serializer` and `request`/`response` objects without any need for extra memory allocation.
+
+[source,cpp]
+----
+system::result<void>
+handle_request(
+    serializer& sr,
+    response& res,
+    request_view req)
+{
+    res.set_start_line(status::not_found, req.version());
+    res.set_keep_alive(req.keep_alive());
+    sr.set_message(res);
+    sr.start();
+    return {};
+}
+----
+
+
+=== WriteSink Body
+
+When the caller already has the body data in memory, the WriteSink interface writes caller-owned buffers through the serializer to the stream. The sink handles framing (chunked encoding, compression) automatically.
+
+[source,cpp]
+----
+capy::task<>
+handle_request(
+    serializer& sr,
+    response& res,
+    request_view req,
+    capy::WriteStream auto& socket)
+{
+    res.set_start_line(status::not_found, req.version());
+    res.set_keep_alive(req.keep_alive());
+
+    // Assume caller has a stable reference to static_pages
+    sr.set_message(res);
+    auto sink = sr.sink_for(socket);
+    co_await sink.write_eof(
+        capy::make_buffer(static_pages.not_found));
+}
+----
+
+
+=== BufferSink Body (Zero-Copy Streaming)
+
+Sometimes it is desirable to read the body contents asynchronously, such as when reading from a socket, file, or a pipe. The BufferSink interface lets the caller write directly into the serializer's internal buffer, avoiding an extra copy.
+
+[source,cpp]
+----
+capy::task<>
+relay_body_contents(
+    serializer& sr,
+    response& res,
+    request_view req,
+    capy::ReadStream auto& src,
+    capy::WriteStream auto& client_session)
+{
+    res.set_start_line(status::ok, req.version());
+    res.set_keep_alive(req.keep_alive());
+    res.set_chunked(true);
+
+    sr.set_message(res);
+    auto sink = sr.sink_for(client_session);
+
+    for (;;)
+    {
+        capy::mutable_buffer arr[16];
+        auto bufs = sink.prepare(arr);
+
+        auto [ec, n] = co_await src.read_some(bufs);
+        if (ec == capy::error::eof)
+        {
+            co_await sink.commit_eof(n);
+            break;
+        }
+
+        co_await sink.commit(n);
+    }
+}
+----

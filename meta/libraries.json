@@ -1,0 +1,17 @@
+{
+    "key": "http",
+    "name": "HTTP",
+    "authors": [
+        "Vinnie Falco"
+    ],
+    "description": "HTTP/1.1 protocol implementation in C++11",
+    "category": [
+        "Containers",
+        "Data",
+        "IO"
+    ],
+    "maintainers": [
+        "Vinnie Falco <vinnie.falco@gmail.com>"
+    ],
+    "cxxstd": "11"
+}

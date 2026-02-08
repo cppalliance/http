@@ -1,0 +1,376 @@
+//
+// Copyright (c) 2025 Vinnie Falco (vinnie.falco@gmail.com)
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
+//
+// Official repository: https://github.com/cppalliance/http
+//
+
+= Message Anatomy
+
+If HTTP is the language that moves the Web, then HTTP messages are the
+sentences. Every image that loads, every form that submits, every API
+call that returns JSON--each one is carried inside a small, precisely
+formatted block of text that both sides of the conversation agree to
+understand.
+
+The beauty of HTTP messages is that they are _plain text_. You can
+read them with your own eyes, type them by hand, and debug them with
+nothing more than a terminal. This transparency is not an accident; it
+is a deliberate design choice that made the early Web possible for
+anyone with a text editor and a network socket. Binary protocols may
+be more compact, but HTTP's readability is the reason it was adopted
+so fast, and the reason you can learn its structure in a single
+sitting.
+
+== The Three Parts
+
+Every HTTP message--request or response--consists of exactly three
+parts, always in the same order:
+
+[source]
+----
+start-line CRLF
+header-field CRLF
+header-field CRLF
+...
+CRLF
+[ message-body ]
+----
+
+. The **start line** says what the message is about. For a request,
+  it identifies the action and the target. For a response, it reports
+  what happened.
+. The **header fields** carry metadata: the type and size of the body,
+  caching instructions, authentication credentials, and anything else
+  the sender wants the receiver to know.
+. The **body** (optional) carries the actual payload--an HTML page,
+  a JSON document, an image, or nothing at all.
+
+The start line and headers are ASCII text, one item per line, each
+terminated by a carriage return followed by a line feed (written
+`CRLF`, ASCII 13 then ASCII 10). After the last header, a blank
+line--a bare `CRLF` with nothing before it--marks the boundary
+between metadata and data. Everything after that blank line is the
+body.
+
+This structure never changes. Every HTTP/1.x message you will ever
+encounter follows it. Once you can identify these three parts, you can
+read any HTTP exchange.
+
+== Request Messages
+
+A request message begins with a _request line_ that contains three
+fields separated by spaces:
+
+[source]
+----
+method SP request-target SP HTTP-version CRLF
+----
+
+Here is a concrete example:
+
+[source]
+----
+GET /docs/tutorial.html HTTP/1.1
+Host: www.example.com
+Accept: text/html
+User-Agent: curl/8.4.0
+
+----
+
+The request line `GET /docs/tutorial.html HTTP/1.1` says three things
+at once:
+
+* **GET** is the method--the action the client wants the server to
+  perform. Methods are covered in detail in a later section.
+* **/docs/tutorial.html** is the request target--the resource being
+  addressed, usually the path component of the URL.
+* **HTTP/1.1** is the protocol version, telling the server which
+  dialect of HTTP the client speaks.
+
+After the request line come the headers (`Host`, `Accept`,
+`User-Agent`), and after the blank line comes the body. This
+particular request has no body because GET asks for data rather than
+sending it.
+
+A POST request, by contrast, typically carries a body:
+
+[source]
+----
+POST /api/login HTTP/1.1
+Host: www.example.com
+Content-Type: application/json
+Content-Length: 42
+
+{"username":"alice","password":"s3cret!"}
+----
+
+Here `Content-Type` tells the server the body is JSON, and
+`Content-Length` tells it the body is exactly 42 bytes long. The
+body begins immediately after the blank line.
+
+== Response Messages
+
+A response message begins with a _status line_ instead of a request
+line, but the rest of the structure is identical:
+
+[source]
+----
+HTTP-version SP status-code SP reason-phrase CRLF
+----
+
+For example:
+
+[source]
+----
+HTTP/1.1 200 OK
+Date: Sat, 07 Feb 2026 12:00:00 GMT
+Content-Type: text/html
+Content-Length: 137
+
+<html>
+<head><title>Hello</title></head>
+<body><p>Welcome to the tutorial.</p></body>
+</html>
+----
+
+The status line `HTTP/1.1 200 OK` reports:
+
+* **HTTP/1.1** -- the protocol version the server is using.
+* **200** -- a numeric status code indicating success. Codes are
+  grouped by their first digit: 2xx means success, 3xx means
+  redirection, 4xx means client error, 5xx means server error.
+  Status codes are covered in their own section.
+* **OK** -- a human-readable reason phrase. Software ignores this;
+  you could replace `OK` with `All Good` and nothing would break.
+  The phrase exists solely to help humans scanning raw traffic.
+
+After the status line come headers, the blank line, and the body
+carrying the HTML document.
+
+== On the Wire
+
+Understanding the physical format matters when debugging. Here is
+what the request from the earlier example looks like as raw bytes
+flowing across the network, with invisible characters made visible:
+
+[source]
+----
+G E T   / d o c s / t u t o r i a l . h t m l   H T T P / 1 . 1 CR LF
+H o s t :   w w w . e x a m p l e . c o m CR LF
+A c c e p t :   t e x t / h t m l CR LF
+CR LF
+----
+
+Every line, including the start line, ends with `CR LF` (bytes `0x0D
+0x0A`). The blank line after the headers is just `CR LF` by itself--no
+characters before it. That bare `CRLF` is what separates the header
+section from the body. It is so important that the HTTP specification
+requires it even when the message has no body and no headers at all.
+
+A few practical details worth knowing:
+
+* **Whitespace in headers.** A header field is a name, a colon, optional
+  whitespace, and a value: `Content-Type: text/html`. Leading and
+  trailing whitespace around the value is stripped by the parser.
+* **Case insensitivity.** Header field names are case-insensitive.
+  `Content-Type`, `content-type`, and `CONTENT-TYPE` all mean the
+  same thing.
+* **One header per line.** Older specifications allowed "folding" a
+  long header across multiple lines by starting continuation lines
+  with whitespace, but HTTP/1.1 (RFC 9112) has deprecated this
+  practice. Modern implementations reject folded headers.
+* **Robustness.** The specification says `CRLF`, but many real-world
+  implementations also accept a bare `LF`. Robust parsers tolerate
+  this, although strict parsers reject it.
+
+== Header Fields
+
+Header fields are the metadata layer of HTTP. They appear between the
+start line and the body as `Name: value` pairs, one per line.
+
+[source]
+----
+Content-Type: text/html; charset=utf-8
+Content-Length: 4821
+Cache-Control: max-age=3600
+----
+
+Headers serve many roles. Some describe the body (`Content-Type`,
+`Content-Length`). Some control caching (`Cache-Control`, `ETag`).
+Some carry authentication tokens (`Authorization`). Some influence
+connection behavior (`Connection`, `Transfer-Encoding`). The protocol
+is extensible--any sender can introduce new header names, and
+receivers that do not recognize them simply pass them through.
+
+Headers are classified into broad categories:
+
+* **Request headers** supply information about the request or the
+  client: `Host`, `User-Agent`, `Accept`, `Authorization`.
+* **Response headers** supply information about the response or the
+  server: `Server`, `Retry-After`, `WWW-Authenticate`.
+* **Representation headers** describe the body: `Content-Type`,
+  `Content-Length`, `Content-Encoding`, `Content-Language`.
+* **General headers** apply to the message as a whole rather than to
+  the body: `Date`, `Connection`, `Transfer-Encoding`, `Via`.
+
+A deeper exploration of individual headers appears in a later section.
+What matters here is the _structure_: every header is a name-value
+pair on its own line, headers can appear in any order, the same name
+can appear more than once, and the entire header block ends with a
+blank line.
+
+== The Message Body
+
+The body is the payload. It is everything that comes after the blank
+line separating headers from data. It can contain HTML, JSON, XML,
+images, video, compressed archives, or nothing at all.
+
+Not every message has a body. Responses to HEAD requests never
+include one. Responses with status codes 1xx, 204, and 304 never
+include one. GET requests rarely carry a body, though the protocol
+does not forbid it.
+
+When a body _is_ present, the receiver needs to know how large it is.
+HTTP provides three mechanisms:
+
+**Content-Length.** The simplest case. The sender states the exact
+number of bytes:
+
+[source]
+----
+Content-Length: 4821
+----
+
+The receiver reads exactly 4821 bytes after the blank line and knows
+the body is complete.
+
+**Chunked transfer encoding.** When the sender does not know the
+total size in advance--for example, when generating content
+dynamically--it can send the body in chunks. Each chunk is preceded
+by its size in hexadecimal, and the stream ends with a zero-length
+chunk:
+
+[source]
+----
+Transfer-Encoding: chunked
+
+1a
+This is the first chunk.
+10
+Second chunk!!!
+0
+
+----
+
+The receiver reads each chunk size, consumes that many bytes, and
+repeats until it sees `0`. This mechanism lets servers begin
+transmitting before the entire response is generated.
+
+**Connection close.** A server may simply close the connection when
+the body is finished. This only works for responses (a client cannot
+close and still expect a reply) and only when neither `Content-Length`
+nor chunked encoding is in use. It is the least desirable method
+because it prevents connection reuse.
+
+== Requests vs. Responses
+
+Requests and responses share the same three-part structure. The only
+structural difference is the start line:
+
+[cols="1,2,2"]
+|===
+|Part |Request |Response
+
+|**Start line**
+|`GET /index.html HTTP/1.1`
+|`HTTP/1.1 200 OK`
+
+|**Headers**
+|`Host: example.com` +
+`Accept: text/html`
+|`Content-Type: text/html` +
+`Content-Length: 512`
+
+|**Body**
+|_(often empty for GET)_
+|`<html>...</html>`
+|===
+
+This symmetry is intentional. Because both directions use the same
+header syntax and the same body framing rules, a single parser can
+handle either direction with only the start-line logic swapped out.
+
+== Message Flow
+
+HTTP messages travel in one direction: _downstream_. Every sender is
+upstream of the receiver, regardless of whether the message is a
+request or a response. When a client sends a request through two
+proxies to an origin server, the request flows downstream from client
+to server. When the server sends the response back through those same
+proxies, the response also flows downstream--this time from server to
+client.
+
+The terms _inbound_ and _outbound_ describe the two legs of the
+journey. Messages travel inbound toward the origin server and outbound
+back to the client:
+
+[source]
+----
+Client ──► Proxy A ──► Proxy B ──► Server    (inbound)
+Client ◄── Proxy A ◄── Proxy B ◄── Server    (outbound)
+----
+
+This distinction matters when proxies modify or inspect messages in
+transit. A proxy that adds a `Via` header, for instance, annotates the
+message as it passes downstream in either direction.
+
+== A Complete Exchange
+
+Putting it all together, here is an annotated HTTP/1.1 exchange--the
+kind that happens thousands of times while you browse a single page:
+
+[source]
+----
+GET /about.html HTTP/1.1          <1>
+Host: www.example.com             <2>
+User-Agent: Mozilla/5.0           <3>
+Accept: text/html                 <4>
+                                  <5>
+----
+
+<1> Request line: method, target, version
+<2> Required in HTTP/1.1--identifies which site on the server
+<3> Identifies the client software
+<4> Tells the server what the client prefers to receive
+<5> Blank line--end of headers, no body follows
+
+[source]
+----
+HTTP/1.1 200 OK                   <1>
+Date: Sat, 07 Feb 2026 12:00:00 GMT  <2>
+Server: Apache/2.4.54             <3>
+Content-Type: text/html           <4>
+Content-Length: 82                 <5>
+                                  <6>
+<html>                            <7>
+<head><title>About</title></head>
+<body><p>About us.</p></body>
+</html>
+----
+
+<1> Status line: version, code, reason
+<2> When the response was generated
+<3> Server software
+<4> The body is HTML
+<5> The body is exactly 82 bytes
+<6> Blank line--end of headers, body follows
+<7> The body itself
+
+Two small text messages, a handful of headers each, and a page appears
+on screen. Every layer of the Web--browsers, servers, proxies, caches,
+CDNs, APIs--is built on this exchange. The format has not changed in
+any fundamental way since 1997. Code that can parse these three parts
+correctly can participate in the largest distributed system ever built.
