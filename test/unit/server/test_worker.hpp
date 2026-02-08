@@ -99,6 +99,29 @@ struct test_worker
         };
     }
 
+    /** Handler that returns route_next (decline). */
+    static auto
+    h_next(route_params&) -> route_task
+    { co_return route_next; }
+
+    /** Handler that returns route_next_route. */
+    static auto
+    h_next_route(route_params&) -> route_task
+    { co_return route_next_route; }
+
+    /** Handler that returns route_close. */
+    static auto
+    h_close(route_params&) -> route_task
+    { co_return route_close; }
+
+    /** Handler that returns route_error. */
+    static auto
+    h_error(system::error_code ec)
+    {
+        return [ec](route_params&) -> route_task
+        { co_return route_error(ec); };
+    }
+
     /** Handler that sends 200 with text body and
         a custom Content-Type.
     */
@@ -191,6 +214,42 @@ struct test_worker
     //--------------------------------------------
     // Run one request/response exchange
     //--------------------------------------------
+
+    /** Run a raw request and return the raw
+        bytes written by the worker.
+    */
+    static std::string
+    exchange_raw(
+        test_router const& r,
+        std::string_view request)
+    {
+        auto [client, server] =
+            capy::test::make_stream_pair();
+
+        http_worker w(
+            server,
+            test_router(r),
+            pcfg(),
+            scfg());
+
+        client.provide(request);
+        client.close();
+
+        capy::test::run_blocking()(
+            w.do_http_session());
+
+        return std::string(client.data());
+    }
+
+    static std::string
+    exchange_raw(
+        test_router const& r,
+        http::method m,
+        std::string_view path)
+    {
+        return exchange_raw(r,
+            make_request(m, path));
+    }
 
     /** Run a raw request through a worker and
         return the parsed response.

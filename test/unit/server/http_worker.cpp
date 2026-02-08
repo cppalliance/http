@@ -76,9 +76,71 @@ struct http_worker_test
     }
 
     void
+    testRouteOutcomes()
+    {
+        // route_next: handler declines, path has
+        // a route so router returns 405
+        check(GET, "/x", h_next,
+            status::method_not_allowed);
+
+        // route_next_route: skip route, path has
+        // a route so router returns 405
+        check(GET, "/x", h_next_route,
+            status::method_not_allowed);
+
+        // route_next via middleware -> 404
+        {
+            test_router r;
+            r.use(h_next);
+            check(r, GET, "/x",
+                status::not_found);
+        }
+
+        // route_close: session ends, no response
+        {
+            test_router r;
+            r.add(GET, "/bye", h_close);
+            auto raw = exchange_raw(r, GET, "/bye");
+            BOOST_TEST(raw.empty());
+        }
+
+        // route_error: handler fails -> 500
+        check(GET, "/err",
+            h_error(http::error::bad_content_length),
+            status::internal_server_error);
+
+        // Empty router -> 404
+        {
+            test_router r;
+            check(r, GET, "/anything",
+                status::not_found);
+        }
+
+        // route_next falls through to second handler
+        {
+            test_router r;
+            r.route("/x")
+                .add(GET, h_next)
+                .add(GET, h_text("ok"));
+            check(r, GET, "/x",
+                status::ok, "ok");
+        }
+
+        // route_next_route skips entire first route
+        {
+            test_router r;
+            r.add(GET, "/x", h_next_route);
+            r.add(GET, "/x", h_text("second"));
+            check(r, GET, "/x",
+                status::ok, "second");
+        }
+    }
+
+    void
     run()
     {
         testBasicRoute();
+        testRouteOutcomes();
     }
 };
 
