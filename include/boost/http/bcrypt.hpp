@@ -41,7 +41,6 @@
 #include <boost/system/error_code.hpp>
 #include <boost/system/is_error_code_enum.hpp>
 
-#include <boost/capy/coro.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/ex/executor_ref.hpp>
 #include <boost/capy/ex/run_async.hpp>
@@ -532,7 +531,7 @@ struct hash_async_op
     }
 
     void await_suspend(
-        capy::coro cont,
+        std::coroutine_handle<> cont,
         capy::executor_ref caller_ex,
         std::stop_token)
     {
@@ -575,7 +574,7 @@ struct compare_async_op
     }
 
     void await_suspend(
-        capy::coro cont,
+        std::coroutine_handle<> cont,
         capy::executor_ref caller_ex,
         std::stop_token)
     {
