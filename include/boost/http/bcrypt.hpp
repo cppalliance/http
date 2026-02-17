@@ -52,6 +52,7 @@
 #include <stop_token>
 #include <string>
 #include <system_error>
+#include <coroutine>
 
 namespace boost {
 namespace http {
