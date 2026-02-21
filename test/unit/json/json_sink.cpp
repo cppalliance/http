@@ -13,7 +13,6 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/concept/write_sink.hpp>
-#include <boost/capy/coro.hpp>
 #include <boost/capy/ex/execution_context.hpp>
 #include <boost/capy/ex/run_async.hpp>
 #include <boost/capy/io_result.hpp>
@@ -68,14 +67,14 @@ struct test_executor
     void on_work_started() const noexcept {}
     void on_work_finished() const noexcept {}
 
-    void dispatch(capy::coro h) const
+    std::coroutine_handle<> dispatch(std::coroutine_handle<void> h) const
     {
         if(dispatch_count_)
             ++(*dispatch_count_);
-        h.resume();
+        return h;
     }
 
-    void post(capy::coro h) const
+    void post(std::coroutine_handle<void> h) const
     {
         h.resume();
     }

@@ -9,7 +9,6 @@
 
 #include <boost/http/bcrypt.hpp>
 
-#include <boost/capy/coro.hpp>
 #include <boost/capy/ex/execution_context.hpp>
 #include <boost/capy/ex/run_async.hpp>
 #include <boost/capy/ex/system_context.hpp>
@@ -51,12 +50,12 @@ struct test_executor
     void on_work_started() const noexcept {}
     void on_work_finished() const noexcept {}
 
-    void dispatch(capy::coro h) const
+    std::coroutine_handle<> dispatch(std::coroutine_handle<void> h) const
     {
-        h.resume();
+        return h;
     }
 
-    void post(capy::coro h) const
+    void post(std::coroutine_handle<void> h) const
     {
         h.resume();
     }
