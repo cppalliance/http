@@ -297,28 +297,36 @@ operator()(route_params& rp) const
     // Calculate how much to send
     std::int64_t remaining = info.range_end - info.range_start + 1;
 
-    // Stream file content
-    constexpr std::size_t buf_size = 16384;
-    char buffer[buf_size];
-
+    // Stream file content using serializer's internal buffer
     while(remaining > 0)
     {
-        auto const to_read = static_cast<std::size_t>(
-            (std::min)(remaining, static_cast<std::int64_t>(buf_size)));
+        capy::mutable_buffer arr[1];
+        auto bufs = rp.res_body.prepare(arr);
+        if(bufs.empty())
+        {
+            auto [ec2] = co_await rp.res_body.commit(0);
+            if(ec2)
+                co_return route_error(ec2);
+            continue;
+        }
 
-        auto const n1 = f.read(buffer, to_read, ec);
-        if(ec.failed() || n1 == 0)
+        auto const to_read = static_cast<std::size_t>(
+            (std::min)(remaining,
+                static_cast<std::int64_t>(bufs[0].size())));
+
+        auto const n1 = f.read(bufs[0].data(), to_read, ec);
+        if(ec.failed())
+            co_return route_error(ec);
+        if(n1 == 0)
             break;
 
-        auto [ec2, n2] = co_await rp.res_body.write(
-            capy::const_buffer(buffer, n1));
-        (void)n2;
+        auto [ec2] = co_await rp.res_body.commit(n1);
         if(ec2)
             co_return route_error(ec2);
         remaining -= static_cast<std::int64_t>(n1);
     }
 
-    auto [ec3] = co_await rp.res_body.write_eof();
+    auto [ec3] = co_await rp.res_body.commit_eof(0);
     if(ec3)
         co_return route_error(ec3);
     co_return route_done;
