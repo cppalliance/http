@@ -42,6 +42,7 @@ project
       <include>../../../url/extra/test_suite
       <warnings>extra
       <warnings-as-errors>on
+      <toolset>gcc:<cxxflags>"-Wno-maybe-uninitialized" # https://github.com/boostorg/url/issues/979
       <link>static
     ;
 
