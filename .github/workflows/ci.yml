@@ -242,13 +242,13 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Clone Boost.Corosio
+      - name: Clone Boost.Http
         uses: actions/checkout@v4
         with:
           path: http-root
 
       - name: Setup C++
-        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.0
+        uses: alandefreitas/cpp-actions/setup-cpp@v1.9.3
         id: setup-cpp
         with:
           compiler: ${{ matrix.compiler }}
@@ -257,7 +257,7 @@ jobs:
           trace-commands: true
 
       - name: Install packages
-        uses: alandefreitas/cpp-actions/package-install@v1.9.0
+        uses: alandefreitas/cpp-actions/package-install@v1.9.3
         id: package-install
         with:
           apt-get-add-architecture: ${{ matrix.x86 && 'i386' || '' }}
@@ -267,22 +267,16 @@ jobs:
             zlib1g-dev libbrotli-dev
             ${{ matrix.x86 && 'zlib1g-dev:i386 libbrotli-dev:i386' || '' }}
 
-      - name: Clone Capy
-        uses: actions/checkout@v4
-        with:
-          repository: cppalliance/capy
-          ref: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
-          path: capy-root
-
       - name: Clone Boost
-        uses: alandefreitas/cpp-actions/boost-clone@v1.9.0
+        uses: alandefreitas/cpp-actions/boost-clone@v1.9.3
         id: boost-clone
         with:
           branch: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
           boost-dir: boost-source
-          modules-exclude-paths: ''
+          modules-exclude-paths: '-'
           scan-modules-dir: http-root
-          scan-modules-ignore: http,capy
+          patches: >
+            https://github.com/cppalliance/capy
 
       - name: ASLR Fix
         if: ${{ startsWith(matrix.runs-on, 'ubuntu' )}}
@@ -308,7 +302,6 @@ jobs:
 
           # Remove module from boost-source
           rm -r "boost-source/libs/$module" || true
-          rm -r "boost-source/libs/capy" || true
 
           # Copy cached boost-source to an isolated boost-root
           cp -r boost-source boost-root
@@ -322,11 +315,8 @@ jobs:
           # Patch boost-root with workspace module
           cp -r "$workspace_root"/http-root "libs/$module"
 
-          # Patch boost-root with capy dependency
-          cp -r "$workspace_root"/capy-root "libs/capy"
-
       - name: Boost B2 Workflow
-        uses: alandefreitas/cpp-actions/b2-workflow@v1.9.0
+        uses: alandefreitas/cpp-actions/b2-workflow@v1.9.3
         if: ${{ !matrix.coverage }}
         env:
           ASAN_OPTIONS: ${{ ((matrix.compiler == 'apple-clang' || matrix.compiler == 'clang') && 'detect_invalid_pointer_pairs=0:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1') || 'detect_invalid_pointer_pairs=2:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1' }}
@@ -346,7 +336,7 @@ jobs:
           stop-on-error: true
 
       - name: Boost CMake Workflow
-        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.0
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.3
         if: ${{ matrix.coverage || matrix.build-cmake || matrix.is-earliest }}
         with:
           source-dir: boost-root
@@ -386,7 +376,7 @@ jobs:
       # This causes find_package(Boost COMPONENTS http) to fail because
       # boost_httpConfig.cmake is never installed.
       - name: Find Package Integration Workflow
-        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.0
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.3
         if: false # ${{ matrix.build-cmake || matrix.is-earliest }}
         with:
           source-dir: boost-root/libs/${{ steps.patch.outputs.module }}/test/cmake_test
@@ -409,7 +399,7 @@ jobs:
           trace-commands: true
 
       - name: Subdirectory Integration Workflow
-        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.0
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.3
         if: ${{ matrix.build-cmake || matrix.is-earliest }}
         with:
           source-dir: boost-root/libs/${{ steps.patch.outputs.module }}/test/cmake_test
@@ -429,7 +419,7 @@ jobs:
           ref-source-dir: boost-root/libs/http/test/cmake_test
 
       - name: Root Project CMake Workflow
-        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.0
+        uses: alandefreitas/cpp-actions/cmake-workflow@v1.9.3
         if: ${{ matrix.build-cmake || matrix.is-earliest }}
         with:
           source-dir: boost-root/libs/${{ steps.patch.outputs.module }}
@@ -492,14 +482,14 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Clone Boost.Corosio
+      - name: Clone Boost.Http
         uses: actions/checkout@v4
         with:
           # Avoid the common API rate limit exceeded error in boostorg by including 100 latest commits in any case
           fetch-depth: 100
 
       - name: Changelog
-        uses: alandefreitas/cpp-actions/create-changelog@v1.9.0
+        uses: alandefreitas/cpp-actions/create-changelog@v1.9.3
         with:
           thank-non-regular: ${{ startsWith(github.ref, 'refs/tags/') }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -517,7 +507,7 @@ jobs:
         shell: bash
     steps:
       - name: Install packages
-        uses: alandefreitas/cpp-actions/package-install@v1.9.0
+        uses: alandefreitas/cpp-actions/package-install@v1.9.3
         with:
           apt-get: git cmake
 
@@ -526,22 +516,16 @@ jobs:
         with:
           path: http-root
 
-      - name: Clone Capy
-        uses: actions/checkout@v4
-        with:
-          repository: cppalliance/capy
-          ref: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
-          path: capy-root
-
       - name: Clone Boost
-        uses: alandefreitas/cpp-actions/boost-clone@v1.9.0
+        uses: alandefreitas/cpp-actions/boost-clone@v1.9.3
         id: boost-clone
         with:
           branch: ${{ (github.ref_name == 'master' && github.ref_name) || 'develop' }}
           boost-dir: boost-source
-          modules-exclude-paths: ''
+          modules-exclude-paths: '-'
           scan-modules-dir: http-root
-          scan-modules-ignore: http,capy
+          patches: >
+            https://github.com/cppalliance/capy
 
       - name: Patch Boost
         id: patch
@@ -562,7 +546,6 @@ jobs:
 
           # Remove module from boost-source
           rm -r "boost-source/libs/$module" || true
-          rm -r "boost-source/libs/capy" || true
 
           # Copy cached boost-source to an isolated boost-root
           cp -r boost-source boost-root
@@ -575,9 +558,6 @@ jobs:
 
           # Patch boost-root with workspace module
           cp -r "$workspace_root"/http-root "libs/$module"
-
-          # Patch boost-root with capy dependency
-          cp -r "$workspace_root"/capy-root "libs/capy"
 
       - uses: actions/setup-node@v4
         with:
