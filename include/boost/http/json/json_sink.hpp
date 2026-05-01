@@ -60,7 +60,7 @@ class json_sink
     capy::immediate<capy::io_result<std::size_t>>
     write_impl(CB const& buffers, bool eof)
     {
-        system::error_code ec;
+        std::error_code ec;
         std::size_t total = 0;
         auto const end = capy::end(buffers);
         for(auto it = capy::begin(buffers); it != end; ++it)
@@ -71,14 +71,14 @@ class json_sink
                 buf.size(),
                 ec);
             total += n;
-            if(ec.failed())
-                return {ec, total};
+            if(ec)
+                return capy::ready(ec, total);
         }
         if(eof)
         {
             parser_.finish(ec);
-            if(ec.failed())
-                return {ec, total};
+            if(ec)
+                return capy::ready(ec, total);
         }
         return capy::ready(total);
     }
@@ -188,11 +188,11 @@ public:
     capy::immediate<capy::io_result<>>
     write_eof()
     {
-        system::error_code ec;
+        std::error_code ec;
         parser_.finish(ec);
-        if(ec.failed())
-            return {ec};
-        return {};
+        if(ec)
+            return capy::ready(ec);
+        return capy::ready();
     }
 
     /** Check if parsing is complete.
