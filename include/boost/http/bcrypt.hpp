@@ -41,6 +41,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/system/is_error_code_enum.hpp>
 
+#include <boost/capy/continuation.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/ex/executor_ref.hpp>
 #include <boost/capy/ex/io_env.hpp>
@@ -524,6 +525,7 @@ struct hash_async_op
     version ver_;
     result result_;
     std::exception_ptr ep_;
+    capy::continuation cont_;
 
     bool await_ready() const noexcept
     {
@@ -534,21 +536,22 @@ struct hash_async_op
         std::coroutine_handle<void> cont,
         capy::io_env const* env)
     {
+        cont_.h = cont;
         auto caller_ex = env->executor;
         auto& pool = capy::get_system_context();
         auto sys_ex = pool.get_executor();
         capy::run_async(sys_ex,
-            [this, cont, caller_ex]
+            [this, caller_ex]
             (result r) mutable
             {
                 result_ = r;
-                caller_ex.dispatch(cont).resume();
+                caller_ex.dispatch(cont_).resume();
             },
-            [this, cont, caller_ex]
+            [this, caller_ex]
             (std::exception_ptr ep) mutable
             {
                 ep_ = ep;
-                caller_ex.dispatch(cont).resume();
+                caller_ex.dispatch(cont_).resume();
             }
         )(hash_task(password_, rounds_, ver_));
     }
@@ -567,6 +570,7 @@ struct compare_async_op
     hash_buf hash_str_;
     bool result_ = false;
     std::exception_ptr ep_;
+    capy::continuation cont_;
 
     bool await_ready() const noexcept
     {
@@ -577,21 +581,22 @@ struct compare_async_op
         std::coroutine_handle<void> cont,
         capy::io_env const* env)
     {
+        cont_.h = cont;
         auto caller_ex = env->executor;
         auto& pool = capy::get_system_context();
         auto sys_ex = pool.get_executor();
         capy::run_async(sys_ex,
-            [this, cont, caller_ex]
+            [this, caller_ex]
             (bool ok) mutable
             {
                 result_ = ok;
-                caller_ex.dispatch(cont).resume();
+                caller_ex.dispatch(cont_).resume();
             },
-            [this, cont, caller_ex]
+            [this, caller_ex]
             (std::exception_ptr ep) mutable
             {
                 ep_ = ep;
-                caller_ex.dispatch(cont).resume();
+                caller_ex.dispatch(cont_).resume();
             }
         )(compare_task(password_, hash_str_));
     }
