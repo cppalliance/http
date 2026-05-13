@@ -11,10 +11,11 @@
 #ifndef BOOST_HTTP_DETAIL_FILTER_HPP
 #define BOOST_HTTP_DETAIL_FILTER_HPP
 
-#include <boost/capy/buffers/buffer_pair.hpp>
-#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/error_code.hpp>
+
+#include <array>
 
 namespace boost {
 namespace http {
@@ -65,9 +66,8 @@ public:
 
     results
     process(
-        capy::slice_of<
-            boost::span<const capy::mutable_buffer>> out,
-        capy::const_buffer_pair in,
+        boost::span<const capy::mutable_buffer> out,
+        std::array<capy::const_buffer, 2> in,
         bool more);
 
 protected:

@@ -20,7 +20,7 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/flat_dynamic_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
-#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/ex/system_context.hpp>
 #include <boost/http/brotli/decode.hpp>
 #include <boost/http/zlib/error.hpp>
@@ -33,6 +33,7 @@
 #include "src/detail/buffer_utils.hpp"
 #include "src/detail/zlib_filter_base.hpp"
 
+#include <array>
 #include <memory>
 
 namespace boost {
@@ -123,6 +124,30 @@ Buffer Usage
 
 namespace {
 
+// Construct a 2-element const_buffer pair representing the first
+// `n` bytes of `src`. Replaces the pre-#262 `capy::prefix(src, n)`
+// idiom which yielded a slice convertible to std::array.
+inline std::array<capy::const_buffer, 2>
+prefix_pair(
+    std::array<capy::const_buffer, 2> const& src,
+    std::size_t n) noexcept
+{
+    std::array<capy::const_buffer, 2> result{};
+    if(n <= src[0].size())
+    {
+        result[0] = capy::const_buffer(src[0].data(), n);
+    }
+    else
+    {
+        result[0] = src[0];
+        std::size_t remaining = n - src[0].size();
+        if(remaining > src[1].size())
+            remaining = src[1].size();
+        result[1] = capy::const_buffer(src[1].data(), remaining);
+    }
+    return result;
+}
+
 class chained_sequence
 {
     char const* pos_;
@@ -131,7 +156,7 @@ class chained_sequence
     char const* end_b_;
 
 public:
-    chained_sequence(capy::const_buffer_pair const& cbp)
+    chained_sequence(std::array<capy::const_buffer, 2> const& cbp)
         : pos_(static_cast<char const*>(cbp[0].data()))
         , end_(pos_ + cbp[0].size())
         , begin_b_(static_cast<char const*>(cbp[1].data()))
@@ -440,8 +465,8 @@ class parser::impl
     capy::circular_dynamic_buffer cb0_;
     capy::circular_dynamic_buffer cb1_;
 
-    capy::mutable_buffer_pair mbp_;
-    capy::const_buffer_pair cbp_;
+    std::array<capy::mutable_buffer, 2> mbp_;
+    std::array<capy::const_buffer, 2> cbp_;
 
     std::unique_ptr<detail::filter> filter_;
 
@@ -1113,8 +1138,9 @@ public:
                     {
                         const std::size_t chunk_avail =
                             clamp(chunk_remain_, cb0_.size());
-                        const auto chunk =
-                            capy::prefix(cb0_.data(), chunk_avail);
+                        auto cb0_data = cb0_.data();
+                        auto chunk = capy::buffer_slice(
+                            cb0_data, 0, chunk_avail);
 
                         if(body_limit_remain() < chunk_avail)
                         {
@@ -1127,7 +1153,7 @@ public:
                         // in_place style
                         auto copied = capy::buffer_copy(
                             cb1_.prepare(cb1_.capacity()),
-                            chunk);
+                            chunk.data());
                         chunk_remain_ -= copied;
                         body_avail_   += copied;
                         body_total_   += copied;
@@ -1243,7 +1269,7 @@ public:
             return {};
         case state::body:
         case state::complete:
-            cbp_ = capy::prefix(
+            cbp_ = prefix_pair(
                 (is_plain() ? cb0_ : cb1_).data(),
                 body_avail_);
             return detail::make_span(cbp_);
@@ -1342,7 +1368,7 @@ private:
 
                 return filter_->process(
                     detail::make_span(cb1_.prepare(n)),
-                    capy::prefix(cb0_.data(), payload_avail),
+                    prefix_pair(cb0_.data(), payload_avail),
                     more);
             }();
 
