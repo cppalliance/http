@@ -31,6 +31,7 @@
 #include <boost/http/zlib/error.hpp>
 #include <boost/http/zlib/flush.hpp>
 
+#include <array>
 #include <memory>
 #include <stddef.h>
 
@@ -38,6 +39,51 @@ namespace boost {
 namespace http {
 
 namespace {
+
+// Trim n bytes from the front of a 2-element buffer pair, in place.
+// Replaces the pre-#262 `capy::remove_prefix(pair, n)` idiom on a
+// 2-element buffer sequence.
+template<class Buf>
+inline void
+trim_prefix_pair(std::array<Buf, 2>& a, std::size_t n) noexcept
+{
+    if(n >= a[0].size())
+    {
+        n -= a[0].size();
+        a[0] = Buf();
+        if(n >= a[1].size())
+            a[1] = Buf();
+        else
+            a[1] = Buf(
+                static_cast<char*>(const_cast<void*>(
+                    static_cast<void const*>(a[1].data()))) + n,
+                a[1].size() - n);
+    }
+    else
+    {
+        a[0] += n;
+    }
+}
+
+// Trim n bytes from the back of a 2-element buffer pair, in place.
+template<class Buf>
+inline void
+trim_suffix_pair(std::array<Buf, 2>& a, std::size_t n) noexcept
+{
+    if(n >= a[1].size())
+    {
+        n -= a[1].size();
+        a[1] = Buf();
+        if(n >= a[0].size())
+            a[0] = Buf();
+        else
+            a[0] = Buf(a[0].data(), a[0].size() - n);
+    }
+    else
+    {
+        a[1] = Buf(a[1].data(), a[1].size() - n);
+    }
+}
 
 const
 capy::const_buffer
@@ -64,7 +110,7 @@ chunk_header_len(
 
 void
 write_chunk_header(
-    const capy::mutable_buffer_pair& mbs,
+    const std::array<capy::mutable_buffer, 2>& mbs,
     std::size_t size) noexcept
 {
     static constexpr char hexdig[] =
@@ -584,7 +630,7 @@ public:
         return out_capacity();
     }
 
-    capy::mutable_buffer_pair
+    std::array<capy::mutable_buffer, 2>
     stream_prepare()
     {
         if(state_ == state::start)
@@ -667,15 +713,15 @@ private:
             detail::throw_length_error();
     }
 
-    capy::mutable_buffer_pair
+    std::array<capy::mutable_buffer, 2>
     out_prepare() noexcept
     {
         auto mbp = out_.prepare(out_.capacity());
         if(is_chunked_)
         {
-            capy::remove_prefix(
+            trim_prefix_pair(
                 mbp, chunk_header_len_);
-            capy::remove_suffix(
+            trim_suffix_pair(
                 mbp, crlf_and_final_chunk.size());
         }
         return mbp;

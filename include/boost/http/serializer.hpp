@@ -16,13 +16,13 @@
 #include <boost/http/error.hpp>
 
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/buffers/buffer_pair.hpp>
 #include <boost/capy/concept/buffer_sink.hpp>
 #include <boost/capy/concept/write_stream.hpp>
 #include <boost/capy/io_task.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/result.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
@@ -82,7 +82,7 @@ public:
         of mutable buffers for streaming.
     */
     using mutable_buffers_type =
-        capy::mutable_buffer_pair;
+        std::array<capy::mutable_buffer, 2>;
 
     /** The type used to represent a sequence of
         constant buffers that refers to the output

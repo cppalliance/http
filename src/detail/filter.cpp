@@ -10,27 +10,48 @@
 
 #include "src/detail/filter.hpp"
 
+#include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/buffers/front.hpp>
 
 namespace boost {
 namespace http {
 namespace detail {
 
+namespace {
+
+// Returns true if the slice's current data view contains at most one
+// non-empty buffer (i.e., we are processing the last logical chunk).
+template<class Slice>
+bool single_or_empty(Slice const& s)
+{
+    auto d = s.data();
+    auto it = d.begin();
+    auto const end_it = d.end();
+    if(it == end_it)
+        return true;
+    ++it;
+    return it == end_it;
+}
+
+} // anonymous
+
 auto
 filter::
 process(
-    capy::slice_of<
-        boost::span<const capy::mutable_buffer>> out,
-    capy::const_buffer_pair in,
+    boost::span<const capy::mutable_buffer> out_seq,
+    std::array<capy::const_buffer, 2> in_seq,
     bool more) -> results
 {
+    auto out = capy::buffer_slice(out_seq);
+    auto in = capy::buffer_slice(in_seq);
+
     results rv;
     bool p_more = true;
     for(;;)
     {
-        if(!more && p_more && in[1].size() == 0)
+        if(!more && p_more && single_or_empty(in))
         {
-            if(capy::buffer_size(out) < min_out_buffer())
+            if(capy::buffer_size(out.data()) < min_out_buffer())
             {
                 rv.out_short = true;
                 return rv;
@@ -38,8 +59,8 @@ process(
             p_more = false;
         }
 
-        auto ob = capy::front(out);
-        auto ib = capy::front(in);
+        auto ob = capy::front(out.data());
+        auto ib = capy::front(in.data());
         auto rs = do_process(ob, ib, p_more);
 
         rv.in_bytes  += rs.in_bytes;
@@ -57,13 +78,13 @@ process(
             return rv;
         }
 
-        capy::remove_prefix(out, rs.out_bytes);
-        capy::remove_prefix(in, rs.in_bytes);
+        out.remove_prefix(rs.out_bytes);
+        in.remove_prefix(rs.in_bytes);
 
-        if(capy::buffer_empty(out))
+        if(capy::buffer_size(out.data()) == 0)
             return rv;
 
-        if(capy::buffer_empty(in) && rs.out_bytes < ob.size())
+        if(capy::buffer_size(in.data()) == 0 && rs.out_bytes < ob.size())
             return rv;
     }
 }

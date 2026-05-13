@@ -14,7 +14,7 @@
 
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/buffers/string_dynamic_buffer.hpp>
 #include <boost/capy/concept/buffer_sink.hpp>
 #include <boost/capy/io/any_buffer_sink.hpp>
@@ -60,17 +60,15 @@ struct serializer_test
     std::string
     read_some(serializer& sr)
     {
-        capy::slice_of<
-            serializer::const_buffers_type> cbs
-                = sr.prepare().value();
+        auto bufs = sr.prepare().value();
+        auto cbs = capy::buffer_slice(bufs, 0, 256);
         BOOST_TEST(!sr.is_done());
         // We limit buffer consumption to necessitate
         // multiple calls to serializer::prepare() and
         // serializer::consume(), allowing tests to cover
         // state management within these functions
         std::string s;
-        capy::keep_prefix(cbs, 256);
-        for( auto buf : cbs)
+        for( auto buf : cbs.data())
         {
             s.append(
                 reinterpret_cast<char const*>(buf.data()),
@@ -336,7 +334,7 @@ struct serializer_test
             while( buf.size() > 0 )
             {
                 auto n = capy::buffer_copy(out_buf, buf);
-                capy::remove_prefix(buf, n);
+                buf += n;
 
                 s.insert(
                     s.end(),

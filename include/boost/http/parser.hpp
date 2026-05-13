@@ -17,8 +17,7 @@
 #include <boost/http/error.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/buffer_pair.hpp>
-#include <boost/capy/buffers/slice.hpp>
+#include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/concept/read_stream.hpp>
 #include <boost/capy/concept/write_sink.hpp>
 #include <boost/capy/cond.hpp>
@@ -26,6 +25,7 @@
 #include <boost/capy/io_task.hpp>
 #include <boost/core/span.hpp>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -526,7 +526,7 @@ read(Stream& stream, MB buffers)
         co_return {{}, 0};
 
     std::size_t total = 0;
-    auto dest = capy::sans_prefix(buffers, 0);
+    auto dest = capy::buffer_slice(buffers);
 
     for(;;)
     {
@@ -538,12 +538,12 @@ read(Stream& stream, MB buffers)
             auto body_data = pull_body();
             if(capy::buffer_size(body_data) > 0)
             {
-                std::size_t copied = capy::buffer_copy(dest, body_data);
+                std::size_t copied = capy::buffer_copy(dest.data(), body_data);
                 consume_body(copied);
                 total += copied;
-                dest = capy::sans_prefix(dest, copied);
+                dest.remove_prefix(copied);
 
-                if(capy::buffer_empty(dest))
+                if(capy::buffer_empty(dest.data()))
                     co_return {{}, total};
             }
 

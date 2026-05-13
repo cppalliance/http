@@ -12,8 +12,6 @@
 
 #include <boost/http/detail/except.hpp>
 
-#include <boost/capy/buffers/slice.hpp>
-
 namespace boost {
 namespace http {
 namespace detail {
@@ -38,7 +36,7 @@ consume(std::size_t n)
         auto* p = base_ + pos_;
         if(n < p->size())
         {
-            capy::remove_prefix(*p, n);
+            *p += n;
             return;
         }
         n -= p->size();
