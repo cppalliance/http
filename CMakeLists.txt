@@ -60,7 +60,6 @@ set(BOOST_HTTP_DEPENDENCIES
     Boost::core
     Boost::json
     Boost::mp11
-    Boost::static_assert
     Boost::system
     Boost::throw_exception
     Boost::type_traits

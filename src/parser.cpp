@@ -1273,6 +1273,10 @@ public:
                 (is_plain() ? cb0_ : cb1_).data(),
                 body_avail_);
             return detail::make_span(cbp_);
+        case state::reset:
+            if(got_header_)
+                return {};
+            BOOST_FALLTHROUGH;
         default:
             detail::throw_logic_error();
         }
@@ -1291,6 +1295,10 @@ public:
             (is_plain() ? cb0_ : cb1_).consume(n);
             body_avail_ -= n;
             return;
+        case state::reset:
+            if(got_header_)
+                return;
+            BOOST_FALLTHROUGH;
         default:
             detail::throw_logic_error();
         }
