@@ -659,7 +659,7 @@ public:
             {
                 if(cbs.error() == error::need_data)
                     break;
-                co_return {cbs.error()};
+                co_return {std::error_code(cbs.error())};
             }
 
             if(capy::buffer_empty(*cbs))
@@ -709,7 +709,7 @@ public:
             {
                 if(cbs.error() == error::need_data)
                     continue;
-                co_return {cbs.error()};
+                co_return {std::error_code(cbs.error())};
             }
 
             if(capy::buffer_empty(*cbs))
@@ -906,7 +906,7 @@ public:
             {
                 if(cbs.error() == error::need_data)
                     continue;
-                co_return {cbs.error()};
+                co_return {std::error_code(cbs.error())};
             }
 
             if(capy::buffer_empty(*cbs))

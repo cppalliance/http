@@ -528,7 +528,7 @@ read_header(Stream& stream)
             co_return {};
 
         if(ec != condition::need_more_input)
-            co_return {ec};
+            co_return {std::error_code(ec)};
 
         auto mbs = prepare();
 
@@ -556,7 +556,7 @@ read(Stream& stream)
             co_return {};
 
         if(ec && ec != condition::need_more_input)
-            co_return {ec};
+            co_return {std::error_code(ec)};
 
         if(ec == condition::need_more_input)
         {
@@ -737,7 +737,7 @@ read(capy::ReadStream auto& stream, Sink&& sink)
         }
 
         if(ec)
-            co_return {ec};
+            co_return {std::error_code(ec)};
     }
 }
 
