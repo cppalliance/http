@@ -43,7 +43,7 @@ message(
     case error::expect_100_continue: return "expect 100 continue";
     case error::end_of_message: return "end of message";
     case error::end_of_stream: return "end of stream";
-    case error::in_place_overflow: return "in place overflow";
+    case error::in_place_overflow: return "in-place overflow";
     case error::need_data: return "need data";
 
     case error::bad_connection: return "bad Connection";

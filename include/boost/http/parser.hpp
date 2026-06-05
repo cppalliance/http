@@ -340,6 +340,31 @@ public:
     capy::io_task<>
     read_header(Stream& stream);
 
+    /** Asynchronously read a complete HTTP message.
+
+        Reads from the stream until the message is fully
+        parsed or an error occurs. The body is accumulated
+        in the parser's internal buffer and can be retrieved
+        via @ref body after completion.
+
+        If the parser's internal buffer fills before the
+        message is complete, the operation completes with
+        @ref error::in_place_overflow.
+
+        @par Preconditions
+        @li @ref reset has been called
+        @li @ref start has been called
+
+        @param stream The stream to read from.
+
+        @return An awaitable yielding `(error_code)`.
+
+        @see @ref body, @ref read_header.
+    */
+    template<capy::ReadStream Stream>
+    capy::io_task<>
+    read(Stream& stream);
+
     /** Asynchronously read body data into buffers.
 
         Reads from the stream and copies body data into
@@ -514,6 +539,37 @@ read_header(Stream& stream)
             commit(n);
         else
             co_return {read_ec};
+    }
+}
+
+template<capy::ReadStream Stream>
+capy::io_task<>
+parser::
+read(Stream& stream)
+{
+    system::error_code ec;
+    for(;;)
+    {
+        parse(ec);
+
+        if(is_complete())
+            co_return {};
+
+        if(ec && ec != condition::need_more_input)
+            co_return {ec};
+
+        if(ec == condition::need_more_input)
+        {
+            auto mbs = prepare();
+
+            auto [read_ec, n] = co_await stream.read_some(mbs);
+            if(read_ec == capy::cond::eof)
+                commit_eof();
+            else if(!read_ec)
+                commit(n);
+            else
+                co_return {read_ec};
+        }
     }
 }
 

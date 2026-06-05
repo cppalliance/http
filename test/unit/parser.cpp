@@ -1975,6 +1975,192 @@ struct parser_coro_test
     }
 
     void
+    testSourceForLargeBody()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            std::string const expected(40000, 'x');
+
+            capy::test::read_stream rs(f);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 40000\r\n"
+                "\r\n");
+            rs.provide(expected);
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.source_for(rs);
+
+            std::string body;
+            capy::const_buffer arr[16];
+
+            for(;;)
+            {
+                auto [ec, bufs] = co_await source.pull(arr);
+                if(ec == capy::cond::eof)
+                    break;
+                BOOST_TEST(ec != error::in_place_overflow);
+                if(ec)
+                    co_return;
+                std::size_t n = 0;
+                for(auto const& buf : bufs)
+                {
+                    body.append(
+                        static_cast<char const*>(buf.data()),
+                        buf.size());
+                    n += buf.size();
+                }
+                source.consume(n);
+            }
+
+            BOOST_TEST(body == expected);
+            BOOST_TEST(pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testSourceForBodyTooLarge()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            parser_config cfg{false};
+            cfg.body_limit = 5;
+            auto small_cfg = make_parser_config(cfg);
+
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 100\r\n"
+                "\r\n"
+                "this body is way over the configured limit");
+
+            response_parser pr(small_cfg);
+            pr.reset();
+            pr.start();
+
+            auto source = pr.source_for(rs);
+
+            capy::const_buffer arr[16];
+            auto [ec, bufs] = co_await source.pull(arr);
+
+            BOOST_TEST(static_cast<bool>(ec));
+            BOOST_TEST(ec != capy::cond::eof);
+            BOOST_TEST(capy::buffer_size(bufs) == 0);
+            BOOST_TEST(! pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testRead()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 13\r\n"
+                "\r\n"
+                "Hello, World!");
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto [ec] = co_await pr.read(rs);
+            if(ec)
+                co_return;
+
+            BOOST_TEST(pr.is_complete());
+            BOOST_TEST(pr.body() == "Hello, World!");
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadChunked()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Transfer-Encoding: chunked\r\n"
+                "\r\n"
+                "5\r\nHello\r\n"
+                "7\r\n, World\r\n"
+                "0\r\n\r\n");
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto [ec] = co_await pr.read(rs);
+            if(ec)
+                co_return;
+
+            BOOST_TEST(pr.is_complete());
+            BOOST_TEST(pr.body() == "Hello, World");
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadEof()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto [ec] = co_await pr.read(rs);
+
+            BOOST_TEST(static_cast<bool>(ec));
+            BOOST_TEST(! pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
+    testReadOverflow()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            std::string const big(40000, 'x');
+
+            capy::test::read_stream rs(f);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 40000\r\n"
+                "\r\n");
+            rs.provide(big);
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            auto [ec] = co_await pr.read(rs);
+
+            BOOST_TEST(static_cast<bool>(ec));
+            BOOST_TEST(! pr.is_complete());
+        });
+        BOOST_TEST(r.success);
+    }
+
+    void
     run()
     {
         testReadHeader();
@@ -1982,6 +2168,12 @@ struct parser_coro_test
         testReadWriteSinkChunked();
         testSourceFor();
         testSourceForChunked();
+        testSourceForLargeBody();
+        testSourceForBodyTooLarge();
+        testRead();
+        testReadChunked();
+        testReadEof();
+        testReadOverflow();
     }
 };
 
