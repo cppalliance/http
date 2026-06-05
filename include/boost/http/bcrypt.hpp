@@ -646,6 +646,7 @@ hash_async(
         rounds,
         ver,
         {},
+        {},
         {}};
 }
 
@@ -679,6 +680,7 @@ compare_async(
         detail::password_buf(password),
         detail::hash_buf(hash_str),
         false,
+        {},
         {}};
 }
 
