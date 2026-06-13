@@ -1316,8 +1316,7 @@ public:
             detail::throw_logic_error();
 
         auto cbp = (is_plain() ? cb0_ : cb1_).data();
-        BOOST_ASSERT(cbp[1].size() == 0);
-        BOOST_ASSERT(cbp[0].size() == body_avail_);
+        BOOST_ASSERT(body_avail_ <= cbp[0].size());
         return core::string_view(
             static_cast<char const*>(cbp[0].data()),
             body_avail_);
