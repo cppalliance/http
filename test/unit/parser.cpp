@@ -1776,6 +1776,7 @@ struct parser_test
             BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
             BOOST_TEST_EQ(pr.body(), body);
+            BOOST_TEST(pr.has_buffered_data());
         };
 
         check(
@@ -1790,6 +1791,99 @@ struct parser_test
             "Content-Length: 2\r\n"
             "\r\n"
             "okX", "ok");
+    }
+
+    void
+    testHasBufferedData()
+    {
+        parser_config cfg{false};
+        cfg.headers.max_size = 100;
+        cfg.min_buffer = 100;
+        auto pcfg = make_parser_config(cfg);
+
+        auto const check = [&pcfg](
+            core::string_view octets,
+            core::string_view body,
+            bool buffered)
+        {
+            response_parser pr(pcfg);
+            pr.reset();
+            pr.start();
+            pr.commit(capy::buffer_copy(
+                pr.prepare(),
+                capy::const_buffer(
+                    octets.data(), octets.size())));
+
+            system::error_code ec;
+            pr.parse(ec);
+            BOOST_TEST(! ec);
+            BOOST_TEST(pr.got_header());
+            pr.parse(ec);
+            BOOST_TEST(! ec);
+            BOOST_TEST(pr.is_complete());
+
+            // the body is not counted as buffered data
+            BOOST_TEST_EQ(pr.body(), body);
+            BOOST_TEST_EQ(pr.has_buffered_data(), buffered);
+        };
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 2\r\n"
+            "\r\n"
+            "ok", "ok", false);
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 2\r\n"
+            "\r\n"
+            "ok"
+            "HTTP/1.1 200 OK\r\n", "ok", true);
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 2\r\n"
+            "\r\n"
+            "okX", "ok", true);
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "2\r\nok\r\n0\r\n\r\n", "ok", false);
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Transfer-Encoding: chunked\r\n"
+            "\r\n"
+            "2\r\nok\r\n0\r\n\r\n"
+            "GARBAGE", "ok", true);
+
+        check(
+            "HTTP/1.1 204 No Content\r\n"
+            "\r\n"
+            "GARBAGE", "", true);
+
+        {
+            response_parser pr(pcfg);
+            pr.reset();
+            pr.start();
+            core::string_view octets =
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 10\r\n"
+                "\r\n"
+                "123"; // body incomplete
+            pr.commit(capy::buffer_copy(
+                pr.prepare(),
+                capy::const_buffer(
+                    octets.data(), octets.size())));
+            system::error_code ec;
+            pr.parse(ec);
+            BOOST_TEST(pr.got_header());
+            pr.parse(ec);
+            BOOST_TEST(! pr.is_complete());
+            BOOST_TEST(! pr.has_buffered_data());
+        }
     }
 
     void
@@ -1809,6 +1903,7 @@ struct parser_test
         testSetBodyLimit();
         testAccessHeaderAfterBodyError();
         testBodyWithTrailingData();
+        testHasBufferedData();
 #else
         // For profiling
         for(int i = 0; i < 10000; ++i )

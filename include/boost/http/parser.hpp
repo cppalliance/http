@@ -307,6 +307,28 @@ public:
     core::string_view
     body() const;
 
+    /** Return true if data is buffered past the message.
+
+        After a complete message, returns true when the
+        parser's buffer still holds octets that lie
+        beyond it, such as the start of a pipelined
+        message or data the peer sent past the message
+        framing. Returns false before the message is
+        complete.
+
+        This does not include the message body, which is
+        retrieved separately via @ref body or
+        @ref pull_body.
+
+        @return true if octets remain buffered past the
+        completed message.
+
+        @see @ref is_complete, @ref release_buffered_data.
+    */
+    BOOST_HTTP_DECL
+    bool
+    has_buffered_data() const noexcept;
+
     /** Return unconsumed data past the last message.
 
         Use this after an upgrade or CONNECT request
