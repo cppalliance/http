@@ -1749,6 +1749,50 @@ struct parser_test
     }
 
     void
+    testBodyWithTrailingData()
+    {
+        parser_config cfg{false};
+        cfg.headers.max_size = 100;
+        cfg.min_buffer = 100;
+        auto pcfg = make_parser_config(cfg);
+
+        auto const check = [&pcfg](
+            core::string_view octets,
+            core::string_view body)
+        {
+            response_parser pr(pcfg);
+            pr.reset();
+            pr.start();
+            pr.commit(capy::buffer_copy(
+                pr.prepare(),
+                capy::const_buffer(
+                    octets.data(), octets.size())));
+
+            system::error_code ec;
+            pr.parse(ec);
+            BOOST_TEST(! ec);
+            BOOST_TEST(pr.got_header());
+            pr.parse(ec);
+            BOOST_TEST(! ec);
+            BOOST_TEST(pr.is_complete());
+            BOOST_TEST_EQ(pr.body(), body);
+        };
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 2\r\n"
+            "\r\n"
+            "ok"
+            "HTTP/1.1 200 OK\r\n", "ok");
+
+        check(
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Length: 2\r\n"
+            "\r\n"
+            "okX", "ok");
+    }
+
+    void
     run()
     {
 #if 1
@@ -1764,6 +1808,7 @@ struct parser_test
         testMultipleMessageInPlaceChunked();
         testSetBodyLimit();
         testAccessHeaderAfterBodyError();
+        testBodyWithTrailingData();
 #else
         // For profiling
         for(int i = 0; i < 10000; ++i )
