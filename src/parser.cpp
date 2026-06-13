@@ -1322,6 +1322,17 @@ public:
             body_avail_);
     }
 
+    bool
+    has_buffered_data() const noexcept
+    {
+        if(state_ != state::complete)
+            return false;
+
+        if(is_plain())
+            return cb0_.size() > body_avail_;
+        return cb0_.size() > 0;
+    }
+
     void
     set_body_limit(std::uint64_t n)
     {
@@ -1576,6 +1587,14 @@ release_buffered_data() noexcept
 {
     // TODO
     return {};
+}
+
+bool
+parser::
+has_buffered_data() const noexcept
+{
+    BOOST_ASSERT(impl_);
+    return impl_->has_buffered_data();
 }
 
 void
