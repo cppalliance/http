@@ -669,6 +669,12 @@ on_insert_content_encoding(
         md.content_encoding.coding =
             content_coding::br;
     }
+    else if(grammar::ci_is_equal(
+        *rv->begin(), "zstd"))
+    {
+        md.content_encoding.coding =
+            content_coding::zstd;
+    }
     else
     {
         md.content_encoding.coding =
