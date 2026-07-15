@@ -302,6 +302,20 @@ struct metadata_test
 
         check(
             "GET / HTTP/1.1\r\n"
+            "Content-Encoding: br\r\n"
+            "\r\n",
+            [](message_base&){},
+            { ok, 1, content_coding::br });
+
+        check(
+            "GET / HTTP/1.1\r\n"
+            "Content-Encoding: zstd\r\n"
+            "\r\n",
+            [](message_base&){},
+            { ok, 1, content_coding::zstd });
+
+        check(
+            "GET / HTTP/1.1\r\n"
             "Content-Encoding: gzip, deflate\r\n"
             "\r\n",
             [](message_base&){},
