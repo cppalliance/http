@@ -11,7 +11,7 @@
 #include <boost/http/json/json_sink.hpp>
 #include <boost/http/field.hpp>
 #include <boost/http/method.hpp>
-#include <boost/capy/io/push_to.hpp>
+#include <boost/http/io/push_to.hpp>
 #include <boost/json/value.hpp>
 
 namespace boost {
@@ -35,7 +35,7 @@ operator()(route_params& p) const
 
     json_sink sink(
         options_.storage, options_.parse_opts);
-    auto [ec, n] = co_await capy::push_to(
+    auto [ec, n] = co_await http::push_to(
         p.req_body, sink);
     if(ec)
         co_return route_error(ec);

@@ -23,8 +23,8 @@
 #include <boost/capy/io_task.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/write.hpp>
-#include <boost/capy/io/any_buffer_source.hpp>
-#include <boost/capy/io/any_buffer_sink.hpp>
+#include <boost/http/io/any_buffer_source.hpp>
+#include <boost/http/io/any_buffer_sink.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/system/error_category.hpp>
 #include <boost/system/error_code.hpp>
@@ -426,10 +426,10 @@ public:
     http::response res;
 
     /// Provides access to the request body
-    capy::any_buffer_source req_body;
+    http::any_buffer_source req_body;
 
     /// Provides access to the response body
-    capy::any_buffer_sink res_body;
+    http::any_buffer_sink res_body;
 
     /// Arbitrary per-route data
     http::datastore route_data;

@@ -18,7 +18,7 @@
 #include <boost/capy/cond.hpp>
 #include <boost/capy/test/fuse.hpp>
 #include <boost/capy/test/read_stream.hpp>
-#include <boost/capy/test/write_sink.hpp>
+#include <boost/http/test/write_sink.hpp>
 #include <boost/core/ignore_unused.hpp>
 
 #include "test_helpers.hpp"
@@ -1973,7 +1973,7 @@ struct parser_coro_test
             if(hdr_ec)
                 co_return;
 
-            capy::test::write_sink ws(f);
+            http::test::write_sink ws(f);
             auto [ec] = co_await pr.read(rs, ws);
             if(ec)
                 co_return;
@@ -2008,7 +2008,7 @@ struct parser_coro_test
             if(hdr_ec)
                 co_return;
 
-            capy::test::write_sink ws(f);
+            http::test::write_sink ws(f);
             auto [ec] = co_await pr.read(rs, ws);
             if(ec)
                 co_return;

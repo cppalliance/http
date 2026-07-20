@@ -25,7 +25,7 @@ namespace http {
 /** A sink for streaming JSON data to a parser.
 
     This class wraps a `boost::json::stream_parser` and satisfies the
-    @ref capy::WriteSink concept, enabling incremental JSON parsing
+    @ref http::WriteSink concept, enabling incremental JSON parsing
     from any data source that produces buffer sequences.
 
     Since JSON parsing is synchronous, all operations return
@@ -50,7 +50,7 @@ namespace http {
     Distinct objects: Safe.
     Shared objects: Unsafe.
 
-    @see capy::WriteSink, json::stream_parser
+    @see http::WriteSink, json::stream_parser
 */
 class json_sink
 {

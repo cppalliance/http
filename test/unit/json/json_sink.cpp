@@ -12,7 +12,7 @@
 
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/concept/write_sink.hpp>
+#include <boost/http/concept/write_sink.hpp>
 #include <boost/capy/continuation.hpp>
 #include <boost/capy/ex/execution_context.hpp>
 #include <boost/capy/ex/run_async.hpp>
@@ -116,7 +116,7 @@ static_assert(capy::Executor<test_executor>);
 struct json_sink_test
 {
     // Verify json_sink satisfies WriteSink concept
-    static_assert(capy::WriteSink<json_sink>);
+    static_assert(http::WriteSink<json_sink>);
 
     //------------------------------------------------------
     // Basic functionality tests

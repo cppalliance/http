@@ -19,7 +19,7 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/consuming_buffers.hpp>
 #include <boost/capy/concept/read_stream.hpp>
-#include <boost/capy/concept/write_sink.hpp>
+#include <boost/http/concept/write_sink.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/error.hpp>
 #include <boost/capy/io_task.hpp>
@@ -411,7 +411,7 @@ public:
 
     /** Return a source for reading body data.
 
-        The returned source satisfies @ref capy::BufferSource.
+        The returned source satisfies @ref http::BufferSource.
         On first pull, headers are automatically parsed if
         not yet received.
 
@@ -428,9 +428,9 @@ public:
 
         @param stream The stream to read from.
 
-        @return A source satisfying @ref capy::BufferSource.
+        @return A source satisfying @ref http::BufferSource.
 
-        @see @ref read_header, @ref capy::BufferSource.
+        @see @ref read_header, @ref http::BufferSource.
     */
     template<capy::ReadStream Stream>
     source<Stream>
@@ -449,7 +449,7 @@ public:
 
         @see WriteSink.
     */
-    template<capy::WriteSink Sink>
+    template<http::WriteSink Sink>
     capy::io_task<>
     read(capy::ReadStream auto& stream, Sink&& sink);
 
@@ -481,7 +481,7 @@ private:
 
 /** A source for reading the message body.
 
-    This type satisfies @ref capy::BufferSource. It can be
+    This type satisfies @ref http::BufferSource. It can be
     constructed immediately after parser construction; on
     first pull, headers are automatically parsed if not
     yet received.
@@ -715,7 +715,7 @@ consume(std::size_t n) noexcept
     pr_->consume_body(n);
 }
 
-template<capy::WriteSink Sink>
+template<http::WriteSink Sink>
 capy::io_task<>
 parser::
 read(capy::ReadStream auto& stream, Sink&& sink)
