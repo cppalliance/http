@@ -1,5 +1,6 @@
 //
 // Copyright (c) 2021 Vinnie Falco (vinnie.falco@gmail.com)
+// Copyright (c) 2026 Michael Vandeberg
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -21,10 +22,30 @@
 #include "test_suite.hpp"
 
 #include <iterator>
+#include <stdexcept>
 #include <string>
 
 namespace boost {
 namespace http {
+
+// Thrown by tests that exercise exception paths.
+struct test_exception : std::runtime_error
+{
+    explicit test_exception(char const* msg)
+        : std::runtime_error(msg)
+    {
+    }
+};
+
+// Throw test_exception in a way the optimizer cannot prove non-returning
+// (so code after a placement-new is not flagged unreachable; see MSVC C4702).
+inline void
+throw_test_exception_opaque(char const* msg)
+{
+    volatile bool always = true;
+    if(always)
+        throw test_exception(msg);
+}
 
 inline
 std::string const&

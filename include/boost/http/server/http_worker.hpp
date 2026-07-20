@@ -57,8 +57,8 @@ namespace http {
             , sock(ctx)
         {
             sock.open();
-            rp.req_body = capy::any_buffer_source(parser.source_for(sock));
-            rp.res_body = capy::any_buffer_sink(serializer.sink_for(sock));
+            rp.req_body = http::any_buffer_source(parser.source_for(sock));
+            rp.res_body = http::any_buffer_sink(serializer.sink_for(sock));
             stream = capy::any_read_stream(&sock);
         }
 
@@ -105,8 +105,8 @@ public:
         , serializer(serializer_cfg)
         {
             serializer.set_message(rp.res);
-            rp.req_body = capy::any_buffer_source(parser.source_for(stream_));
-            rp.res_body = capy::any_buffer_sink(serializer.sink_for(stream_));
+            rp.req_body = http::any_buffer_source(parser.source_for(stream_));
+            rp.res_body = http::any_buffer_sink(serializer.sink_for(stream_));
         }
 
     /** Handle an HTTP session.

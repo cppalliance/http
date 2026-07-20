@@ -16,7 +16,7 @@
 #include <boost/http/error.hpp>
 
 #include <boost/capy/buffers.hpp>
-#include <boost/capy/concept/buffer_sink.hpp>
+#include <boost/http/concept/buffer_sink.hpp>
 #include <boost/capy/concept/write_stream.hpp>
 #include <boost/capy/io_task.hpp>
 #include <boost/core/span.hpp>
@@ -578,7 +578,7 @@ private:
     }
     @endcode
 
-    @see @ref capy::BufferSink, @ref capy::any_buffer_sink,
+    @see @ref http::BufferSink, @ref http::any_buffer_sink,
         @ref serializer.
 */
 template<capy::WriteStream Stream>

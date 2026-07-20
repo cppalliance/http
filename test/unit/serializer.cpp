@@ -15,8 +15,8 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/concept/buffer_sink.hpp>
-#include <boost/capy/io/any_buffer_sink.hpp>
+#include <boost/http/concept/buffer_sink.hpp>
+#include <boost/http/io/any_buffer_sink.hpp>
 #include <boost/capy/test/fuse.hpp>
 #include <boost/capy/test/write_stream.hpp>
 #include <boost/core/ignore_unused.hpp>
@@ -796,7 +796,7 @@ struct serializer_test
     //--------------------------------------------
 
     // Verify serializer::sink satisfies BufferSink concept
-    static_assert(capy::BufferSink<
+    static_assert(http::BufferSink<
         serializer::sink<capy::test::write_stream>>);
 
     void
@@ -1227,7 +1227,7 @@ struct serializer_test
             sr.set_message(res);
             auto sink = sr.sink_for(ws);
 
-            capy::any_buffer_sink abs(sink);
+            http::any_buffer_sink abs(sink);
 
             std::string_view body = "Hello, World!";
             auto [ec, n] = co_await abs.write(
@@ -1262,7 +1262,7 @@ struct serializer_test
             sr.set_message(res);
             auto sink = sr.sink_for(ws);
 
-            capy::any_buffer_sink abs(sink);
+            http::any_buffer_sink abs(sink);
 
             std::string_view body = "hello";
             auto [ec, n] = co_await abs.write_eof(
