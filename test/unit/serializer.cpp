@@ -13,14 +13,14 @@
 #include <boost/http/response.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/buffers/buffer_slice.hpp>
-#include <boost/capy/buffers/string_dynamic_buffer.hpp>
+#include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/concept/buffer_sink.hpp>
 #include <boost/capy/io/any_buffer_sink.hpp>
 #include <boost/capy/test/fuse.hpp>
 #include <boost/capy/test/write_stream.hpp>
 #include <boost/core/ignore_unused.hpp>
+#include <boost/http/detail/flat_buffer.hpp>
 
 #include "test_helpers.hpp"
 
@@ -68,7 +68,7 @@ struct serializer_test
         // serializer::consume(), allowing tests to cover
         // state management within these functions
         std::string s;
-        for( auto buf : cbs.data())
+        for( auto buf : cbs)
         {
             s.append(
                 reinterpret_cast<char const*>(buf.data()),
@@ -172,8 +172,8 @@ struct serializer_test
 
         // serializer(serializer&&)
         {
-            std::string message;
-            capy::string_dynamic_buffer buf(&message);
+            char message[256];
+            detail::flat_buffer buf(message, sizeof(message));
             serializer sr1(cfg_);
             sr1.set_message(res);
             sr1.start();
@@ -200,7 +200,7 @@ struct serializer_test
             }
 
             BOOST_TEST(sr2.is_done());
-            BOOST_TEST(message == expected);
+            BOOST_TEST(std::string_view(message, buf.size()) == expected);
         }
     }
 

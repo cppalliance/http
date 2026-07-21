@@ -15,10 +15,11 @@
 #include <boost/http/static_request.hpp>
 #include <boost/http/static_response.hpp>
 
+#include <boost/http/detail/circular_buffer.hpp>
+#include <boost/http/detail/flat_buffer.hpp>
+
 #include <boost/assert.hpp>
-#include <boost/capy/buffers/circular_dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/flat_dynamic_buffer.hpp>
 #include <boost/capy/buffers/front.hpp>
 #include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/ex/system_context.hpp>
@@ -461,9 +462,9 @@ class parser::impl
     std::size_t body_avail_;
     std::size_t nprepare_;
 
-    capy::flat_dynamic_buffer fb_;
-    capy::circular_dynamic_buffer cb0_;
-    capy::circular_dynamic_buffer cb1_;
+    detail::flat_buffer fb_;
+    detail::circular_buffer cb0_;
+    detail::circular_buffer cb1_;
 
     std::array<capy::mutable_buffer, 2> mbp_;
     std::array<capy::const_buffer, 2> cbp_;
@@ -1153,7 +1154,7 @@ public:
                         // in_place style
                         auto copied = capy::buffer_copy(
                             cb1_.prepare(cb1_.capacity()),
-                            chunk.data());
+                            chunk);
                         chunk_remain_ -= copied;
                         body_avail_   += copied;
                         body_total_   += copied;
