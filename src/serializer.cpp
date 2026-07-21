@@ -9,6 +9,7 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
+#include <boost/http/detail/circular_buffer.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/http/detail/header.hpp>
 #include <boost/http/message_base.hpp>
@@ -19,7 +20,6 @@
 #include "src/detail/buffer_utils.hpp"
 #include "src/detail/zlib_filter_base.hpp"
 
-#include <boost/capy/buffers/circular_dynamic_buffer.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/ex/system_context.hpp>
 #include <boost/core/bit.hpp>
@@ -293,8 +293,8 @@ class serializer::impl
 
     std::unique_ptr<detail::filter> filter_;
 
-    capy::circular_dynamic_buffer out_;
-    capy::circular_dynamic_buffer in_;
+    detail::circular_buffer out_;
+    detail::circular_buffer in_;
     detail::array_of_const_buffers prepped_;
     capy::const_buffer tmp_;
 

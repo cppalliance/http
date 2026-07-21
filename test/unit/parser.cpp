@@ -14,7 +14,6 @@
 #include <boost/http/response_parser.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/flat_dynamic_buffer.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/test/fuse.hpp>

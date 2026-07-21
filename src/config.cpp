@@ -35,7 +35,7 @@ make_parser_config(parser_config cfg)
     /*
         | fb |     cb0     |     cb1     | T | f |
 
-        fb  flat_dynamic_buffer         headers.max_size
+        fb  flat_buffer         headers.max_size
         cb0 circular_buffer     min_buffer
         cb1 circular_buffer     min_buffer
         f   table               max_table_space

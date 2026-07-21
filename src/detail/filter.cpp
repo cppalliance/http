@@ -10,7 +10,7 @@
 
 #include "src/detail/filter.hpp"
 
-#include <boost/capy/buffers/buffer_slice.hpp>
+#include <boost/capy/buffers/consuming_buffers.hpp>
 #include <boost/capy/buffers/front.hpp>
 
 namespace boost {
@@ -42,8 +42,8 @@ process(
     std::array<capy::const_buffer, 2> in_seq,
     bool more) -> results
 {
-    auto out = capy::buffer_slice(out_seq);
-    auto in = capy::buffer_slice(in_seq);
+    auto out = capy::consuming_buffers(out_seq);
+    auto in = capy::consuming_buffers(in_seq);
 
     results rv;
     bool p_more = true;
@@ -78,8 +78,8 @@ process(
             return rv;
         }
 
-        out.remove_prefix(rs.out_bytes);
-        in.remove_prefix(rs.in_bytes);
+        out.consume(rs.out_bytes);
+        in.consume(rs.in_bytes);
 
         if(capy::buffer_size(out.data()) == 0)
             return rv;
