@@ -1689,7 +1689,7 @@ struct fields_base_test
             BOOST_TEST(f.value_or(
                 field::set_cookie, "") == "a");
             BOOST_TEST(f.value_or(
-                field::set_cookie2, "Q") == "Q");
+                field::range, "Q") == "Q");
 
             BOOST_TEST(f.value_or(
                 "set-cookie", "") == "a");
