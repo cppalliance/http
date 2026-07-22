@@ -17,7 +17,7 @@
 #include <boost/http/error.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/buffer_slice.hpp>
+#include <boost/capy/buffers/consuming_buffers.hpp>
 #include <boost/capy/concept/read_stream.hpp>
 #include <boost/capy/concept/write_sink.hpp>
 #include <boost/capy/cond.hpp>
@@ -604,7 +604,7 @@ read(Stream& stream, MB buffers)
         co_return {{}, 0};
 
     std::size_t total = 0;
-    auto dest = capy::buffer_slice(buffers);
+    capy::consuming_buffers dest(buffers);
 
     for(;;)
     {
@@ -619,7 +619,7 @@ read(Stream& stream, MB buffers)
                 std::size_t copied = capy::buffer_copy(dest.data(), body_data);
                 consume_body(copied);
                 total += copied;
-                dest.remove_prefix(copied);
+                dest.consume(copied);
 
                 if(capy::buffer_empty(dest.data()))
                     co_return {{}, total};

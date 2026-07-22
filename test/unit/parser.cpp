@@ -23,6 +23,7 @@
 
 #include "test_helpers.hpp"
 
+#include <array>
 #include <vector>
 
 //------------------------------------------------
@@ -2223,6 +2224,46 @@ struct parser_coro_test
         BOOST_TEST(r.success);
     }
 
+    // Read the body into a caller-provided MutableBufferSequence.
+    // Exercises the parser::read(Stream&, MB) overload so it is
+    // actually instantiated: it is otherwise never called with a
+    // real buffer sequence, which let a capy buffer-API break slip
+    // past the build undetected.
+    void
+    testReadBuffers()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f, 1);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 13\r\n"
+                "\r\n"
+                "Hello, World!");
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            char storage[64];
+            std::array<capy::mutable_buffer, 1> bufs{{
+                capy::mutable_buffer(storage, sizeof(storage)) }};
+            auto [ec, n] = co_await pr.read(rs, bufs);
+            ignore_unused(ec);
+
+            // The fuse re-runs this coroutine injecting a fault at
+            // each suspension point; only assert on the run that
+            // reads the whole body.
+            if(! pr.is_complete())
+                co_return;
+
+            BOOST_TEST_EQ(n, 13u);
+            BOOST_TEST(core::string_view(storage, n) == "Hello, World!");
+        });
+        BOOST_TEST(r.success);
+    }
+
     void
     testReadChunked()
     {
@@ -2310,6 +2351,7 @@ struct parser_coro_test
         testSourceForLargeBody();
         testSourceForBodyTooLarge();
         testRead();
+        testReadBuffers();
         testReadChunked();
         testReadEof();
         testReadOverflow();
