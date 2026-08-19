@@ -21,7 +21,7 @@ namespace http {
 
 /** Identifies the payload type of a message.
 */
-enum class payload
+enum class payload : unsigned char
 {
     /** This message has no payload.
     */
