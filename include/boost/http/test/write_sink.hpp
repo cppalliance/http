@@ -196,7 +196,7 @@ public:
             await_resume()
             {
                 if(capy::buffer_empty(buffers_))
-                    return {{}, 0};
+                    return {std::error_code(), 0};
 
                 if(canceled_)
                     return {capy::error::canceled, 0};
@@ -220,7 +220,7 @@ public:
                     return {ec, 0};
                 }
 
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -288,7 +288,7 @@ public:
 
                 std::size_t n = capy::buffer_size(buffers_);
                 if(n == 0)
-                    return {{}, 0};
+                    return {std::error_code(), 0};
 
                 std::size_t const old_size = self_->data_.size();
                 self_->data_.resize(old_size + n);
@@ -299,7 +299,7 @@ public:
                 if(ec)
                     return {ec, n};
 
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -386,7 +386,7 @@ public:
 
                 self_->eof_called_ = true;
 
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};

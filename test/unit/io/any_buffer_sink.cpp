@@ -169,7 +169,7 @@ public:
             {
                 self_->write_api_used_ = true;
                 if(buffer_empty(buffers_))
-                    return {{}, 0};
+                    return {std::error_code(), 0};
                 auto ec = self_->f_.maybe_fail();
                 if(ec) return {ec, 0};
 
@@ -178,7 +178,7 @@ public:
                 self_->data_.resize(old_size + n);
                 buffer_copy(make_buffer(
                     self_->data_.data() + old_size, n), buffers_, n);
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -204,12 +204,12 @@ public:
                 if(ec) return {ec, 0};
 
                 std::size_t n = buffer_size(buffers_);
-                if(n == 0) return {{}, 0};
+                if(n == 0) return {std::error_code(), 0};
                 std::size_t const old_size = self_->data_.size();
                 self_->data_.resize(old_size + n);
                 buffer_copy(make_buffer(
                     self_->data_.data() + old_size, n), buffers_);
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -243,7 +243,7 @@ public:
                         self_->data_.data() + old_size, n), buffers_);
                 }
                 self_->eof_called_ = true;
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -299,7 +299,7 @@ struct resuming_size_awaitable
     std::coroutine_handle<>
     await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {{}, 1}; }
+    io_result<std::size_t> await_resume() { return {std::error_code(), 1}; }
 };
 
 // Satisfies BufferSink + WriteSink with suspending operations.

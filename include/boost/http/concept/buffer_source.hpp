@@ -90,7 +90,7 @@ namespace http {
         {
             auto [ec, bufs] = co_await source.pull( arr );
             if( ec == cond::eof )
-                co_return {{}, total};
+                co_return {std::error_code(), total};
             if( ec )
                 co_return {ec, total};
             auto [write_ec, n] = co_await stream.write_some( bufs );
