@@ -134,7 +134,7 @@ push_to(Src& source, Stream& stream)
     {
         auto [ec, bufs] = co_await source.pull(arr);
         if(ec == capy::cond::eof)
-            co_return {{}, total};
+            co_return {std::error_code(), total};
         if(ec)
             co_return {ec, total};
 

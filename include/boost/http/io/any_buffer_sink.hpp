@@ -1045,7 +1045,7 @@ any_buffer_sink::write_some(CB buffers)
     capy::buffer_param<CB> bp(buffers);
     auto src = bp.data();
     if(src.empty())
-        co_return {{}, 0};
+        co_return {std::error_code(), 0};
 
     // Native WriteSink path
     if(vt_->construct_write_some_awaitable)
@@ -1061,14 +1061,14 @@ any_buffer_sink::write_some(CB buffers)
             co_return {ec, 0};
         dst_bufs = prepare(arr);
         if(dst_bufs.empty())
-            co_return {{}, 0};
+            co_return {std::error_code(), 0};
     }
 
     auto n = capy::buffer_copy(dst_bufs, src);
     auto [ec] = co_await commit(n);
     if(ec)
         co_return {ec, 0};
-    co_return {{}, n};
+    co_return {std::error_code(), n};
 }
 
 template<capy::ConstBufferSequence CB>
@@ -1093,7 +1093,7 @@ any_buffer_sink::write(CB buffers)
                 co_return {ec, total};
             bp.consume(n);
         }
-        co_return {{}, total};
+        co_return {std::error_code(), total};
     }
 
     // Synthesized path: prepare + capy::buffer_copy + commit
@@ -1121,7 +1121,7 @@ any_buffer_sink::write(CB buffers)
         total += n;
     }
 
-    co_return {{}, total};
+    co_return {std::error_code(), total};
 }
 
 inline auto
@@ -1246,7 +1246,7 @@ any_buffer_sink::write_eof(CB buffers)
     if(ec)
         co_return {ec, total};
 
-    co_return {{}, total};
+    co_return {std::error_code(), total};
 }
 
 static_assert(BufferSink<any_buffer_sink>);

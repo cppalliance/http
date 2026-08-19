@@ -825,7 +825,7 @@ public:
             }
         }
 
-        co_return {{}, total};
+        co_return {std::error_code(), total};
     }
 
     /** Write final body data and signal end-of-stream.
@@ -877,7 +877,7 @@ public:
                 co_return {ec2, n};
         }
 
-        co_return {{}, n};
+        co_return {std::error_code(), n};
     }
 
     /** Signal end-of-stream with no additional data.

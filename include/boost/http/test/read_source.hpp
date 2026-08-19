@@ -163,7 +163,7 @@ public:
             await_resume()
             {
                 if(capy::buffer_empty(buffers_))
-                    return {{}, 0};
+                    return {std::error_code(), 0};
 
                 if(canceled_)
                     return {capy::error::canceled, 0};
@@ -181,7 +181,7 @@ public:
                 auto src = capy::make_buffer(self_->data_.data() + self_->pos_, avail);
                 std::size_t const n = capy::buffer_copy(buffers_, src);
                 self_->pos_ += n;
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -238,7 +238,7 @@ public:
             await_resume()
             {
                 if(capy::buffer_empty(buffers_))
-                    return {{}, 0};
+                    return {std::error_code(), 0};
 
                 if(canceled_)
                     return {capy::error::canceled, 0};
@@ -257,7 +257,7 @@ public:
 
                 if(n < capy::buffer_size(buffers_))
                     return {capy::error::eof, n};
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};

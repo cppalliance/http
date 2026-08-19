@@ -48,7 +48,7 @@ struct pending_sink_awaitable
     std::coroutine_handle<> await_suspend(std::coroutine_handle<>, io_env const*)
         { return std::noop_coroutine(); }
     io_result<std::size_t> await_resume()
-        { return {{}, 0}; }
+        { return {std::error_code(), 0}; }
 };
 
 struct pending_sink_eof_awaitable
@@ -89,7 +89,7 @@ struct resuming_sink_awaitable
     std::coroutine_handle<>
     await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {{}, 1}; }
+    io_result<std::size_t> await_resume() { return {std::error_code(), 1}; }
 };
 
 struct resuming_sink_eof_awaitable

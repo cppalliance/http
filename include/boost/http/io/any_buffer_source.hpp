@@ -761,7 +761,7 @@ any_buffer_source::read_some(MB buffers)
     capy::buffer_param<MB> bp(buffers);
     auto dest = bp.data();
     if(dest.empty())
-        co_return {{}, 0};
+        co_return {std::error_code(), 0};
 
     // Native ReadSource path
     if(vt_->construct_read_some_awaitable)
@@ -775,7 +775,7 @@ any_buffer_source::read_some(MB buffers)
 
     auto n = capy::buffer_copy(dest, bufs);
     consume(n);
-    co_return {{}, n};
+    co_return {std::error_code(), n};
 }
 
 template<capy::MutableBufferSequence MB>
@@ -800,7 +800,7 @@ any_buffer_source::read(MB buffers)
                 co_return {ec, total};
             bp.consume(n);
         }
-        co_return {{}, total};
+        co_return {std::error_code(), total};
     }
 
     // Synthesized path: pull + capy::buffer_copy + consume
@@ -822,7 +822,7 @@ any_buffer_source::read(MB buffers)
         bp.consume(n);
     }
 
-    co_return {{}, total};
+    co_return {std::error_code(), total};
 }
 
 static_assert(BufferSource<any_buffer_source>);

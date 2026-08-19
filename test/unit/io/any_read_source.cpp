@@ -48,7 +48,7 @@ struct pending_source_awaitable
     std::coroutine_handle<> await_suspend(std::coroutine_handle<>, io_env const*)
         { return std::noop_coroutine(); }
     io_result<std::size_t> await_resume()
-        { return {{}, 0}; }
+        { return {std::error_code(), 0}; }
 };
 
 struct pending_read_source
@@ -70,7 +70,7 @@ struct resuming_source_awaitable
     std::coroutine_handle<>
     await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {{}, 5}; }
+    io_result<std::size_t> await_resume() { return {std::error_code(), 5}; }
 };
 
 struct resuming_read_source

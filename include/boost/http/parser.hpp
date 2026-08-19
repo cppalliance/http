@@ -601,7 +601,7 @@ parser::
 read(Stream& stream, MB buffers)
 {
     if(capy::buffer_empty(buffers))
-        co_return {{}, 0};
+        co_return {std::error_code(), 0};
 
     std::size_t total = 0;
     capy::consuming_buffers dest(buffers);
@@ -622,7 +622,7 @@ read(Stream& stream, MB buffers)
                 dest.consume(copied);
 
                 if(capy::buffer_empty(dest.data()))
-                    co_return {{}, total};
+                    co_return {std::error_code(), total};
             }
 
             if(is_complete())
@@ -681,7 +681,7 @@ pull(std::span<capy::const_buffer> dest)
             std::size_t count = (std::min)(body_data.size(), dest.size());
             for(std::size_t i = 0; i < count; ++i)
                 dest[i] = body_data[i];
-            co_return {{}, dest.first(count)};
+            co_return {std::error_code(), dest.first(count)};
         }
 
         if(pr_->is_complete())

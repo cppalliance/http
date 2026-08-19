@@ -115,12 +115,12 @@ public:
                 std::size_t to_return = (std::min)(avail, self_->max_pull_size_);
 
                 if(dest_.empty())
-                    return {{}, {}};
+                    return {std::error_code(), {}};
 
                 dest_[0] = make_buffer(
                     self_->data_.data() + self_->pos_,
                     to_return);
-                return {{}, dest_.first(1)};
+                return {std::error_code(), dest_.first(1)};
             }
         };
         return awaitable{this, dest};
@@ -146,7 +146,7 @@ public:
             {
                 self_->read_api_used_ = true;
                 if(buffer_empty(buffers_))
-                    return {{}, 0};
+                    return {std::error_code(), 0};
                 auto ec = self_->f_.maybe_fail();
                 if(ec)
                     return {ec, 0};
@@ -161,7 +161,7 @@ public:
                     self_->data_.data() + self_->pos_, avail);
                 std::size_t const n = buffer_copy(buffers_, src);
                 self_->pos_ += n;
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -184,7 +184,7 @@ public:
             {
                 self_->read_api_used_ = true;
                 if(buffer_empty(buffers_))
-                    return {{}, 0};
+                    return {std::error_code(), 0};
                 auto ec = self_->f_.maybe_fail();
                 if(ec)
                     return {ec, 0};
@@ -200,7 +200,7 @@ public:
 
                 if(n < buffer_size(buffers_))
                     return {capy::error::eof, n};
-                return {{}, n};
+                return {std::error_code(), n};
             }
         };
         return awaitable{this, buffers};
@@ -221,9 +221,9 @@ struct resuming_pull_awaitable
     await_resume()
     {
         if(dest_.empty())
-            return {{}, {}};
+            return {std::error_code(), {}};
         dest_[0] = make_buffer(data_, 3);
-        return {{}, dest_.first(1)};
+        return {std::error_code(), dest_.first(1)};
     }
 };
 
@@ -233,7 +233,7 @@ struct resuming_io_awaitable
     std::coroutine_handle<>
     await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {{}, 3}; }
+    io_result<std::size_t> await_resume() { return {std::error_code(), 3}; }
 };
 
 // Satisfies BufferSource + ReadSource with suspending operations.

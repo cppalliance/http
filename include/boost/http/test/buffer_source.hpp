@@ -192,14 +192,14 @@ public:
                 std::size_t to_return = (std::min)(avail, self_->max_pull_size_);
 
                 if(dest_.empty())
-                    return {{}, {}};
+                    return {std::error_code(), {}};
 
                 // Fill a single buffer descriptor
                 dest_[0] = capy::make_buffer(
                     self_->data_.data() + self_->pos_,
                     to_return);
 
-                return {{}, dest_.first(1)};
+                return {std::error_code(), dest_.first(1)};
             }
         };
         return awaitable{this, dest};

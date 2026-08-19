@@ -506,7 +506,7 @@ any_read_source::read_some(MB buffers)
         await_resume()
         {
             if(ba_.to_span().empty())
-                return {{}, 0};
+                return {std::error_code(), 0};
 
             struct guard {
                 any_read_source* self;
@@ -588,7 +588,7 @@ any_read_source::read(MB buffers)
         bp.consume(n);
     }
 
-    co_return {{}, total};
+    co_return {std::error_code(), total};
 }
 
 } // namespace http
