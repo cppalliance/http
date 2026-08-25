@@ -95,4 +95,20 @@ lib boost_http_brotli
     <define>BOOST_HTTP_HAS_BROTLI
   ;
 
-boost-install boost_http boost_http_zlib boost_http_brotli ;
+# Zstd
+using zstd ;
+
+alias http_zstd_sources : [ glob-tree-ex src_zstd : *.cpp ] ;
+
+lib boost_http_zstd
+  : http_zstd_sources
+  : requirements
+    <library>/boost/http//boost_http
+    <define>BOOST_HTTP_SOURCE
+    [ ac.check-library /zstd//zstd : <library>/zstd//zstd : <build>no ]
+  : usage-requirements
+    <library>/boost/http//boost_http
+    <define>BOOST_HTTP_HAS_ZSTD
+  ;
+
+boost-install boost_http boost_http_zlib boost_http_brotli boost_http_zstd ;

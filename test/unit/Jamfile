@@ -36,6 +36,7 @@ project
       <library>/boost/url//boost_url
       [ ac.check-library /boost/http//boost_http_zlib : <library>/boost/http//boost_http_zlib : ]
       [ ac.check-library /boost/http//boost_http_brotli : <library>/boost/http//boost_http_brotli : ]
+      [ ac.check-library /boost/http//boost_http_zstd : <library>/boost/http//boost_http_zstd : ]
       <library>test_helpers_lib
       <include>.
       <include>../..

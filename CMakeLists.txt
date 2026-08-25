@@ -214,6 +214,22 @@ if (Brotli_FOUND)
     target_compile_definitions(boost_http_brotli PRIVATE BOOST_HTTP_SOURCE)
 endif ()
 
+# Zstd
+find_package(Zstd 1.4.0)
+if (Zstd_FOUND)
+    file(GLOB_RECURSE BOOST_HTTP_ZSTD_HEADERS CONFIGURE_DEPENDS include/boost/http/zstd/*.hpp)
+    file(GLOB_RECURSE BOOST_HTTP_ZSTD_SOURCES CONFIGURE_DEPENDS src_zstd/*.cpp src_zstd/*.hpp)
+    source_group("" FILES "include/boost/http/zstd.hpp")
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost/http/zstd PREFIX "include" FILES ${BOOST_HTTP_ZSTD_HEADERS})
+    source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src_zstd PREFIX "src" FILES ${BOOST_HTTP_ZSTD_SOURCES})
+    add_library(boost_http_zstd include/boost/http/zstd.hpp build/Jamfile ${BOOST_HTTP_ZSTD_HEADERS} ${BOOST_HTTP_ZSTD_SOURCES})
+    add_library(Boost::http_zstd ALIAS boost_http_zstd)
+    target_link_libraries(boost_http_zstd PUBLIC boost_http)
+    target_link_libraries(boost_http_zstd PRIVATE Zstd::Zstd)
+    target_compile_definitions(boost_http_zstd PUBLIC BOOST_HTTP_HAS_ZSTD)
+    target_compile_definitions(boost_http_zstd PRIVATE BOOST_HTTP_SOURCE)
+endif ()
+
 #-------------------------------------------------
 #
 # Tests

@@ -1,0 +1,263 @@
+= Zstandard Compression
+:navtitle: Zstandard
+
+The Zstandard module provides fast compression and decompression services for HTTP content encoding.
+
+== Overview
+
+Zstandard (zstd) is a lossless compression algorithm designed for real-time scenarios. It offers a very wide range of speed/ratio trade-offs through its compression levels, compresses at zlib-like speeds with better ratios, and decompresses quickly regardless of the level used. It is registered as the `zstd` HTTP content coding (RFC 8878).
+
+The services are thin wrappers over the stable `libzstd` API. The `Boost::http_zstd` library is built when zstd 1.4.0 or later is found, and defines `BOOST_HTTP_HAS_ZSTD` for its consumers.
+
+== Basic Usage
+
+[source,cpp]
+----
+#include <boost/http/zstd.hpp>
+
+namespace zstd = boost::http::zstd;
+
+// Install services into an execution context
+auto& compressor   = zstd::install_compress_service(ctx);
+auto& decompressor = zstd::install_decompress_service(ctx);
+
+// Or install both into the system context
+zstd::install_zstd_service();
+----
+
+=== Results and Errors
+
+Most functions return a `std::size_t` which is either a byte count or an
+encoded error code, exactly like the underlying C API. Always test a result
+with `is_error` before using it:
+
+[source,cpp]
+----
+std::size_t n = compressor.compress(/* ... */);
+if (compressor.is_error(n))
+{
+    boost::system::error_code ec = compressor.get_error_code(n);
+    std::cerr << compressor.get_error_name(n) << '\n';
+    return ec;
+}
+----
+
+`zstd::error` is a Boost.System error enum, so an error code converts to
+`boost::system::error_code` and `std::error_code`.
+
+=== One-Shot Compression
+
+[source,cpp]
+----
+std::string input = /* ... */;
+std::string output(compressor.compress_bound(input.size()), '\0');
+
+std::size_t n = compressor.compress(
+    output.data(), output.size(),
+    input.data(), input.size(),
+    compressor.default_level());
+
+if (! compressor.is_error(n))
+    output.resize(n);
+----
+
+=== Compression Levels
+
+Levels range from `min_level()` (negative, fastest) to `max_level()`
+(slowest, best ratio). `default_level()` returns the library default:
+
+[source,cpp]
+----
+int fastest = compressor.min_level();      // negative "fast" levels
+int best    = compressor.max_level();      // 22
+int normal  = compressor.default_level();  // 3
+----
+
+=== One-Shot Decompression
+
+The frame header usually records the content size, which gives the exact
+output buffer size:
+
+[source,cpp]
+----
+auto size = decompressor.get_frame_content_size(
+    compressed.data(), compressed.size());
+
+if (size == zstd::content_size_error)
+    return;             // not a zstd frame
+if (size == zstd::content_size_unknown)
+    return;             // must use the streaming interface
+
+std::string output(size, '\0');
+std::size_t n = decompressor.decompress(
+    output.data(), output.size(),
+    compressed.data(), compressed.size());
+----
+
+The recorded size comes from the peer; check it against an application
+limit before allocating.
+
+== Streaming Interface
+
+Contexts hold the state of a frame in progress. Input and output are
+described by `in_buffer` and `out_buffer`, whose `pos` fields the service
+advances.
+
+=== Compression
+
+[source,cpp]
+----
+zstd::cctx* ctx = compressor.create_cctx();
+compressor.set_parameter(ctx, zstd::c_parameter::compression_level, 5);
+compressor.set_parameter(ctx, zstd::c_parameter::checksum_flag, 1);
+
+std::vector<char> buf(compressor.stream_out_size());
+zstd::in_buffer in{ input.data(), input.size(), 0 };
+std::size_t remaining;
+do
+{
+    zstd::out_buffer out{ buf.data(), buf.size(), 0 };
+    remaining = compressor.compress_stream(
+        ctx, out, in, zstd::end_directive::end);
+    if (compressor.is_error(remaining))
+        break;
+    output.insert(output.end(), buf.data(), buf.data() + out.pos);
+}
+while (remaining != 0);
+
+compressor.free_cctx(ctx);
+----
+
+Use `end_directive::continue_` while more input is coming, `flush` to force
+out a decodable block without closing the frame, and `end` to finish the
+frame. With `flush` and `end`, keep calling until zero is returned.
+
+A context is reusable: `reset` with `reset_directive::session_only` starts
+another frame with the same parameters.
+
+=== Decompression
+
+[source,cpp]
+----
+zstd::dctx* ctx = decompressor.create_dctx();
+
+std::vector<char> buf(decompressor.stream_out_size());
+zstd::in_buffer in{ compressed.data(), compressed.size(), 0 };
+std::size_t rs;
+do
+{
+    zstd::out_buffer out{ buf.data(), buf.size(), 0 };
+    rs = decompressor.decompress_stream(ctx, out, in);
+    if (decompressor.is_error(rs))
+        break;
+    output.insert(output.end(), buf.data(), buf.data() + out.pos);
+}
+while (rs != 0);
+
+decompressor.free_dctx(ctx);
+----
+
+`decompress_stream` returns zero when a frame is complete and fully flushed.
+Any other non-error value means more input or more output space is needed.
+
+=== Parameters
+
+Parameters are set on a context and are "sticky": they apply to every frame
+processed with that context until it is reset with
+`reset_directive::parameters`. Valid ranges can be queried:
+
+[source,cpp]
+----
+zstd::bounds b = compressor.param_bounds(zstd::c_parameter::window_log);
+if (! compressor.is_error(b.error))
+    std::cout << b.lower_bound << ".." << b.upper_bound;
+----
+
+|===
+| Parameter | Description
+
+| `c_parameter::compression_level`
+| Compression level; negative values select faster modes
+
+| `c_parameter::window_log`
+| Maximum back-reference distance as a power of 2; bounds decoder memory
+
+| `c_parameter::strategy`
+| Match-finding strategy, see `zstd::strategy`
+
+| `c_parameter::checksum_flag`
+| Append a 32-bit content checksum to the frame
+
+| `c_parameter::content_size_flag`
+| Record the content size in the frame header when known
+
+| `d_parameter::window_log_max`
+| Largest window the decoder will allocate for in streaming mode
+|===
+
+== Dictionaries
+
+Dictionaries improve compression of many small, similar messages. A digested
+dictionary (`cdict` / `ddict`) is prepared once and shared read-only between
+contexts and threads:
+
+[source,cpp]
+----
+zstd::cdict* cd = compressor.create_cdict(dict.data(), dict.size(), 3);
+compressor.ref_cdict(ctx, cd);         // used by all following frames
+// ... compress ...
+compressor.free_cdict(cd);             // after the context stops using it
+
+zstd::ddict* dd = decompressor.create_ddict(dict.data(), dict.size());
+decompressor.ref_ddict(ctx, dd);
+----
+
+`load_dictionary` copies and digests a dictionary into a single context, and
+`ref_prefix` references raw content as a single-use dictionary for the next
+frame only.
+
+== Reference
+
+=== Functions
+
+|===
+| Function | Description
+
+| `zstd::install_compress_service`
+| Install compression service into an execution context
+
+| `zstd::install_decompress_service`
+| Install decompression service into an execution context
+
+| `zstd::install_zstd_service`
+| Install both services into the system context
+|===
+
+=== Types
+
+|===
+| Type | Description
+
+| `zstd::compress_service`
+| Compression service interface
+
+| `zstd::decompress_service`
+| Decompression service interface
+
+| `zstd::cctx`, `zstd::dctx`
+| Opaque compression and decompression contexts
+
+| `zstd::cdict`, `zstd::ddict`
+| Opaque digested dictionaries
+
+| `zstd::in_buffer`, `zstd::out_buffer`
+| Streaming buffer descriptors
+
+| `zstd::error`
+| Error codes
+|===
+
+== See Also
+
+* xref:5.compression/5a.zlib.adoc[ZLib] — DEFLATE/gzip compression
+* xref:5.compression/5b.brotli.adoc[Brotli] — Higher compression ratio

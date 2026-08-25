@@ -34,6 +34,10 @@ if (TARGET Boost::http_brotli)
     target_link_libraries(boost_http_tests PRIVATE Boost::http_brotli)
 endif ()
 
+if (TARGET Boost::http_zstd)
+    target_link_libraries(boost_http_tests PRIVATE Boost::http_zstd)
+endif ()
+
 # Register individual tests with CTest
 boost_capy_test_suite_discover_tests(boost_http_tests)
 
