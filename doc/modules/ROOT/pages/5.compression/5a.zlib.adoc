@@ -214,3 +214,4 @@ ser_cfg.apply_gzip_encoder = true;
 == See Also
 
 * xref:5.compression/5b.brotli.adoc[Brotli] — Higher compression ratio
+* xref:5.compression/5c.zstd.adoc[Zstandard] — Fast compression with a wide range of levels

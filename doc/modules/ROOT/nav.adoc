@@ -26,6 +26,7 @@
 * xref:5.compression/5.compression.adoc[Compression]
 ** xref:5.compression/5a.zlib.adoc[ZLib]
 ** xref:5.compression/5b.brotli.adoc[Brotli]
+** xref:5.compression/5c.zstd.adoc[Zstandard]
 * xref:6.design/6.design.adoc[Design]
 ** xref:6.design/6a.sans-io.adoc[Sans-I/O Philosophy]
 ** xref:6.design/6b.parser.adoc[Parser]

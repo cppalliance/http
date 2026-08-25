@@ -95,7 +95,7 @@ jobs:
       - name: Patch CI script for extra source directories
         run: |
             # The CI script only symlinks 'include/' and 'src/' at boost-root level,
-            # but this repo also has src_zlib/ and src_brotli/. After fix_paths.py
+            # but this repo also has src_zlib/, src_brotli/ and src_zstd/. After fix_paths.py
             # strips 'libs/http/', gcovr can't find these files without symlinks.
             sed -i '/ln -sfn "\$BOOST_CI_SRC_FOLDER\/src" /a\
                 for _d in "$BOOST_CI_SRC_FOLDER"/src_*; do [ -d "$_d" ] && ln -sfn "$_d" "$(pwd)/$(basename "$_d")" 2>/dev/null || true; done' \

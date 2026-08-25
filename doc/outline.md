@@ -149,6 +149,12 @@ Renamed from: `compression/zlib.adoc`
 
 Renamed from: `compression/brotli.adoc`
 
+### 5c. 5c.zstd.adoc — Zstandard
+
+- Fast compression with a wide range of levels, dictionaries
+
+New page (no existing equivalent)
+
 ## 6. Design
 
 ### 6a. 6a.sans-io.adoc — Sans-I/O Philosophy

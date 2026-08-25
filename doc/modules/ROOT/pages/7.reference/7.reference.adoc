@@ -319,6 +319,56 @@ cpp:boost::http::brotli::error[error]
 
 [width=100%]
 |===
+2+| *Zstandard*
+
+| **Types**
+
+cpp:boost::http::zstd::bounds[bounds]
+
+cpp:boost::http::zstd::cctx[cctx]
+
+cpp:boost::http::zstd::cdict[cdict]
+
+cpp:boost::http::zstd::compress_service[compress_service]
+
+cpp:boost::http::zstd::dctx[dctx]
+
+cpp:boost::http::zstd::ddict[ddict]
+
+cpp:boost::http::zstd::decompress_service[decompress_service]
+
+cpp:boost::http::zstd::in_buffer[in_buffer]
+
+cpp:boost::http::zstd::out_buffer[out_buffer]
+
+**Functions**
+
+cpp:boost::http::zstd::install_compress_service[install_compress_service]
+
+cpp:boost::http::zstd::install_decompress_service[install_decompress_service]
+
+cpp:boost::http::zstd::install_zstd_service[install_zstd_service]
+
+| **Constants**
+
+cpp:boost::http::zstd::c_parameter[c_parameter]
+
+cpp:boost::http::zstd::content_size[content_size]
+
+cpp:boost::http::zstd::d_parameter[d_parameter]
+
+cpp:boost::http::zstd::end_directive[end_directive]
+
+cpp:boost::http::zstd::error[error]
+
+cpp:boost::http::zstd::reset_directive[reset_directive]
+
+cpp:boost::http::zstd::strategy[strategy]
+
+|===
+
+[width=100%]
+|===
 2+| *bcrypt* | *JSON*
 
 | **Types**
