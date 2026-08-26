@@ -167,9 +167,9 @@ operator()(route_params& rp) const
     path_cat(path, impl_->root, req_path);
 
     // Check if it's a directory
-    system::error_code fec;
+    std::error_code fec;
     bool is_dir = std::filesystem::is_directory(path, fec);
-    if(is_dir && ! fec.failed())
+    if(is_dir && ! fec)
     {
         // Check for trailing slash
         if(req_path.empty() || req_path.back() != '/')
@@ -267,7 +267,7 @@ operator()(route_params& rp) const
 
     // Open and stream the file
     file f;
-    system::error_code ec;
+    std::error_code ec;
     f.open(path.c_str(), file_mode::scan, ec);
     if(ec)
     {
@@ -284,7 +284,7 @@ operator()(route_params& rp) const
     if(info.is_range && info.range_start > 0)
     {
         f.seek(static_cast<std::uint64_t>(info.range_start), ec);
-        if(ec.failed())
+        if(ec)
         {
             rp.res.set_status(status::internal_server_error);
             auto [ec2] = co_await rp.send("Internal Server Error");
@@ -315,7 +315,7 @@ operator()(route_params& rp) const
                 static_cast<std::int64_t>(bufs[0].size())));
 
         auto const n1 = f.read(bufs[0].data(), to_read, ec);
-        if(ec.failed())
+        if(ec)
             co_return route_error(ec);
         if(n1 == 0)
             break;

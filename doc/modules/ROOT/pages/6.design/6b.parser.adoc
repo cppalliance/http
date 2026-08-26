@@ -141,7 +141,7 @@ read_some(stream& s, parser& pr, error_code& ec)
         pr.commit_eof();
         ec = {};
     }
-    else if(ec.failed())
+    else if(ec)
     {
         return;
     }
@@ -158,8 +158,8 @@ read_header(stream& s, parser& pr)
         read_some(s, pr, ec);
         if(ec == condition::need_more_input)
             continue;
-        if(ec.failed())
-            throw system::system_error(ec);
+        if(ec)
+            throw std::system_error(ec);
     }
     while(! pr.got_header());
 }
@@ -173,8 +173,8 @@ read(stream& s, parser& pr)
         read_some(s, pr, ec);
         if(ec == condition::need_more_input)
             continue;
-        if(ec.failed())
-            throw system::system_error(ec);
+        if(ec)
+            throw std::system_error(ec);
     }
     while(! pr.is_complete());
 }

@@ -9,7 +9,7 @@
 
 #include "random.hpp"
 #include <boost/http/detail/except.hpp>
-#include <boost/system/error_code.hpp>
+#include <system_error>
 
 #if defined(_WIN32)
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -90,9 +90,9 @@ fill_random(void* buf, std::size_t n)
     if (!get_rng().generate(buf, n))
     {
         http::detail::throw_system_error(
-            system::error_code(
+            std::error_code(
                 static_cast<int>(GetLastError()),
-                system::system_category()));
+                std::system_category()));
     }
 }
 
@@ -110,9 +110,9 @@ fill_random(void* buf, std::size_t n)
             if (errno == EINTR)
                 continue;
             http::detail::throw_system_error(
-                system::error_code(
+                std::error_code(
                     errno,
-                    system::system_category()));
+                    std::system_category()));
         }
         p += r;
         n -= static_cast<std::size_t>(r);
@@ -128,9 +128,9 @@ fill_random(void* buf, std::size_t n)
     if (err != errSecSuccess)
     {
         http::detail::throw_system_error(
-            system::error_code(
+            std::error_code(
                 err,
-                system::system_category()));
+                std::system_category()));
     }
 }
 
@@ -147,9 +147,9 @@ fill_random(void* buf, std::size_t n)
         if (fd < 0)
         {
             http::detail::throw_system_error(
-                system::error_code(
+                std::error_code(
                     errno,
-                    system::system_category()));
+                    std::system_category()));
         }
     }
 
@@ -162,9 +162,9 @@ fill_random(void* buf, std::size_t n)
             if (errno == EINTR)
                 continue;
             http::detail::throw_system_error(
-                system::error_code(
+                std::error_code(
                     errno,
-                    system::system_category()));
+                    std::system_category()));
         }
         if (r == 0)
         {

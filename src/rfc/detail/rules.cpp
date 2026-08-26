@@ -61,56 +61,48 @@ parse(
     if(it == end)
     {
         // expected "HTTP/"
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(end - it >= 5)
     {
         if(std::memcmp(
             it, "HTTP/", 5) != 0)
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::mismatch);
+            return grammar::error::mismatch;
         }
         it += 5;
     }
     if(it == end)
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(! grammar::digit_chars(*it))
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     v = 10 * (*it++ - '0');
     if(it == end)
     {
         // expected "."
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(*it != '.')
     {
         // expected "."
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     ++it;
     if(it == end)
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(! grammar::digit_chars(*it))
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     v += *it++ - '0';
     return v;
@@ -137,16 +129,14 @@ parse(
     if(it == end)
     {
         // end
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     auto it0 = it;
     int v = dig(*it);
     if(v == -1)
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::mismatch);
+        return grammar::error::mismatch;
     }
     value_type t;
     t.v = 100 * v;
@@ -154,30 +144,26 @@ parse(
     if(it == end)
     {
         // end
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     v = dig(*it);
     if(v == -1)
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::mismatch);
+        return grammar::error::mismatch;
     }
     t.v = t.v + (10 * v);
     ++it;
     if(it == end)
     {
         // end
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     v = dig(*it);
     if(v == -1)
     {
         // expected DIGIT
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     t.v = t.v + v;
     ++it;
@@ -211,8 +197,7 @@ parse(
         system::result<value_type>
 {
     if( it == end )
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
 
     value_type v;
 
@@ -226,7 +211,8 @@ parse(
             v = core::string_view(begin, it - begin);
             return v;
         }
-        return error::bad_field_name;
+        return make_error_code(
+            error::bad_field_name);
     }
 
     v = core::string_view(begin, end - begin);
@@ -281,15 +267,13 @@ parse(
             // too short to know if we have a potential obs-fold
             // occurrence
             if( end - it < 2 )
-                BOOST_HTTP_RETURN_EC(
-                    grammar::error::need_more);
+                return grammar::error::need_more;
 
             if( it[1] != '\n' )
                 goto done;
 
             if( end - it < 3 )
-                BOOST_HTTP_RETURN_EC(
-                    grammar::error::need_more);
+                return grammar::error::need_more;
 
             if(! ws(it[2]) )
             {
@@ -339,8 +323,7 @@ parse(
 {
     if(it == end)
     {
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     // check for leading CRLF
     if(it[0] == '\r')
@@ -348,18 +331,15 @@ parse(
         ++it;
         if(it == end)
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::need_more);
+            return grammar::error::need_more;
         }
         if(*it != '\n')
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::mismatch);
+            return grammar::error::mismatch;
         }
         // end of fields
         ++it;
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::end_of_range);
+        return grammar::error::end_of_range;
     }
 
     value_type v;

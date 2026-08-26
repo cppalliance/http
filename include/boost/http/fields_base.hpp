@@ -637,7 +637,7 @@ public:
         field id,
         core::string_view value)
     {
-        system::error_code ec;
+        std::error_code ec;
         append(id, value, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -683,7 +683,7 @@ public:
     append(
         field id,
         core::string_view value,
-        system::error_code& ec)
+        std::error_code& ec)
     {
         insert_impl(
             id,
@@ -736,7 +736,7 @@ public:
         core::string_view name,
         core::string_view value)
     {
-        system::error_code ec;
+        std::error_code ec;
         append(name, value, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -782,7 +782,7 @@ public:
     append(
         core::string_view name,
         core::string_view value,
-        system::error_code& ec)
+        std::error_code& ec)
     {
         insert_impl(
             string_to_field(name),
@@ -890,7 +890,7 @@ public:
         iterator before,
         field id,
         core::string_view value,
-        system::error_code& ec);
+        std::error_code& ec);
 
     /** Insert a header.
 
@@ -991,7 +991,7 @@ public:
         iterator before,
         core::string_view name,
         core::string_view value,
-        system::error_code& ec);
+        std::error_code& ec);
 
     //--------------------------------------------
 
@@ -1128,7 +1128,7 @@ public:
     set(
         iterator it,
         core::string_view value,
-        system::error_code& ec);
+        std::error_code& ec);
 
     /** Set a header value.
 
@@ -1171,7 +1171,7 @@ public:
         field id,
         core::string_view value)
     {
-        system::error_code ec;
+        std::error_code ec;
         set(id, value, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -1215,7 +1215,7 @@ public:
     set(
         field id,
         core::string_view value,
-        system::error_code& ec);
+        std::error_code& ec);
 
     /** Set a header value.
 
@@ -1257,7 +1257,7 @@ public:
         core::string_view name,
         core::string_view value)
     {
-        system::error_code ec;
+        std::error_code ec;
         set(name, value, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -1301,7 +1301,7 @@ public:
     set(
         core::string_view name,
         core::string_view value,
-        system::error_code& ec);
+        std::error_code& ec);
 
     //--------------------------------------------
 
@@ -1356,7 +1356,7 @@ private:
         core::string_view name,
         core::string_view value,
         std::size_t before,
-        system::error_code& ec);
+        std::error_code& ec);
 
     void
     insert_unchecked(

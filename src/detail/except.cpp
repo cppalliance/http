@@ -8,10 +8,10 @@
 //
 
 #include <boost/http/detail/except.hpp>
-#include <boost/system/system_error.hpp>
 #include <boost/version.hpp>
 #include <boost/throw_exception.hpp>
 #include <stdexcept>
+#include <system_error>
 #include <typeinfo>
 
 namespace boost {
@@ -100,11 +100,11 @@ throw_runtime_error(
 
 void
 throw_system_error(
-    system::error_code const& ec,
+    std::error_code const& ec,
     source_location const& loc)
 {
     throw_exception(
-        system::system_error(ec), loc);
+        std::system_error(ec), loc);
 }
 
 void
@@ -113,7 +113,8 @@ throw_system_error(
     source_location const& loc)
 {
     throw_exception(
-        system::system_error(e), loc);
+        std::system_error(
+            make_error_code(e)), loc);
 }
 
 } // detail

@@ -10,7 +10,7 @@
 #ifndef BOOST_HTTP_SRC_BCRYPT_RANDOM_HPP
 #define BOOST_HTTP_SRC_BCRYPT_RANDOM_HPP
 
-#include <boost/system/error_code.hpp>
+#include <system_error>
 #include <cstddef>
 
 namespace boost {

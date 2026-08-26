@@ -25,7 +25,7 @@ namespace http {
 
 struct metadata_test
 {
-    system::error_code const ok{};
+    std::error_code const ok{};
 
     // make sure that subrange correctly
     // uses the count information in

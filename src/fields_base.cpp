@@ -52,14 +52,13 @@ align_down(
 void
 verify_field_name(
     core::string_view name,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     auto rv = grammar::parse(
         name, detail::field_name_rule);
     if(rv.has_error())
     {
-        ec = BOOST_HTTP_ERR(
-            error::bad_field_name);
+        ec = error::bad_field_name;
     }
 }
 
@@ -343,7 +342,7 @@ fields_base(
     op_t op(*this);
     op.grow(s.size(), n);
     s.copy(h_.buf, s.size());
-    system::error_code ec;
+    std::error_code ec;
     // VFALCO This is using defaults?
     header_limits lim;
     h_.parse(s.size(), lim, ec);
@@ -915,7 +914,7 @@ fields_base::
 set(
     iterator it,
     core::string_view value,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     auto rv = verify_field_value(value);
     if(rv.has_error())
@@ -1039,7 +1038,7 @@ fields_base::
 set(
     field id,
     core::string_view value,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     auto rv = verify_field_value(value);
     if(rv.has_error())
@@ -1081,7 +1080,7 @@ fields_base::
 set(
     core::string_view name,
     core::string_view value,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     verify_field_name(name , ec);
     if(ec)
@@ -1133,7 +1132,7 @@ insert(
     core::string_view value)
     -> iterator
 {
-    system::error_code ec;
+    std::error_code ec;
     auto const it = insert(before, id, value, ec);
     if(ec)
         detail::throw_system_error(ec);
@@ -1146,7 +1145,7 @@ insert(
     iterator before,
     field id,
     core::string_view value,
-    system::error_code& ec)
+    std::error_code& ec)
     -> iterator
 {
     insert_impl(
@@ -1165,7 +1164,7 @@ insert(
     core::string_view value)
     -> iterator
 {
-    system::error_code ec;
+    std::error_code ec;
     insert(before, name, value, ec);
     if(ec)
         detail::throw_system_error(ec);
@@ -1178,7 +1177,7 @@ insert(
     iterator before,
     core::string_view name,
     core::string_view value,
-    system::error_code& ec)
+    std::error_code& ec)
     -> iterator
 {
     insert_impl(
@@ -1196,7 +1195,7 @@ set(
     iterator it,
     core::string_view value)
 {
-    system::error_code ec;
+    std::error_code ec;
     set(it, value, ec);
     if(ec)
         detail::throw_system_error(ec);
@@ -1248,7 +1247,7 @@ insert_impl(
     core::string_view name,
     core::string_view value,
     std::size_t before,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     verify_field_name(name, ec);
     if(ec)

@@ -12,6 +12,7 @@
 #include <boost/http/detail/except.hpp>
 #include <boost/assert.hpp>
 #include <boost/core/exchange.hpp>
+#include <cstdint>
 #include <utility>
 
 namespace boost {

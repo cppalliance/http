@@ -28,7 +28,7 @@ class win32_unicode_path
     using WCHAR_ = boost::winapi::WCHAR_;
 
 public:
-    win32_unicode_path(const char* utf8_path, system::error_code& ec) {
+    win32_unicode_path(const char* utf8_path, std::error_code& ec) {
         int ret = mb2wide(utf8_path, static_buf_.data(),
             static_buf_.size());
         if (ret == 0)
@@ -37,7 +37,7 @@ public:
             if (sz == 0)
             {
                 ec.assign(winapi::GetLastError(),
-                    system::system_category());
+                    std::system_category());
                 return;
             }
             dynamic_buf_.resize(sz);
@@ -47,7 +47,7 @@ public:
             if (ret2 == 0)
             {
                 ec.assign(winapi::GetLastError(),
-                    system::system_category());
+                    std::system_category());
                 return;
             }
         }

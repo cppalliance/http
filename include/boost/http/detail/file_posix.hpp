@@ -30,7 +30,7 @@
 
 #include <boost/http/error.hpp>
 #include <boost/http/file_mode.hpp>
-#include <boost/system/error_code.hpp>
+#include <system_error>
 #include <cstdint>
 
 namespace boost {
@@ -80,31 +80,31 @@ public:
 
     BOOST_HTTP_DECL
     void
-    close(system::error_code& ec);
+    close(std::error_code& ec);
 
     BOOST_HTTP_DECL
     void
-    open(char const* path, file_mode mode, system::error_code& ec);
+    open(char const* path, file_mode mode, std::error_code& ec);
 
     BOOST_HTTP_DECL
     std::uint64_t
-    size(system::error_code& ec) const;
+    size(std::error_code& ec) const;
 
     BOOST_HTTP_DECL
     std::uint64_t
-    pos(system::error_code& ec) const;
+    pos(std::error_code& ec) const;
 
     BOOST_HTTP_DECL
     void
-    seek(std::uint64_t offset, system::error_code& ec);
+    seek(std::uint64_t offset, std::error_code& ec);
 
     BOOST_HTTP_DECL
     std::size_t
-    read(void* buffer, std::size_t n, system::error_code& ec);
+    read(void* buffer, std::size_t n, std::error_code& ec);
 
     BOOST_HTTP_DECL
     std::size_t
-    write(void const* buffer, std::size_t n, system::error_code& ec);
+    write(void const* buffer, std::size_t n, std::error_code& ec);
 };
 
 } // detail

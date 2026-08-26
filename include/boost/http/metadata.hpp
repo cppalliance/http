@@ -12,7 +12,7 @@
 #define BOOST_HTTP_METADATA_HPP
 
 #include <boost/http/detail/config.hpp>
-#include <boost/system/error_code.hpp>
+#include <system_error>
 #include <cstdint>
 #include <cstdlib>
 
@@ -69,7 +69,7 @@ struct metadata
     {
         /** Error status of Connection.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The total number of fields.
         */
@@ -88,12 +88,9 @@ struct metadata
         bool upgrade = false;
 
     #ifdef BOOST_HTTP_AGGREGATE_WORKAROUND
-        constexpr
         connection_t() = default;
-
-        constexpr
         connection_t(
-            system::error_code ec_,
+            std::error_code ec_,
             std::size_t count_,
             bool close_,
             bool keep_alive_,
@@ -116,7 +113,7 @@ struct metadata
     {
         /** Error status of Content-Encoding.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The total number of fields.
         */
@@ -128,12 +125,9 @@ struct metadata
             content_coding::identity;
 
     #ifdef BOOST_HTTP_AGGREGATE_WORKAROUND
-        constexpr
         content_encoding_t() = default;
-
-        constexpr
         content_encoding_t(
-            system::error_code ec_,
+            std::error_code ec_,
             std::size_t count_,
             content_coding coding_) noexcept
             : ec(ec_)
@@ -152,7 +146,7 @@ struct metadata
     {
         /** Error status of Content-Length.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The total number of fields.
         */
@@ -167,12 +161,9 @@ struct metadata
         std::uint64_t value = 0;
 
     #ifdef BOOST_HTTP_AGGREGATE_WORKAROUND
-        constexpr
         content_length_t() = default;
-
-        constexpr
         content_length_t(
-            system::error_code ec_,
+            std::error_code ec_,
             std::size_t count_,
             std::uint64_t value_) noexcept
             : ec(ec_)
@@ -191,7 +182,7 @@ struct metadata
     {
         /** Error status of Expect.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The total number of fields.
         */
@@ -202,12 +193,9 @@ struct metadata
         bool is_100_continue = false;
 
     #ifdef BOOST_HTTP_AGGREGATE_WORKAROUND
-        constexpr
         expect_t() = default;
-
-        constexpr
         expect_t(
-            system::error_code ec_,
+            std::error_code ec_,
             std::size_t count_,
             bool is_100_continue_) noexcept
             : ec(ec_)
@@ -226,7 +214,7 @@ struct metadata
     {
         /** Error status of Content-Length.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The total number of fields.
         */
@@ -237,12 +225,9 @@ struct metadata
         bool is_chunked = false;
 
     #ifdef BOOST_HTTP_AGGREGATE_WORKAROUND
-        constexpr
         transfer_encoding_t() = default;
-
-        constexpr
         transfer_encoding_t(
-            system::error_code ec_,
+            std::error_code ec_,
             std::size_t count_,
             bool is_chunked_) noexcept
             : ec(ec_)
@@ -261,7 +246,7 @@ struct metadata
     {
         /** Error status of Upgrade.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The total number of fields.
         */
@@ -272,12 +257,9 @@ struct metadata
         bool websocket = false;
 
     #ifdef BOOST_HTTP_AGGREGATE_WORKAROUND
-        constexpr
         upgrade_t() = default;
-
-        constexpr
         upgrade_t(
-            system::error_code ec_,
+            std::error_code ec_,
             std::size_t count_,
             bool websocket_) noexcept
             : ec(ec_)
@@ -342,7 +324,7 @@ struct metadata
 
     /** Constructor.
     */
-    constexpr metadata() = default;
+    metadata() = default;
 };
 
 } // http

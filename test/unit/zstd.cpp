@@ -33,18 +33,18 @@ struct zstd_test
     void
     test_error_code()
     {
-        system::error_code ec = zstd::error::no_error;
+        std::error_code ec = zstd::error::no_error;
         BOOST_TEST(! ec);
-        BOOST_TEST(! ec.failed());
+        BOOST_TEST(! ec);
         BOOST_TEST_EQ(std::string(ec.category().name()), std::string("boost.http.zstd"));
 
         ec = zstd::error::corruption_detected;
-        BOOST_TEST(ec.failed());
+        BOOST_TEST(ec);
         BOOST_TEST(ec == zstd::error::corruption_detected);
         BOOST_TEST_EQ(ec.message(), "corruption_detected");
 
         ec = static_cast<zstd::error>(9999);
-        BOOST_TEST(ec.failed());
+        BOOST_TEST(ec);
         BOOST_TEST_EQ(ec.message(), "unknown");
 
         std::error_code sec = zstd::error::memory_allocation;
@@ -400,9 +400,9 @@ struct zstd_test
         BOOST_TEST(dsvc.is_error(
             dsvc.find_frame_compressed_size(garbage.data(), garbage.size())));
 
-        // the error code converts to a system::error_code
-        system::error_code ec = dsvc.get_error_code(rs);
-        BOOST_TEST(ec.failed());
+        // the error code converts to a std::error_code
+        std::error_code ec = dsvc.get_error_code(rs);
+        BOOST_TEST(ec);
         BOOST_TEST_EQ(ec.message(), "prefix_unknown");
 
         // successful results are not errors

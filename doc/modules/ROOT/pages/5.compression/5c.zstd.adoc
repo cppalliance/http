@@ -36,14 +36,14 @@ with `is_error` before using it:
 std::size_t n = compressor.compress(/* ... */);
 if (compressor.is_error(n))
 {
-    boost::system::error_code ec = compressor.get_error_code(n);
+    std::error_code ec = compressor.get_error_code(n);
     std::cerr << compressor.get_error_name(n) << '\n';
     return ec;
 }
 ----
 
-`zstd::error` is a Boost.System error enum, so an error code converts to
-`boost::system::error_code` and `std::error_code`.
+`zstd::error` is a standard error enum, so an error code converts to
+`std::error_code` and `std::error_code`.
 
 === One-Shot Compression
 

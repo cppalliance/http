@@ -68,8 +68,7 @@ parse(
 {
     if(it == end)
     {
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(*it != '\"')
     {
@@ -90,27 +89,23 @@ parse(
             it, end, qdtext_chars);
         if(it == end)
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::need_more);
+            return grammar::error::need_more;
         }
         n += static_cast<std::size_t>(it - it1);
         if(*it == '\"')
             break;
         if(*it != '\\')
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         }
         ++it;
         if(it == end)
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::need_more);
+            return grammar::error::need_more;
         }
         if(! qpchars(*it))
         {
-            BOOST_HTTP_RETURN_EC(
-                grammar::error::syntax);
+            return grammar::error::syntax;
         }
         ++it;
         ++n;

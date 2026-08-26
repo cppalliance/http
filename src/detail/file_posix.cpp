@@ -105,24 +105,24 @@ native_handle(native_handle_type fd)
 void
 file_posix::
 close(
-    system::error_code& ec)
+    std::error_code& ec)
 {
     auto const ev = native_close(fd_);
     if(ev)
         ec.assign(ev,
-            system::system_category());
+            std::system_category());
     else
         ec = {};
 }
 
 void
 file_posix::
-open(char const* path, file_mode mode, system::error_code& ec)
+open(char const* path, file_mode mode, std::error_code& ec)
 {
     auto const ev = native_close(fd_);
     if(ev)
         ec.assign(ev,
-            system::system_category());
+            std::system_category());
     else
         ec = {};
 
@@ -190,7 +190,7 @@ open(char const* path, file_mode mode, system::error_code& ec)
         if(ev != EINTR)
         {
             ec.assign(ev,
-                system::system_category());
+                std::system_category());
             return;
         }
     }
@@ -200,7 +200,7 @@ open(char const* path, file_mode mode, system::error_code& ec)
         auto const ev = errno;
         native_close(fd_);
         ec.assign(ev,
-            system::system_category());
+            std::system_category());
         return;
     }
 #endif
@@ -210,19 +210,19 @@ open(char const* path, file_mode mode, system::error_code& ec)
 std::uint64_t
 file_posix::
 size(
-    system::error_code& ec) const
+    std::error_code& ec) const
 {
     if(fd_ == -1)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     struct stat st;
     if(::fstat(fd_, &st) != 0)
     {
         ec.assign(errno,
-            system::system_category());
+            std::system_category());
         return 0;
     }
     ec = {};
@@ -232,19 +232,19 @@ size(
 std::uint64_t
 file_posix::
 pos(
-    system::error_code& ec) const
+    std::error_code& ec) const
 {
     if(fd_ == -1)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     auto const result = ::lseek(fd_, 0, SEEK_CUR);
     if(result == (::off_t)-1)
     {
         ec.assign(errno,
-            system::system_category());
+            std::system_category());
         return 0;
     }
     ec = {};
@@ -254,19 +254,19 @@ pos(
 void
 file_posix::
 seek(std::uint64_t offset,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(fd_ == -1)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return;
     }
     auto const result = ::lseek(fd_, offset, SEEK_SET);
     if(result == static_cast<::off_t>(-1))
     {
         ec.assign(errno,
-            system::system_category());
+            std::system_category());
         return;
     }
     ec = {};
@@ -275,12 +275,12 @@ seek(std::uint64_t offset,
 std::size_t
 file_posix::
 read(void* buffer, std::size_t n,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(fd_ == -1)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     std::size_t nread = 0;
@@ -299,7 +299,7 @@ read(void* buffer, std::size_t n,
             if(ev == EINTR)
                 continue;
             ec.assign(ev,
-                system::system_category());
+                std::system_category());
             return nread;
         }
         if(result == 0)
@@ -317,12 +317,12 @@ read(void* buffer, std::size_t n,
 std::size_t
 file_posix::
 write(void const* buffer, std::size_t n,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(fd_ == -1)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     std::size_t nwritten = 0;
@@ -341,7 +341,7 @@ write(void const* buffer, std::size_t n,
             if(ev == EINTR)
                 continue;
             ec.assign(ev,
-                system::system_category());
+                std::system_category());
             return nwritten;
         }
         n -= result;

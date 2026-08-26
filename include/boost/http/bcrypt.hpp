@@ -15,7 +15,7 @@
     **Tier 1 -- Synchronous** (low-level, no capy dependency):
     @code
     bcrypt::result r = bcrypt::hash("password", 12);
-    system::error_code ec;
+    std::error_code ec;
     bool ok = bcrypt::compare("password", r.str(), ec);
     @endcode
 
@@ -37,9 +37,6 @@
 #include <boost/http/detail/config.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/core/detail/string_view.hpp>
-#include <boost/system/error_category.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/system/is_error_code_enum.hpp>
 
 #include <boost/capy/continuation.hpp>
 #include <boost/capy/task.hpp>
@@ -95,14 +92,6 @@ enum class error
 } // bcrypt
 } // http
 
-namespace system {
-template<>
-struct is_error_code_enum<
-    ::boost::http::bcrypt::error>
-{
-    static bool const value = true;
-};
-} // system
 } // boost
 
 namespace std {
@@ -120,19 +109,13 @@ namespace detail {
 
 struct BOOST_SYMBOL_VISIBLE
     error_cat_type
-    : system::error_category
+    : std::error_category
 {
     BOOST_HTTP_DECL const char* name(
         ) const noexcept override;
     BOOST_HTTP_DECL std::string message(
         int) const override;
-    BOOST_HTTP_DECL char const* message(
-        int, char*, std::size_t
-            ) const noexcept override;
-    BOOST_SYSTEM_CONSTEXPR error_cat_type()
-        : error_category(0xbc8f2a4e7c193d56)
-    {
-    }
+    constexpr error_cat_type() noexcept = default;
 };
 
 BOOST_HTTP_DECL extern
@@ -141,12 +124,11 @@ BOOST_HTTP_DECL extern
 } // detail
 
 inline
-BOOST_SYSTEM_CONSTEXPR
-system::error_code
+std::error_code
 make_error_code(
     error ev) noexcept
 {
-    return system::error_code{
+    return std::error_code{
         static_cast<std::underlying_type<
             error>::type>(ev),
         detail::error_cat};
@@ -240,7 +222,7 @@ public:
 private:
     friend BOOST_HTTP_DECL result gen_salt(unsigned, version);
     friend BOOST_HTTP_DECL result hash(core::string_view, unsigned, version);
-    friend BOOST_HTTP_DECL result hash(core::string_view, core::string_view, system::error_code&);
+    friend BOOST_HTTP_DECL result hash(core::string_view, core::string_view, std::error_code&);
 
     char* buf() noexcept { return buf_; }
     void set_size(unsigned char n) noexcept
@@ -344,7 +326,7 @@ result
 hash(
     core::string_view password,
     core::string_view salt,
-    system::error_code& ec);
+    std::error_code& ec);
 
 /** Compare a password against a hash.
 
@@ -373,7 +355,7 @@ bool
 compare(
     core::string_view password,
     core::string_view hash,
-    system::error_code& ec);
+    std::error_code& ec);
 
 /** Extract the cost factor from a hash string.
 
@@ -395,7 +377,7 @@ BOOST_HTTP_DECL
 unsigned
 get_rounds(
     core::string_view hash,
-    system::error_code& ec);
+    std::error_code& ec);
 
 namespace detail {
 
@@ -507,9 +489,9 @@ compare_task(
 {
     detail::password_buf pw(password);
     detail::hash_buf hs(hash_str);
-    system::error_code ec;
+    std::error_code ec;
     bool ok = compare(pw, hs, ec);
-    if(ec.failed())
+    if(ec)
         http::detail::throw_system_error(ec);
     co_return ok;
 }

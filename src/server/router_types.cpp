@@ -16,16 +16,12 @@
 #include <boost/assert.hpp>
 #include <cstring>
 
-namespace boost {
-namespace system {
+namespace std {
 template<>
 struct is_error_code_enum<
     ::boost::http::route_what>
-{
-    static bool const value = true;
-};
-} // system
-} // boost
+    : std::true_type {};
+} // std
 
 namespace boost {
 namespace http {
@@ -33,12 +29,9 @@ namespace http {
 namespace {
 
 struct route_what_cat_type
-    : system::error_category
+    : std::error_category
 {
-    constexpr route_what_cat_type()
-        : error_category(0x7a8b3c4d5e6f1029)
-    {
-    }
+    constexpr route_what_cat_type() noexcept = default;
 
     const char* name() const noexcept override
     {
@@ -46,14 +39,6 @@ struct route_what_cat_type
     }
 
     std::string message(int code) const override
-    {
-        return message(code, nullptr, 0);
-    }
-
-    char const* message(
-        int code,
-        char*,
-        std::size_t) const noexcept override
     {
         switch(static_cast<route_what>(code))
         {
@@ -72,11 +57,11 @@ route_what_cat_type route_what_cat;
 
 } // (anon)
 
-system::error_code
+std::error_code
 make_error_code(
     route_what w) noexcept
 {
-    return system::error_code{
+    return std::error_code{
         static_cast<int>(w), route_what_cat};
 }
 
@@ -84,10 +69,10 @@ make_error_code(
 
 route_result::
 route_result(
-    system::error_code ec)
+    std::error_code ec)
     : ec_(ec)
 {
-    if(! ec.failed())
+    if(! ec)
         detail::throw_invalid_argument();
 }
 
@@ -103,7 +88,7 @@ route_result::
 what() const noexcept ->
     route_what
 {
-    if(! ec_.failed())
+    if(! ec_)
         return route_what::done;    
     if(&ec_.category() != &route_what_cat)
         return route_what::error;
@@ -118,7 +103,7 @@ what() const noexcept ->
 auto
 route_result::
 error() const noexcept ->
-    system::error_code
+    std::error_code
 {
     if(&ec_.category() != &route_what_cat)
         return ec_;

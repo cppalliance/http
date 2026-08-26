@@ -13,7 +13,7 @@
 
 #include <boost/capy/buffers.hpp>
 #include <boost/core/span.hpp>
-#include <boost/system/error_code.hpp>
+#include <system_error>
 
 #include <array>
 
@@ -34,7 +34,7 @@ public:
     {
         /** The error, if any occurred.
         */
-        system::error_code ec;
+        std::error_code ec;
 
         /** The number of bytes produced in the output.
 

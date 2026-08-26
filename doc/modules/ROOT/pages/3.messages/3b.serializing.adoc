@@ -36,7 +36,7 @@ while (!sr.is_done())
 {
     auto result = sr.prepare();
     if (!result)
-        throw system::system_error(result.error());
+        throw std::system_error(result.error());
 
     co_await socket.write(*result);
     sr.consume(capy::buffer_size(*result));
@@ -260,7 +260,7 @@ while (!sr.is_done())
     }
 
     if (!result)
-        throw system::system_error(result.error());
+        throw std::system_error(result.error());
 
     co_await socket.write(*result);
     sr.consume(capy::buffer_size(*result));

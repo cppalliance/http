@@ -58,7 +58,7 @@ auto buf = pr.prepare();
 std::size_t n = socket.read_some(buf);
 pr.commit(n);
 
-system::error_code ec;
+std::error_code ec;
 pr.parse(ec);
 
 // 6. Check result
@@ -120,11 +120,11 @@ while (!pr.got_header())
     std::size_t n = socket.read_some(buf);
     pr.commit(n);
     
-    system::error_code ec;
+    std::error_code ec;
     pr.parse(ec);
     
     if (ec && ec != condition::need_more_input)
-        throw system::system_error(ec);
+        throw std::system_error(ec);
 }
 
 // Access the parsed request
@@ -152,10 +152,10 @@ while (!pr.is_complete())
     std::size_t n = socket.read_some(buf);
     pr.commit(n);
     
-    system::error_code ec;
+    std::error_code ec;
     pr.parse(ec);
     if (ec && ec != condition::need_more_input)
-        throw system::system_error(ec);
+        throw std::system_error(ec);
 }
 
 // Access the complete body
@@ -176,10 +176,10 @@ while (!pr.is_complete())
     std::size_t n = socket.read_some(buf);
     pr.commit(n);
     
-    system::error_code ec;
+    std::error_code ec;
     pr.parse(ec);
     if (ec && ec != condition::need_more_input)
-        throw system::system_error(ec);
+        throw std::system_error(ec);
     
     // Process available body data
     auto body_bufs = pr.pull_body();
@@ -252,13 +252,13 @@ while (connection_open)
         }
         pr.commit(n);
         
-        system::error_code ec;
+        std::error_code ec;
         pr.parse(ec);
         
         if (ec == error::end_of_stream)
             break;  // Clean connection close
         if (ec && ec != condition::need_more_input)
-            throw system::system_error(ec);
+            throw std::system_error(ec);
     }
     
     // Process the request
@@ -268,11 +268,11 @@ while (connection_open)
 
 == Error Handling
 
-The parser reports errors through `system::error_code`:
+The parser reports errors through `std::error_code`:
 
 [source,cpp]
 ----
-system::error_code ec;
+std::error_code ec;
 pr.parse(ec);
 
 if (ec == condition::need_more_input)
