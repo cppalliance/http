@@ -21,26 +21,9 @@ name() const noexcept
     return "boost.http.brotli";
 }
 
-bool
-error_cat_type::
-failed(int ev) const noexcept
-{
-    return ev < 0;
-}
-
 std::string
 error_cat_type::
 message(int ev) const
-{
-    return message(ev, nullptr, 0);
-}
-
-char const*
-error_cat_type::
-message(
-    int ev,
-    char*,
-    std::size_t) const noexcept
 {
     switch(static_cast<error>(ev))
     {

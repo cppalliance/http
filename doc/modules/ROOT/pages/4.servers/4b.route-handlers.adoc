@@ -111,7 +111,7 @@ And for errors:
 
 [source,cpp]
 ----
-co_return route_error(ec);  // from a system::error_code
+co_return route_error(ec);  // from a std::error_code
 ----
 
 These five outcomes cover every situation a handler can encounter. Most
@@ -620,7 +620,7 @@ takes two parameters:
 ----
 route_task my_error_handler(
     route_params& rp,
-    system::error_code ec)
+    std::error_code ec)
 {
     rp.status(status::internal_server_error);
     rp.res.set(field::content_type, "text/plain");
@@ -641,7 +641,7 @@ router.use(my_error_handler);
 
 // Error handler scoped to /api routes
 router.use("/api",
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);
@@ -655,7 +655,7 @@ router.use("/api",
 The router distinguishes regular handlers from error handlers by
 inspecting their signature at compile time. A callable that accepts
 `(route_params&)` is a regular handler. A callable that accepts
-`(route_params&, system::error_code)` is an error handler. They
+`(route_params&, std::error_code)` is an error handler. They
 can coexist in the same `use()` call.
 
 === Error Propagation
@@ -669,7 +669,7 @@ processing:
 ----
 // Log the error, then pass it along
 router.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         std::cerr << "Error: " << ec.message() << "\n";
@@ -678,7 +678,7 @@ router.use(
 
 // Send a user-facing response
 router.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);
@@ -700,7 +700,7 @@ web frontend returns HTML:
 [source,cpp]
 ----
 router.use("/api",
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);
@@ -711,7 +711,7 @@ router.use("/api",
     });
 
 router.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);

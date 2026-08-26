@@ -415,7 +415,7 @@ struct fields_base_test
             {
                 BOOST_TEST_THROWS(
                     f.append(field::server, "bad\r\nvalue"),
-                    system::system_error);
+                    std::system_error);
             },
             "\r\n");
 
@@ -508,14 +508,14 @@ struct fields_base_test
             "\r\n",
             [](fields_base& f)
             {
-                system::error_code ec;
+                std::error_code ec;
 
                 // ends with invalid obs-fold
                 f.append("X", "AB\r\n C  \r\n", ec);
                 BOOST_TEST(ec == error::bad_field_value);
                 BOOST_TEST_THROWS(
                     f.append("X", "AB\r\n C  \r\n"),
-                    system::system_error);
+                    std::system_error);
 
                 // contains invalid obs-fold between {AB, C}
                 ec = {};
@@ -578,7 +578,7 @@ struct fields_base_test
             [](fields_base& f)
             {
                 {
-                    system::error_code ec;
+                    std::error_code ec;
                     auto it = f.insert(f.find("T"), field::server, "x", ec);
                     BOOST_TEST(!ec);
                     BOOST_TEST(it == f.find(field::server));
@@ -600,7 +600,7 @@ struct fields_base_test
             [](fields_base& f)
             {
                 {
-                    system::error_code ec;
+                    std::error_code ec;
                     auto pos = f.find("T");
                     auto it = f.insert(f.find("U"), field::server, "x", ec);
                     BOOST_TEST(!ec);
@@ -626,12 +626,12 @@ struct fields_base_test
             "\r\n",
             [](fields_base& f)
             {
-                system::error_code ec;
+                std::error_code ec;
                 f.insert(f.find("U"), field::server, "a\r\nb", ec);
                 BOOST_TEST(ec);
                 BOOST_TEST_THROWS(
                     f.insert(f.find("U"), field::server, "a\r\nb"),
-                    system::system_error);
+                    std::system_error);
             });
 
         // insert(iterator, string_view, string_view)
@@ -670,13 +670,13 @@ struct fields_base_test
             "\r\n",
             [](fields_base& f)
             {
-                system::error_code ec;
+                std::error_code ec;
 
                 f.insert(f.find("U"), "Ser ver", "x", ec);
                 BOOST_TEST(ec == error::bad_field_name);
                 BOOST_TEST_THROWS(
                     f.insert(f.find("U"), "Ser ver", "x"),
-                    system::system_error);
+                    std::system_error);
 
                 ec = {};
                 f.insert(f.find("U"), " Server", "x", ec);
@@ -935,7 +935,7 @@ struct fields_base_test
             [](fields_base& f)
             {
                 f.set(f.find("T"), "2");
-                system::error_code ec;
+                std::error_code ec;
                 f.set(f.find("T"), "2", ec);
                 BOOST_TEST(!ec);
             },
@@ -977,12 +977,12 @@ struct fields_base_test
             "\r\n",
             [](fields_base& f)
             {
-                system::error_code ec;
+                std::error_code ec;
                 f.set(f.find("T"), "\r\n", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_value);
                 BOOST_TEST_THROWS(
                     f.set(f.find("T"), "\r\n"),
-                    system::system_error);
+                    std::system_error);
 
                 ec = {};
                 f.set(
@@ -994,7 +994,7 @@ struct fields_base_test
                     f.set(
                         f.find("T"),
                         "abcdefghijk\r\nlmnopqrstuvwxyz"),
-                    system::system_error);
+                    std::system_error);
             });
 
         // set(field, string_view)
@@ -1004,7 +1004,7 @@ struct fields_base_test
             [](fields_base& f)
             {
                 f.set(field::server, "x");
-                system::error_code ec;
+                std::error_code ec;
                 f.set(field::server, "x");
                 BOOST_TEST(!ec);
             },
@@ -1055,7 +1055,7 @@ struct fields_base_test
             [](fields_base& f)
             {
                 f.set(field::server, "\r\n x\r\n yz \r\n \r\n\t");
-                system::error_code ec;
+                std::error_code ec;
                 f.set(field::server, "\r\n x\r\n yz \r\n \r\n\t", ec);
                 BOOST_TEST(!ec);
             },
@@ -1067,19 +1067,19 @@ struct fields_base_test
             "\r\n",
             [](fields_base& f)
             {
-                system::error_code ec;
+                std::error_code ec;
                 f.set(field::server, "\r\n x\r\nyz \r\n \r\n\t", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_smuggle);
                 BOOST_TEST_THROWS(
                     f.set(field::server, "\r\n x\r\nyz \r\n \r\n\t"),
-                    system::system_error);
+                    std::system_error);
 
                 ec = {};
                 f.set(field::server, "yz\r\n\x01\x02\x03", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_smuggle);
                 BOOST_TEST_THROWS(
                     f.set(field::server, "yz\r\n\x01\x02\x03"),
-                    system::system_error);
+                    std::system_error);
             });
 
         // set(string_view, string_view)
@@ -1173,33 +1173,33 @@ struct fields_base_test
             "\r\n",
             [](fields_base& f)
             {
-                system::error_code ec;
+                std::error_code ec;
                 f.set(" invalid string", "valid string", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_name);
                 BOOST_TEST_THROWS(
                     f.set(" invalid string", "valid string"),
-                    system::system_error);
+                    std::system_error);
 
                 ec = {};
                 f.set("invalid\r\n string", "valid string", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_name);
                 BOOST_TEST_THROWS(
                     f.set("invalid\r\n string", "valid string"),
-                    system::system_error);
+                    std::system_error);
 
                 ec = {};
                 f.set("valid", "\r\ninvalid string", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_smuggle);
                 BOOST_TEST_THROWS(
                     f.set("valid", "\r\ninvalid string"),
-                    system::system_error);
+                    std::system_error);
 
                 ec = {};
                 f.set("valid", "invalid\x01\x02\r\nstring", ec);
                 BOOST_TEST_EQ(ec, error::bad_field_value);
                 BOOST_TEST_THROWS(
                     f.set("valid", "\r\ninvalid string"),
-                    system::system_error);
+                    std::system_error);
             });
     }
 
@@ -1264,7 +1264,7 @@ struct fields_base_test
                 response const res(s);
                 BOOST_TEST_EQ(
                     res.metadata().expect.ec,
-                    system::error_code());
+                    std::error_code());
                 BOOST_TEST_EQ(
                     res.metadata().expect.count,
                     res.count(field::expect));

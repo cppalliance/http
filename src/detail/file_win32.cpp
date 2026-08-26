@@ -13,7 +13,7 @@
 
 #include "src/detail/win32_unicode_path.hpp"
 #include <boost/core/exchange.hpp>
-#include <boost/system/errc.hpp>
+#include <system_error>
 #include <boost/winapi/access_rights.hpp>
 #include <boost/winapi/error_codes.hpp>
 #include <boost/winapi/get_last_error.hpp>
@@ -91,14 +91,14 @@ native_handle(native_handle_type h)
 void
 file_win32::
 close(
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(h_ != winapi::INVALID_HANDLE_VALUE_)
     {
         if(! winapi::CloseHandle(h_))
             ec.assign(
                 winapi::GetLastError(),
-                system::system_category());
+                std::system_category());
         else
             ec = {};
         h_ = winapi::INVALID_HANDLE_VALUE_;
@@ -112,7 +112,7 @@ close(
 void
 file_win32::
 open(char const* path, file_mode mode,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(h_ != winapi::INVALID_HANDLE_VALUE_)
     {
@@ -201,7 +201,7 @@ open(char const* path, file_mode mode,
     if (h_ == winapi::INVALID_HANDLE_VALUE_)
     {
         ec.assign(winapi::GetLastError(),
-            system::system_category());
+            std::system_category());
         return;
     }
     if (mode == file_mode::append ||
@@ -213,7 +213,7 @@ open(char const* path, file_mode mode,
             winapi::FILE_END_))
         {
             ec.assign(winapi::GetLastError(),
-                system::system_category());
+                std::system_category());
             winapi::CloseHandle(h_);
             h_ = winapi::INVALID_HANDLE_VALUE_;
             return;
@@ -225,19 +225,19 @@ open(char const* path, file_mode mode,
 std::uint64_t
 file_win32::
 size(
-    system::error_code& ec) const
+    std::error_code& ec) const
 {
     if(h_ == winapi::INVALID_HANDLE_VALUE_)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     winapi::LARGE_INTEGER_ fileSize;
     if(! winapi::GetFileSizeEx(h_, &fileSize))
     {
         ec.assign(winapi::GetLastError(),
-            system::system_category());
+            std::system_category());
         return 0;
     }
     ec = {};
@@ -247,12 +247,12 @@ size(
 std::uint64_t
 file_win32::
 pos(
-    system::error_code& ec) const
+    std::error_code& ec) const
 {
     if(h_ == winapi::INVALID_HANDLE_VALUE_)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     winapi::LARGE_INTEGER_ in;
@@ -262,7 +262,7 @@ pos(
         winapi::FILE_CURRENT_))
     {
         ec.assign(winapi::GetLastError(),
-            system::system_category());
+            std::system_category());
         return 0;
     }
     ec = {};
@@ -272,12 +272,12 @@ pos(
 void
 file_win32::
 seek(std::uint64_t offset,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(h_ == winapi::INVALID_HANDLE_VALUE_)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return;
     }
     winapi::LARGE_INTEGER_ in;
@@ -286,7 +286,7 @@ seek(std::uint64_t offset,
         winapi::FILE_BEGIN_))
     {
         ec.assign(winapi::GetLastError(),
-            system::system_category());
+            std::system_category());
         return;
     }
     ec = {};
@@ -295,12 +295,12 @@ seek(std::uint64_t offset,
 std::size_t
 file_win32::
 read(void* buffer, std::size_t n,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(h_ == winapi::INVALID_HANDLE_VALUE_)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     std::size_t nread = 0;
@@ -320,7 +320,7 @@ read(void* buffer, std::size_t n,
             auto const dwError = winapi::GetLastError();
             if(dwError != winapi::ERROR_HANDLE_EOF_)
                 ec.assign(dwError,
-                    system::system_category());
+                    std::system_category());
             else
                 ec = {};
             return nread;
@@ -338,12 +338,12 @@ read(void* buffer, std::size_t n,
 std::size_t
 file_win32::
 write(void const* buffer, std::size_t n,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     if(h_ == winapi::INVALID_HANDLE_VALUE_)
     {
         ec = make_error_code(
-            system::errc::bad_file_descriptor);
+            std::errc::bad_file_descriptor);
         return 0;
     }
     std::size_t nwritten = 0;
@@ -363,7 +363,7 @@ write(void const* buffer, std::size_t n,
             auto const dwError = winapi::GetLastError();
             if(dwError != winapi::ERROR_HANDLE_EOF_)
                 ec.assign(dwError,
-                    system::system_category());
+                    std::system_category());
             else
                 ec = {};
             return nwritten;

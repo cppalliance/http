@@ -31,7 +31,7 @@ struct zlib_test
     test_error_code()
     {
         // TODO
-        boost::system::error_code ec{ zlib::error::buf_err };
+        std::error_code ec{ zlib::error::buf_err };
     }
 
     void

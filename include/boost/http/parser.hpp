@@ -200,7 +200,7 @@ public:
     BOOST_HTTP_DECL
     void
     parse(
-        system::error_code& ec);
+        std::error_code& ec);
 
     /** Set maximum body size for the current message.
 
@@ -541,7 +541,7 @@ capy::io_task<>
 parser::
 read_header(Stream& stream)
 {
-    system::error_code ec;
+    std::error_code ec;
     for(;;)
     {
         parse(ec);
@@ -569,7 +569,7 @@ capy::io_task<>
 parser::
 read(Stream& stream)
 {
-    system::error_code ec;
+    std::error_code ec;
     for(;;)
     {
         parse(ec);
@@ -608,7 +608,7 @@ read(Stream& stream, MB buffers)
 
     for(;;)
     {
-        system::error_code ec;
+        std::error_code ec;
         parse(ec);
 
         if(got_header())
@@ -672,7 +672,7 @@ pull(std::span<capy::const_buffer> dest)
 
     for(;;)
     {
-        system::error_code ec;
+        std::error_code ec;
         pr_->parse(ec);
 
         auto body_data = pr_->pull_body();
@@ -722,7 +722,7 @@ read(capy::ReadStream auto& stream, Sink&& sink)
 {
     for(;;)
     {
-        system::error_code ec;
+        std::error_code ec;
         parse(ec);
 
         if(got_header())

@@ -148,9 +148,9 @@ private:
     struct request_tag {};
     struct response_tag {};
 
-    constexpr header(fields_tag) noexcept;
-    constexpr header(request_tag) noexcept;
-    constexpr header(response_tag) noexcept;
+    header(fields_tag) noexcept;
+    header(request_tag) noexcept;
+    header(response_tag) noexcept;
 
 public:
     // in fields_base.hpp
@@ -219,7 +219,7 @@ public:
     void parse(
         std::size_t,
         header_limits const&,
-        system::error_code&) noexcept;
+        std::error_code&) noexcept;
 };
 
 } // detail

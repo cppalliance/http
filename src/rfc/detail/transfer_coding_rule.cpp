@@ -35,14 +35,12 @@ transfer_parameter_rule_t::parse(
     if(it == end)
     {
         it = it0;
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(*it != ';')
     {
         it = it0;
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::mismatch);
+        return grammar::error::mismatch;
     }
     ++it;
     // OWS
@@ -63,14 +61,12 @@ transfer_parameter_rule_t::parse(
     if(it == end)
     {
         it = it0;
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::need_more);
+        return grammar::error::need_more;
     }
     if(*it != '=')
     {
         it = it0;
-        BOOST_HTTP_RETURN_EC(
-            grammar::error::syntax);
+        return grammar::error::syntax;
     }
     ++it;
     // BWS

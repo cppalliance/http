@@ -39,7 +39,7 @@ struct request_parser_test
                 s.data(), n);
             pr.commit(n);
             s.remove_prefix(n);
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             if(ec == error::end_of_message
                 || ! ec)
@@ -75,7 +75,7 @@ struct request_parser_test
                 s.data(), n);
             pr.commit(n);
             s.remove_prefix(n);
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             if(ec == condition::need_more_input)
                 continue;
@@ -147,7 +147,7 @@ struct request_parser_test
             std::memcpy(
                 b.data(), s.data(), n);
             pr.commit(n);
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             BOOST_TEST(! ec);
             //BOOST_TEST(pr.is_done());
@@ -170,7 +170,7 @@ struct request_parser_test
             std::memcpy(
                 b.data(), s.data(), n);
             pr.commit(n);
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             if(! BOOST_TEST(
                 ec == condition::need_more_input))

@@ -26,8 +26,7 @@
 #include <boost/http/io/any_buffer_source.hpp>
 #include <boost/http/io/any_buffer_sink.hpp>
 #include <boost/url/url_view.hpp>
-#include <boost/system/error_category.hpp>
-#include <boost/system/error_code.hpp>
+#include <system_error>
 #include <concepts>
 #include <exception>
 #include <memory>
@@ -105,12 +104,12 @@ enum class route_what
 class BOOST_HTTP_DECL
     route_result
 {
-    system::error_code ec_;
+    std::error_code ec_;
 
     template<route_what T>
     struct what_t {};
 
-    route_result(system::error_code ec);
+    route_result(std::error_code ec);
     void set(route_what w);
 
 public:
@@ -172,7 +171,7 @@ public:
     */
     auto
     error() const noexcept ->
-        system::error_code;
+        std::error_code;
 
     /** Return true if the result indicates an error.
 
@@ -187,12 +186,12 @@ public:
     static constexpr route_result::what_t<route_what::next> route_next{};
     static constexpr route_result::what_t<route_what::next_route> route_next_route{};
     static constexpr route_result::what_t<route_what::close> route_close{};
-    friend route_result route_error(system::error_code ec) noexcept;
+    friend route_result route_error(std::error_code ec) noexcept;
 
     template<class E>
     friend auto route_error(E e) noexcept ->
         std::enable_if_t<
-            system::is_error_code_enum<E>::value,
+            std::is_error_code_enum<E>::value,
             route_result>;
 };
 
@@ -276,7 +275,7 @@ inline constexpr decltype(auto) route_close = route_result::route_close;
 
     @throw std::invalid_argument if `!ec` (non-failing code).
 */
-inline route_result route_error(system::error_code ec) noexcept
+inline route_result route_error(std::error_code ec) noexcept
 {
     return route_result(ec);
 }
@@ -291,7 +290,7 @@ inline route_result route_error(system::error_code ec) noexcept
 template<class E>
 auto route_error(E e) noexcept ->
     std::enable_if_t<
-        system::is_error_code_enum<E>::value,
+        std::is_error_code_enum<E>::value,
         route_result>
 {
     return route_result(make_error_code(e));
@@ -341,7 +340,7 @@ struct route_params_base_privates
 {
     std::string verb_str_;
     std::string decoded_path_;
-    system::error_code ec_;
+    std::error_code ec_;
     std::exception_ptr ep_;
     std::size_t pos_ = 0;
     std::size_t resume_ = 0;

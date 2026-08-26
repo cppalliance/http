@@ -96,14 +96,14 @@ struct bcrypt_test
     test_error_code()
     {
         // Test error codes can be created
-        system::error_code ec1 = bcrypt::make_error_code(bcrypt::error::ok);
+        std::error_code ec1 = bcrypt::make_error_code(bcrypt::error::ok);
         BOOST_TEST(! ec1);
 
-        system::error_code ec2 = bcrypt::make_error_code(bcrypt::error::invalid_salt);
+        std::error_code ec2 = bcrypt::make_error_code(bcrypt::error::invalid_salt);
         BOOST_TEST(ec2);
         BOOST_TEST(ec2.message() == "invalid salt");
 
-        system::error_code ec3 = bcrypt::make_error_code(bcrypt::error::invalid_hash);
+        std::error_code ec3 = bcrypt::make_error_code(bcrypt::error::invalid_hash);
         BOOST_TEST(ec3);
         BOOST_TEST(ec3.message() == "invalid hash");
     }
@@ -174,7 +174,7 @@ struct bcrypt_test
 
         // Generate salt, then hash
         {
-            system::error_code ec;
+            std::error_code ec;
             bcrypt::result h = bcrypt::hash("password", salt.str(), ec);
             BOOST_TEST(! ec);
             BOOST_TEST(h.size() == 60);
@@ -182,11 +182,11 @@ struct bcrypt_test
 
         // Same password + salt = same hash
         {
-            system::error_code ec1;
+            std::error_code ec1;
             bcrypt::result hash1 = bcrypt::hash("password", salt.str(), ec1);
             BOOST_TEST(! ec1);
 
-            system::error_code ec2;
+            std::error_code ec2;
             bcrypt::result hash2 = bcrypt::hash("password", salt.str(), ec2);
             BOOST_TEST(! ec2);
 
@@ -195,7 +195,7 @@ struct bcrypt_test
 
         // Invalid salt
         {
-            system::error_code ec;
+            std::error_code ec;
             bcrypt::result h = bcrypt::hash("password", "invalid", ec);
             BOOST_TEST(ec == bcrypt::error::invalid_salt);
             BOOST_TEST(h.empty());
@@ -203,7 +203,7 @@ struct bcrypt_test
 
         // Malformed salt
         {
-            system::error_code ec;
+            std::error_code ec;
             bcrypt::result h = bcrypt::hash("password", "$2b$04$", ec);
             BOOST_TEST(ec == bcrypt::error::invalid_salt);
             BOOST_TEST(h.empty());
@@ -217,7 +217,7 @@ struct bcrypt_test
 
         // Correct password
         {
-            system::error_code ec;
+            std::error_code ec;
             bool match = bcrypt::compare("correct_password", r.str(), ec);
             BOOST_TEST(! ec);
             BOOST_TEST(match);
@@ -225,7 +225,7 @@ struct bcrypt_test
 
         // Wrong password
         {
-            system::error_code ec;
+            std::error_code ec;
             bool match = bcrypt::compare("wrong_password", r.str(), ec);
             BOOST_TEST(! ec);
             BOOST_TEST(! match);
@@ -233,7 +233,7 @@ struct bcrypt_test
 
         // Empty password (should not match)
         {
-            system::error_code ec;
+            std::error_code ec;
             bool match = bcrypt::compare("", r.str(), ec);
             BOOST_TEST(! ec);
             BOOST_TEST(! match);
@@ -241,7 +241,7 @@ struct bcrypt_test
 
         // Invalid hash
         {
-            system::error_code ec;
+            std::error_code ec;
             bool match = bcrypt::compare("password", "invalid", ec);
             BOOST_TEST(ec == bcrypt::error::invalid_hash);
             BOOST_TEST(! match);
@@ -249,7 +249,7 @@ struct bcrypt_test
 
         // Malformed hash (wrong length)
         {
-            system::error_code ec;
+            std::error_code ec;
             bool match = bcrypt::compare("password", "$2b$04$abcdefghij", ec);
             BOOST_TEST(ec == bcrypt::error::invalid_hash);
             BOOST_TEST(! match);
@@ -261,7 +261,7 @@ struct bcrypt_test
     {
         // Valid hash
         {
-            system::error_code ec;
+            std::error_code ec;
             unsigned rounds = bcrypt::get_rounds(
                 "$2b$12$abcdefghijklmnopqrstuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ec);
             BOOST_TEST(! ec);
@@ -270,7 +270,7 @@ struct bcrypt_test
 
         // Different versions
         {
-            system::error_code ec;
+            std::error_code ec;
             unsigned rounds = bcrypt::get_rounds(
                 "$2a$10$abcdefghijklmnopqrstuuxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", ec);
             BOOST_TEST(! ec);
@@ -279,7 +279,7 @@ struct bcrypt_test
 
         // Invalid format
         {
-            system::error_code ec;
+            std::error_code ec;
             unsigned rounds = bcrypt::get_rounds("invalid", ec);
             BOOST_TEST(ec == bcrypt::error::invalid_hash);
             BOOST_TEST(rounds == 0);
@@ -287,7 +287,7 @@ struct bcrypt_test
 
         // Missing prefix
         {
-            system::error_code ec;
+            std::error_code ec;
             unsigned rounds = bcrypt::get_rounds("2b$10$abc", ec);
             BOOST_TEST(ec == bcrypt::error::invalid_hash);
             BOOST_TEST(rounds == 0);
@@ -301,7 +301,7 @@ struct bcrypt_test
 
         // U*U with all-C salt
         {
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(bcrypt::compare("U*U",
                 "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW", ec));
             BOOST_TEST(! ec);
@@ -309,7 +309,7 @@ struct bcrypt_test
 
         // Empty password
         {
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(bcrypt::compare("",
                 "$2a$06$DCq7YPn5Rq63x1Lad4cll.TV4S6ytwfsfvkgY8jIucDrjc8deX1s.", ec));
             BOOST_TEST(! ec);
@@ -317,7 +317,7 @@ struct bcrypt_test
 
         // Test that wrong password fails
         {
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(! bcrypt::compare("wrong",
                 "$2a$05$CCCCCCCCCCCCCCCCCCCCC.E5YPO9kmyuRGyh0XouQYb4YMJKvyOeW", ec));
             BOOST_TEST(! ec);
@@ -333,11 +333,11 @@ struct bcrypt_test
 
         bcrypt::result salt = bcrypt::gen_salt(4);
 
-        system::error_code ec1;
+        std::error_code ec1;
         bcrypt::result r1 = bcrypt::hash(long_pw, salt.str(), ec1);
         BOOST_TEST(! ec1);
 
-        system::error_code ec2;
+        std::error_code ec2;
         bcrypt::result r2 = bcrypt::hash(truncated_pw, salt.str(), ec2);
         BOOST_TEST(! ec2);
 

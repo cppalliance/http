@@ -130,7 +130,7 @@ public:
         @param ec Set to the error, if any occurred.
     */
     void
-    close(system::error_code& ec)
+    close(std::error_code& ec)
     {
         impl_.close(ec);
     }
@@ -149,7 +149,7 @@ public:
     void
     close()
     {
-        system::error_code ec;
+        std::error_code ec;
         impl_.close(ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -167,7 +167,7 @@ public:
             @ref file_mode.
     */
     void
-    open(char const* path, file_mode mode, system::error_code& ec)
+    open(char const* path, file_mode mode, std::error_code& ec)
     {
         impl_.open(path, mode, ec);
     }
@@ -190,7 +190,7 @@ public:
     void
     open(char const* path, file_mode mode)
     {
-        system::error_code ec;
+        std::error_code ec;
         impl_.open(path, mode, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -201,7 +201,7 @@ public:
         @param ec Set to the error, if any occurred.
     */
     std::uint64_t
-    size(system::error_code& ec) const
+    size(std::error_code& ec) const
     {
         return impl_.size(ec);
     }
@@ -217,7 +217,7 @@ public:
     std::uint64_t
     size() const
     {
-        system::error_code ec;
+        std::error_code ec;
         auto r = impl_.size(ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -229,7 +229,7 @@ public:
         @param ec Set to the error, if any occurred.
     */
     std::uint64_t
-    pos(system::error_code& ec) const
+    pos(std::error_code& ec) const
     {
         return impl_.pos(ec);
     }
@@ -245,7 +245,7 @@ public:
     std::uint64_t
     pos() const
     {
-        system::error_code ec;
+        std::error_code ec;
         auto r = impl_.pos(ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -259,7 +259,7 @@ public:
         @param ec Set to the error, if any occurred.
     */
     void
-    seek(std::uint64_t offset, system::error_code& ec)
+    seek(std::uint64_t offset, std::error_code& ec)
     {
         impl_.seek(offset, ec);
     }
@@ -277,7 +277,7 @@ public:
     void
     seek(std::uint64_t offset)
     {
-        system::error_code ec;
+        std::error_code ec;
         impl_.seek(offset, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -296,7 +296,7 @@ public:
         @param ec Set to the error, if any occurred.
     */
     std::size_t
-    read(void* buffer, std::size_t n, system::error_code& ec)
+    read(void* buffer, std::size_t n, std::error_code& ec)
     {
         return impl_.read(buffer, n, ec);
     }
@@ -319,7 +319,7 @@ public:
     std::size_t
     read(void* buffer, std::size_t n)
     {
-        system::error_code ec;
+        std::error_code ec;
         auto r = impl_.read(buffer, n, ec);
         if(ec)
             detail::throw_system_error(ec);
@@ -339,7 +339,7 @@ public:
         @param ec Set to the error, if any occurred.
     */
     std::size_t
-    write(void const* buffer, std::size_t n, system::error_code& ec)
+    write(void const* buffer, std::size_t n, std::error_code& ec)
     {
         return impl_.write(buffer, n, ec);
     }
@@ -361,7 +361,7 @@ public:
     std::size_t
     write(void const* buffer, std::size_t n)
     {
-        system::error_code ec;
+        std::error_code ec;
         auto r = impl_.write(buffer, n, ec);
         if(ec)
             detail::throw_system_error(ec);

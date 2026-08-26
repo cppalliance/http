@@ -145,7 +145,7 @@ public:
         int mem_level)
         : svc_(svc)
     {
-        system::error_code ec = static_cast<http::zlib::error>(svc_.init2(
+        std::error_code ec = static_cast<http::zlib::error>(svc_.init2(
             strm_,
             comp_level,
             http::zlib::deflated,
@@ -351,8 +351,7 @@ public:
 
             needs_exp100_continue_ = false;
 
-            BOOST_HTTP_RETURN_EC(
-                error::expect_100_continue);
+            return error::expect_100_continue;
         }
 
         if(!filter_)
@@ -364,8 +363,7 @@ public:
 
             case style::stream:
                 if(out_.size() == 0 && is_header_done() && more_input_)
-                    BOOST_HTTP_RETURN_EC(
-                        error::need_data);
+                    return error::need_data;
                 break;
             }
         }
@@ -428,8 +426,7 @@ public:
                 }
 
                 if(out_.size() == 0 && is_header_done() && more_input_)
-                    BOOST_HTTP_RETURN_EC(
-                        error::need_data);
+                    return error::need_data;
                 break;
             }
             }

@@ -94,9 +94,9 @@ while (! in.empty())
 }
 pr.commit_eof();
 
-system::error_code ec;
+std::error_code ec;
 pr.parse(ec);
-BOOST_TEST(! ec.failed());
+BOOST_TEST(! ec);
 BOOST_TEST(pr.is_complete());
 BOOST_TEST_EQ(pr.get().status(), status::ok);
 ----

@@ -556,7 +556,7 @@ api.add(method::get, "/fragile",
 router<> app;
 app.use("/api", std::move(api));
 app.use(
-    [](route_params& rp, system::error_code ec) -> route_task
+    [](route_params& rp, std::error_code ec) -> route_task
     {
         rp.status(status::internal_server_error);
         co_await rp.send("Error: " + ec.message());
@@ -771,7 +771,7 @@ An error handler is a callable with a specific signature:
 ----
 route_task handle_error(
     route_params& rp,
-    system::error_code ec)
+    std::error_code ec)
 {
     rp.status(status::internal_server_error);
     co_await rp.send("Error: " + ec.message());
@@ -781,7 +781,7 @@ route_task handle_error(
 
 The router distinguishes error handlers from regular handlers at
 compile time by inspecting the callable's parameter list. A callable
-that accepts `(route_params&, system::error_code)` is automatically
+that accepts `(route_params&, std::error_code)` is automatically
 treated as an error handler. No special registration method is needed
 -- you install them with the same `use()` that registers middleware:
 
@@ -808,7 +808,7 @@ An error handler can:
 ----
 // Log the error, then pass it along
 r.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         std::cerr << "Error: " << ec.message() << "\n";
@@ -817,7 +817,7 @@ r.use(
 
 // Send a response to the client
 r.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);
@@ -837,7 +837,7 @@ while the rest of the application returns HTML:
 [source,cpp]
 ----
 r.use("/api",
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);
@@ -848,7 +848,7 @@ r.use("/api",
     });
 
 r.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);
@@ -1136,7 +1136,7 @@ app.use(serve_static("/var/www/public"));
 
 // Global error handler
 app.use(
-    [](route_params& rp, system::error_code ec)
+    [](route_params& rp, std::error_code ec)
         -> route_task
     {
         rp.status(status::internal_server_error);

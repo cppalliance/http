@@ -224,8 +224,8 @@ struct identity
 
     The return value is a @ref route_result used to indicate the desired
     action through @ref route enum values, or to indicate that a failure
-    occurred. Failures are represented by error codes for which
-    `system::error_code::failed()` returns `true`.
+    occurred. Failures are represented by error codes which
+    contextually convert to `true`.
 
     When a failing error code is produced and remains unhandled, the
     router enters error-dispatching mode. In this mode, only error
@@ -235,10 +235,10 @@ struct identity
 
     Error handlers have this equivalent signature:
     @code
-    route_result error_handler( Params& p, system::error_code ec )
+    route_result error_handler( Params& p, std::error_code ec )
     @endcode
 
-    Each error handler may return any failing @ref system::error_code,
+    Each error handler may return any failing @ref std::error_code,
     which is equivalent to calling:
     @code
     p.next( ec ); // with ec == true
@@ -402,7 +402,7 @@ class router : public detail::router_base
         []() -> char
         {
             if constexpr (detail::returns_route_task<
-                T, P&, system::error_code>)
+                T, P&, std::error_code>)
             {
                 return is_error;
             }
@@ -464,7 +464,7 @@ class router : public detail::router_base
                 return h(static_cast<P&>(rp));
             }
             else if constexpr (detail::returns_route_task<
-                H, P&, system::error_code>)
+                H, P&, std::error_code>)
             {
                 return h(static_cast<P&>(rp), rp.priv_.ec_);
             }
@@ -526,7 +526,7 @@ class router : public detail::router_base
         {
             if constexpr (
                 detail::returns_route_task<
-                    H1, P&, system::error_code> ||
+                    H1, P&, std::error_code> ||
                 detail::returns_route_task<
                     H1, P&, std::exception_ptr>)
             {

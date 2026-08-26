@@ -11,7 +11,7 @@
 // Test that header file is self-contained.
 #include <boost/http/file.hpp>
 
-#include <boost/system/system_error.hpp>
+#include <system_error>
 #include "file_test.hpp"
 
 namespace boost {
@@ -25,32 +25,32 @@ struct file_test
         // constructor
         BOOST_TEST_THROWS(
             file("missing.txt", file_mode::scan),
-            system::system_error);
+            std::system_error);
 
         file f;
         char buf[1];
 
         BOOST_TEST_THROWS(
             f.open("missing.txt", file_mode::scan),
-            system::system_error);
+            std::system_error);
         // BOOST_TEST_THROWS(
         //     f.close(),
-        //     system::system_error);
+        //     std::system_error);
         BOOST_TEST_THROWS(
             f.size(),
-            system::system_error);
+            std::system_error);
         BOOST_TEST_THROWS(
             f.pos(),
-            system::system_error);
+            std::system_error);
         BOOST_TEST_THROWS(
             f.seek(1),
-            system::system_error);
+            std::system_error);
         BOOST_TEST_THROWS(
             f.read(buf, 1),
-            system::system_error);
+            std::system_error);
         BOOST_TEST_THROWS(
             f.write(buf, 1),
-            system::system_error);
+            std::system_error);
     }
 
     void

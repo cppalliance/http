@@ -701,7 +701,7 @@ struct serializer_test
             {
                 auto cbs = sr.prepare();
                 BOOST_TEST_EQ(
-                    cbs.error(),
+                    std::error_code(cbs.error()),
                     error::need_data);
             }
 
@@ -711,7 +711,7 @@ struct serializer_test
                 sr.stream_commit(0);
                 auto cbs = sr.prepare();
                 BOOST_TEST_EQ(
-                    cbs.error(),
+                    std::error_code(cbs.error()),
                     error::need_data);
             }
 

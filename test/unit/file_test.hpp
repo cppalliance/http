@@ -138,34 +138,34 @@ test_file()
         BOOST_TEST(! f.is_open());
         BOOST_TEST(! fs::exists(path));
         {
-            system::error_code ec;
+            std::error_code ec;
             f.size(ec);
             BOOST_TEST(ec ==
-                system::errc::bad_file_descriptor);
+                std::errc::bad_file_descriptor);
         }
         {
-            system::error_code ec;
+            std::error_code ec;
             f.pos(ec);
             BOOST_TEST(ec ==
-                system::errc::bad_file_descriptor);
+                std::errc::bad_file_descriptor);
         }
         {
-            system::error_code ec;
+            std::error_code ec;
             f.seek(0, ec);
             BOOST_TEST(ec ==
-                system::errc::bad_file_descriptor);
+                std::errc::bad_file_descriptor);
         }
         {
-            system::error_code ec;
+            std::error_code ec;
             f.read(buf, 0, ec);
             BOOST_TEST(ec ==
-                system::errc::bad_file_descriptor);
+                std::errc::bad_file_descriptor);
         }
         {
-            system::error_code ec;
+            std::error_code ec;
             f.write(buf, 0, ec);
             BOOST_TEST(ec ==
-                system::errc::bad_file_descriptor);
+                std::errc::bad_file_descriptor);
         }
     }
 
@@ -173,7 +173,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             create(path);
             f.open(path, file_mode::read, ec);
             BOOST_TEST(! ec);
@@ -185,7 +185,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             create(path);
             f.open(path, file_mode::scan, ec);
             BOOST_TEST(! ec);
@@ -197,7 +197,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(! fs::exists(path));
             f.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
@@ -205,7 +205,7 @@ test_file()
         }
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(fs::exists(path));
             f.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
@@ -218,7 +218,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(! fs::exists(path));
             f.open(path, file_mode::write_new, ec);
             BOOST_TEST(! ec);
@@ -226,7 +226,7 @@ test_file()
         }
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(fs::exists(path));
             f.open(path, file_mode::write_new, ec);
             BOOST_TEST(ec);
@@ -238,7 +238,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(! fs::exists(path));
             f.open(path, file_mode::write_existing, ec);
             BOOST_TEST(ec);
@@ -246,7 +246,7 @@ test_file()
         }
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             create(path);
             BOOST_TEST(fs::exists(path));
             f.open(path, file_mode::write_existing, ec);
@@ -259,7 +259,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(! fs::exists(path));
             f.open(path, file_mode::append, ec);
             BOOST_TEST(! ec);
@@ -274,7 +274,7 @@ test_file()
 
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(fs::exists(path));
             f.open(path, file_mode::append, ec);
             BOOST_TEST(! ec);
@@ -293,7 +293,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST(! fs::exists(path));
             f.open(path, file_mode::append_existing, ec);
             BOOST_TEST(ec);
@@ -302,7 +302,7 @@ test_file()
         remove(path);
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             create(path, "the cat");
             f.open(path, file_mode::append_existing, ec);
             BOOST_TEST(! ec);
@@ -321,7 +321,7 @@ test_file()
     {
         {
             File f1;
-            system::error_code ec;
+            std::error_code ec;
             f1.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(f1.is_open());
@@ -344,7 +344,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             f.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
             f.open(path, file_mode::write, ec);
@@ -357,7 +357,7 @@ test_file()
     {
         temp_path path2;
         {
-            system::error_code ec;
+            std::error_code ec;
 
             File f1;
             f1.open(path, file_mode::write, ec);
@@ -379,7 +379,7 @@ test_file()
     {
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             f.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
             auto& f_(f);
@@ -394,7 +394,7 @@ test_file()
         {
             File f;
             auto none = f.native_handle();
-            system::error_code ec;
+            std::error_code ec;
             f.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
             auto fd = f.native_handle();
@@ -413,7 +413,7 @@ test_file()
         // write
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             f.open(path, file_mode::write, ec);
             BOOST_TEST(! ec);
 
@@ -435,7 +435,7 @@ test_file()
         // read
         {
             File f;
-            system::error_code ec;
+            std::error_code ec;
             f.open(path, file_mode::read, ec);
             BOOST_TEST(! ec);
 

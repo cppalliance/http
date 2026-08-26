@@ -31,7 +31,7 @@ struct brotli_test
     test_error_code()
     {
         // TODO
-        boost::system::error_code ec{ brotli::error::no_error };
+        std::error_code ec{ brotli::error::no_error };
     }
 
     void

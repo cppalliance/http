@@ -36,7 +36,7 @@ bcrypt::result hash = bcrypt::hash("my_password", 12);
 // Store hash.str() in database...
 
 // Later, verify the password
-system::error_code ec;
+std::error_code ec;
 bool valid = bcrypt::compare("my_password", stored_hash, ec);
 
 if (ec)
@@ -112,7 +112,7 @@ the input password, and compares:
 
 [source,cpp]
 ----
-system::error_code ec;
+std::error_code ec;
 bool valid = bcrypt::compare(user_input, stored_hash, ec);
 
 if (ec == bcrypt::error::invalid_hash)
@@ -141,7 +141,7 @@ You can generate and use salts separately:
 bcrypt::result salt = bcrypt::gen_salt(12);
 
 // Hash with explicit salt
-system::error_code ec;
+std::error_code ec;
 bcrypt::result hash = bcrypt::hash("password", salt.str(), ec);
 ----
 
@@ -185,7 +185,7 @@ To check the cost factor of an existing hash:
 
 [source,cpp]
 ----
-system::error_code ec;
+std::error_code ec;
 unsigned rounds = bcrypt::get_rounds(stored_hash, ec);
 
 if (ec)
@@ -200,7 +200,7 @@ When a user logs in successfully, you can check if their hash needs upgrading:
 
 [source,cpp]
 ----
-system::error_code ec;
+std::error_code ec;
 bool valid = bcrypt::compare(password, stored_hash, ec);
 
 if (valid && !ec)

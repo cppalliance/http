@@ -209,7 +209,7 @@ public:
 std::uint64_t
 parse_hex(
     chained_sequence& cs,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     std::uint64_t v   = 0;
     std::size_t init_size = cs.size();
@@ -220,8 +220,7 @@ parse_hex(
         {
             if(init_size == cs.size())
             {
-                ec = BOOST_HTTP_ERR(
-                    error::bad_payload);
+                ec = error::bad_payload;
                 return 0;
             }
             return v;
@@ -230,23 +229,21 @@ parse_hex(
         // at least 4 significant bits are free
         if(v > (std::numeric_limits<std::uint64_t>::max)() >> 4)
         {
-            ec = BOOST_HTTP_ERR(
-                error::bad_payload);
+            ec = error::bad_payload;
             return 0;
         }
 
         v = (v << 4) | static_cast<std::uint64_t>(n);
         cs.next();
     }
-    ec = BOOST_HTTP_ERR(
-        error::need_data);
+    ec = error::need_data;
     return 0;
 }
 
 void
 find_eol(
     chained_sequence& cs,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     while(!cs.is_empty())
     {
@@ -256,8 +253,7 @@ find_eol(
                 break;
             if(cs.value() != '\n')
             {
-                ec = BOOST_HTTP_ERR(
-                    error::bad_payload);
+                ec = error::bad_payload;
                 return;
             }
             cs.next();
@@ -265,14 +261,13 @@ find_eol(
         }
         cs.next();
     }
-    ec = BOOST_HTTP_ERR(
-        error::need_data);
+    ec = error::need_data;
 }
 
 void
 parse_eol(
     chained_sequence& cs,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     if(cs.size() >= 2)
     {
@@ -282,18 +277,16 @@ parse_eol(
             cs.next();
             return;
         }
-        ec = BOOST_HTTP_ERR(
-            error::bad_payload);
+        ec = error::bad_payload;
         return;
     }
-    ec = BOOST_HTTP_ERR(
-        error::need_data);
+    ec = error::need_data;
 }
 
 void
 skip_trailer_headers(
     chained_sequence& cs,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     while(!cs.is_empty())
     {
@@ -303,8 +296,7 @@ skip_trailer_headers(
                 break;
             if(cs.value() != '\n')
             {
-                ec = BOOST_HTTP_ERR(
-                    error::bad_payload);
+                ec = error::bad_payload;
                 return;
             }
             cs.next();
@@ -315,8 +307,7 @@ skip_trailer_headers(
         if(ec)
             return;
     }
-    ec = BOOST_HTTP_ERR(
-        error::need_data);
+    ec = error::need_data;
 }
 
 template<class UInt>
@@ -342,7 +333,7 @@ public:
         int window_bits)
         : svc_(svc)
     {
-        system::error_code ec = static_cast<http::zlib::error>(
+        std::error_code ec = static_cast<http::zlib::error>(
             svc_.init2(strm_, window_bits));
         if(ec != http::zlib::error::ok)
             detail::throw_system_error(ec);
@@ -425,11 +416,10 @@ private:
         rv.finished  = svc_.is_finished(state_);
 
         if(!more && rs == http::brotli::decoder_result::needs_more_input)
-            rv.ec = BOOST_HTTP_ERR(error::bad_payload);
+            rv.ec = error::bad_payload;
 
         if(rs == http::brotli::decoder_result::error)
-            rv.ec = BOOST_HTTP_ERR(
-                svc_.get_error_code(state_));
+            rv.ec = svc_.get_error_code(state_);
 
         return rv;
     }
@@ -853,7 +843,7 @@ public:
 
     void
     parse(
-        system::error_code& ec)
+        std::error_code& ec)
     {
         ec = {};
         switch(state_)
@@ -888,16 +878,14 @@ public:
                 {
                     // stream closed cleanly
                     state_ = state::reset;
-                    ec = BOOST_HTTP_ERR(
-                        error::end_of_stream);
+                    ec = error::end_of_stream;
                     return;
                 }
 
                 // stream closed with a
                 // partial message received
                 state_ = state::reset;
-                ec = BOOST_HTTP_ERR(
-                    error::incomplete);
+                ec = error::incomplete;
                 return;
             }
             else if(ec)
@@ -939,8 +927,7 @@ public:
             if(m_.payload() == payload::error)
             {
                 // VFALCO This needs looking at
-                ec = BOOST_HTTP_ERR(
-                    error::bad_payload);
+                ec = error::bad_payload;
                 state_ = state::reset; // unrecoverable
                 return;
             }
@@ -1021,8 +1008,7 @@ public:
                 if(!filter_ &&
                     body_limit_ < m_.payload_size())
                 {
-                    ec = BOOST_HTTP_ERR(
-                        error::body_too_large);
+                    ec = error::body_too_large;
                     state_ = state::reset;
                     return;
                 }
@@ -1056,7 +1042,7 @@ public:
                         {
                             if(ec == condition::need_more_input && got_eof_)
                             {
-                                ec = BOOST_HTTP_ERR(error::incomplete);
+                                ec = error::incomplete;
                                 state_ = state::reset;
                             }
                         };
@@ -1114,14 +1100,12 @@ public:
                     {
                         if(got_eof_)
                         {
-                            ec = BOOST_HTTP_ERR(
-                                error::incomplete);
+                            ec = error::incomplete;
                             state_ = state::reset;
                             return;
                         }
 
-                        ec = BOOST_HTTP_ERR(
-                            error::need_data);
+                        ec = error::need_data;
                         return;
                     }
 
@@ -1145,8 +1129,7 @@ public:
 
                         if(body_limit_remain() < chunk_avail)
                         {
-                            ec = BOOST_HTTP_ERR(
-                                error::body_too_large);
+                            ec = error::body_too_large;
                             state_ = state::reset;
                             return;
                         }
@@ -1163,8 +1146,7 @@ public:
                         if(cb1_.capacity() == 0
                             && !chunked_body_ended)
                         {
-                            ec = BOOST_HTTP_ERR(
-                                error::in_place_overflow);
+                            ec = error::in_place_overflow;
                             return;
                         }
 
@@ -1214,8 +1196,7 @@ public:
                     {
                         if(body_limit_remain() < payload_avail)
                         {
-                            ec = BOOST_HTTP_ERR(
-                                error::body_too_large);
+                            ec = error::body_too_large;
                             state_ = state::reset;
                             return;
                         }
@@ -1227,8 +1208,7 @@ public:
                     body_total_     += payload_avail;
                     if(cb0_.capacity() == 0 && !is_complete)
                     {
-                        ec = BOOST_HTTP_ERR(
-                            error::in_place_overflow);
+                        ec = error::in_place_overflow;
                         return;
                     }
 
@@ -1241,14 +1221,12 @@ public:
 
                 if(m_.payload() == payload::size && got_eof_)
                 {
-                    ec = BOOST_HTTP_ERR(
-                        error::incomplete);
+                    ec = error::incomplete;
                     state_ = state::reset;
                     return;
                 }
 
-                ec = BOOST_HTTP_ERR(
-                    error::need_data);
+                ec = error::need_data;
                 return;
             }
 
@@ -1370,7 +1348,7 @@ private:
 
     std::size_t
     apply_filter(
-        system::error_code& ec,
+        std::error_code& ec,
         std::size_t payload_avail,
         bool more)
     {
@@ -1401,8 +1379,7 @@ private:
             if(cb1_.capacity() == 0 &&
                 !f_rs.finished && f_rs.in_bytes == 0)
             {
-                ec = BOOST_HTTP_ERR(
-                    error::in_place_overflow);
+                ec = error::in_place_overflow;
                 goto done;
             }
 
@@ -1416,8 +1393,7 @@ private:
             if(body_limit_remain() == 0 &&
                 !f_rs.finished && f_rs.in_bytes == 0)
             {
-                ec = BOOST_HTTP_ERR(
-                    error::body_too_large);
+                ec = error::body_too_large;
                 state_ = state::reset;
                 break;
             }
@@ -1551,7 +1527,7 @@ commit_eof()
 void
 parser::
 parse(
-    system::error_code& ec)
+    std::error_code& ec)
 {
     BOOST_ASSERT(impl_);
     impl_->parse(ec);

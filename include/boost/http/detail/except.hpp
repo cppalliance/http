@@ -48,7 +48,7 @@ BOOST_HTTP_DECL void BOOST_NORETURN throw_runtime_error(
     source_location const& loc = BOOST_CURRENT_LOCATION);
 
 BOOST_HTTP_DECL void BOOST_NORETURN throw_system_error(
-    system::error_code const& ec,
+    std::error_code const& ec,
     source_location const& loc = BOOST_CURRENT_LOCATION);
 
 BOOST_HTTP_DECL void BOOST_NORETURN throw_system_error(

@@ -198,7 +198,7 @@ struct parser_test
     read_some(
         parser& pr,
         pieces& in,
-        system::error_code& ec)
+        std::error_code& ec)
     {
         pr.parse(ec);
         if(ec != condition::need_more_input)
@@ -228,7 +228,7 @@ struct parser_test
     read_header(
         parser& pr,
         pieces& in,
-        system::error_code& ec)
+        std::error_code& ec)
     {
         do
         {
@@ -246,7 +246,7 @@ struct parser_test
     read(
         parser& pr,
         pieces& in,
-        system::error_code& ec)
+        std::error_code& ec)
     {
         do
         {
@@ -274,7 +274,7 @@ struct parser_test
                 s.data(), s.size()));
         pr.commit(n);
         BOOST_TEST_EQ(n, s.size());
-        system::error_code ec;
+        std::error_code ec;
         pr.parse(ec);
         if( ec == condition::need_more_input)
             ec = {};
@@ -312,7 +312,7 @@ struct parser_test
             request_parser pr1(req_cfg_);
             pr1.reset();
             pr1.start();
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr1, in, ec);
             BOOST_TEST_NOT(ec);
 
@@ -460,7 +460,7 @@ struct parser_test
             core::string_view s)
         {
             auto pcfg = make_parser_config(cfg);
-            system::error_code ec;
+            std::error_code ec;
             request_parser pr(pcfg);
             pr.reset();
             pr.start();
@@ -504,7 +504,7 @@ struct parser_test
             pieces in({
                 "GET / HTTP/1.1\r\n\r\n"});
             auto pcfg = make_parser_config(cfg);
-            system::error_code ec;
+            std::error_code ec;
             request_parser pr(pcfg);
             pr.reset();
             pr.start();
@@ -595,7 +595,7 @@ struct parser_test
             request_parser pr(req_cfg_);
             pr.reset();
             pr.start();
-            system::error_code ec;
+            std::error_code ec;
             pieces in = {
                 "POST / HTTP/1.1\r\n"
                 "Content-Length: 5\r\n"
@@ -630,12 +630,12 @@ struct parser_test
 
         auto const check_in_place = [](
             parser_config const& cfg,
-            system::error_code ex,
+            std::error_code ex,
             bool is_complete,
             pieces&& in)
         {
             auto pcfg = make_parser_config(cfg);
-            system::error_code ec;
+            std::error_code ec;
             response_parser pr(pcfg);
             pr.reset();
             pr.start();
@@ -701,7 +701,7 @@ struct parser_test
             request_parser pr(req_cfg_);
             pr.reset();
             pr.start();
-            system::error_code ec;
+            std::error_code ec;
             pieces in = {
                 "GET / HTTP/1.1\r\n"
                 "Content-Length: 1\r\n"
@@ -722,7 +722,7 @@ struct parser_test
             request_parser pr(req_cfg_);
             pr.reset();
             pr.start();
-            system::error_code ec;
+            std::error_code ec;
             pieces in = {
                 "GET / HTTP/1.1\r\n"
                 "Content-Length: 1\r\n"
@@ -777,7 +777,7 @@ struct parser_test
             response_parser pr(res_cfg_);
             pr.reset();
             pr.start();
-            system::error_code ec;
+            std::error_code ec;
             pieces in = {
                 "HTTP/1.1 200 OK\r\n"
                 "\r\n" };
@@ -796,7 +796,7 @@ struct parser_test
             request_parser pr(req_cfg_);
             pr.reset();
             pr.start();
-            system::error_code ec;
+            std::error_code ec;
             pieces in = {
                 "GET / HTTP/1.1\r\n"
                 "\r\n" };
@@ -815,7 +815,7 @@ struct parser_test
         {
             // missing reset
             request_parser pr(req_cfg_);
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST_THROWS(
                 pr.parse(ec),
                 std::logic_error);
@@ -825,7 +825,7 @@ struct parser_test
             // missing start
             request_parser pr(req_cfg_);
             pr.reset();
-            system::error_code ec;
+            std::error_code ec;
             BOOST_TEST_THROWS(
                 pr.parse(ec),
                 std::logic_error);
@@ -838,12 +838,12 @@ struct parser_test
         auto const check_in_place2 = [](
             parser_config const& cfg,
             bool some,
-            system::error_code ex,
+            std::error_code ex,
             bool is_complete,
             pieces&& in)
         {
             auto pcfg = make_parser_config(cfg);
-            system::error_code ec;
+            std::error_code ec;
             response_parser pr(pcfg);
             pr.reset();
             pr.start();
@@ -966,9 +966,9 @@ struct parser_test
     void
     check_in_place(
         pieces& in,
-        system::error_code ex = {})
+        std::error_code ex = {})
     {
-        system::error_code ec;
+        std::error_code ec;
 
         start();
         read_header(*pr_, in, ec);
@@ -1006,7 +1006,7 @@ struct parser_test
     void
     check_req_1(
         pieces const& in0,
-        system::error_code ex)
+        std::error_code ex)
     {
         auto in = in0;
         check_in_place(in, ex);
@@ -1015,7 +1015,7 @@ struct parser_test
     void
     check_res_1(
         pieces const& in0,
-        system::error_code ex)
+        std::error_code ex)
     {
         auto in = in0;
         check_in_place(in, ex);
@@ -1078,7 +1078,7 @@ struct parser_test
     check_req(
         core::string_view sh,
         core::string_view sb,
-        system::error_code ex = {})
+        std::error_code ex = {})
     {
         pr_ = &req_pr_;
         grind(sh, sb, [&](
@@ -1092,7 +1092,7 @@ struct parser_test
     check_res(
         core::string_view sh,
         core::string_view sb,
-        system::error_code ex = {})
+        std::error_code ex = {})
     {
         pr_ = &res_pr_;
         grind(sh, sb, [&](
@@ -1116,7 +1116,7 @@ struct parser_test
 
     void
     should_fail(
-        system::error_code ex,
+        std::error_code ex,
         core::string_view sh,
         core::string_view sb)
     {
@@ -1235,7 +1235,7 @@ struct parser_test
                 "d\r\nhello, world!\r\n"
                 "0\r\n\r\n" };
 
-            system::error_code ec;
+            std::error_code ec;
             read(pr, in, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.is_complete());
@@ -1264,7 +1264,7 @@ struct parser_test
                 "hello, world!\r\n"
                 "0\r\n\r\n" };
 
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr, in1, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1294,7 +1294,7 @@ struct parser_test
                 "1234\r\nhello, world!\r\n"
                 "0\r\n\r\n" };
 
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr, in1, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1322,7 +1322,7 @@ struct parser_test
                 "03\r\nhello, world!\r\n"
                 "0\r\n\r\n" };
 
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr, in1, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1351,7 +1351,7 @@ struct parser_test
                 "0\r\n\r\n"
             };
 
-            system::error_code ec;
+            std::error_code ec;
             read(pr, in, ec);
             BOOST_TEST(pr.is_complete());
             BOOST_TEST(
@@ -1387,7 +1387,7 @@ struct parser_test
 
                 pieces in = { headers, bad_chunk };
 
-                system::error_code ec;
+                std::error_code ec;
                 read_header(pr, in, ec);
                 BOOST_TEST(! ec);
                 BOOST_TEST(pr.got_header());
@@ -1429,7 +1429,7 @@ struct parser_test
                     body.substr(0, i),
                     body.substr(i) };
 
-                system::error_code ec;
+                std::error_code ec;
                 read_header(pr, in, ec);
                 BOOST_TEST(! ec);
                 BOOST_TEST(pr.got_header());
@@ -1456,7 +1456,7 @@ struct parser_test
         cfg.min_buffer = 500;
 
         auto pcfg = make_parser_config(cfg);
-        system::error_code ec;
+        std::error_code ec;
 
         request_parser pr(pcfg);
 
@@ -1566,7 +1566,7 @@ struct parser_test
         cfg.headers.max_size = 500;
 
         auto pcfg = make_parser_config(cfg);
-        system::error_code ec;
+        std::error_code ec;
         request_parser pr(pcfg);
         pr.reset();
 
@@ -1667,7 +1667,7 @@ struct parser_test
             "content-length: 7\r\n"
             "\r\n"
             "1234567" };
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr, in, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1687,7 +1687,7 @@ struct parser_test
             "content-length: 7\r\n"
             "\r\n"
             "1234567" };
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr, in, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1711,7 +1711,7 @@ struct parser_test
             "HTTP/1.1 200 OK\r\n"
             "content-length: 0\r\n"
             "\r\n" };
-            system::error_code ec;
+            std::error_code ec;
             read_header(pr, in, ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1737,7 +1737,7 @@ struct parser_test
             "transfer-encoding: chunked\r\n"
             "\r\n"
             "bad-chunk-header\r\n" };
-        system::error_code ec;
+        std::error_code ec;
         read_header(pr, in, ec);
         BOOST_TEST(! ec);
         BOOST_TEST(pr.got_header());
@@ -1768,7 +1768,7 @@ struct parser_test
                 capy::const_buffer(
                     octets.data(), octets.size())));
 
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1814,7 +1814,7 @@ struct parser_test
                 capy::const_buffer(
                     octets.data(), octets.size())));
 
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             BOOST_TEST(! ec);
             BOOST_TEST(pr.got_header());
@@ -1877,7 +1877,7 @@ struct parser_test
                 pr.prepare(),
                 capy::const_buffer(
                     octets.data(), octets.size())));
-            system::error_code ec;
+            std::error_code ec;
             pr.parse(ec);
             BOOST_TEST(pr.got_header());
             pr.parse(ec);

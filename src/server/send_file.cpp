@@ -29,20 +29,20 @@ get_file_stats(
     std::uint64_t& size,
     std::uint64_t& mtime)
 {
-    system::error_code ec;
+    std::error_code ec;
     std::filesystem::path p(path.begin(), path.end());
 
     auto status = std::filesystem::status(p, ec);
-    if(ec.failed() || ! std::filesystem::is_regular_file(status))
+    if(ec || ! std::filesystem::is_regular_file(status))
         return false;
 
     size = static_cast<std::uint64_t>(
         std::filesystem::file_size(p, ec));
-    if(ec.failed())
+    if(ec)
         return false;
 
     auto ftime = std::filesystem::last_write_time(p, ec);
-    if(ec.failed())
+    if(ec)
         return false;
 
     // Convert to Unix timestamp

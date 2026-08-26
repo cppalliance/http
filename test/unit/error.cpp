@@ -48,7 +48,7 @@ public:
     check(
         std::string name,
         condition c,
-        system::error_code ec)
+        std::error_code ec)
     {
         {
             BOOST_TEST_NE(
@@ -111,7 +111,8 @@ public:
 
         check(n,
             condition::need_more_input,
-            urls::grammar::error::need_more);
+            system::error_code(
+                urls::grammar::error::need_more));
         check(n,
              condition::invalid_payload,
              error::bad_payload);

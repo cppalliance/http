@@ -33,13 +33,13 @@ struct detail::router_base::matcher
         match_result& mr) const;
 
     // Returns error from pattern parsing, or empty if valid
-    system::error_code error() const noexcept { return ec_; }
+    std::error_code error() const noexcept { return ec_; }
 
 private:
     friend class detail::router_base;
     friend struct detail::router_base::impl;
 
-    system::error_code ec_;
+    std::error_code ec_;
     std::string allow_header_;
     detail::route_pattern pattern_;
     std::vector<std::string> custom_verbs_;

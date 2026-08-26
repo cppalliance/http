@@ -81,7 +81,7 @@ result
 hash(
     core::string_view password,
     core::string_view salt,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     ec = {};
 
@@ -122,7 +122,7 @@ bool
 compare(
     core::string_view password,
     core::string_view hash_str,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     ec = {};
 
@@ -173,7 +173,7 @@ compare(
 unsigned
 get_rounds(
     core::string_view hash_str,
-    system::error_code& ec)
+    std::error_code& ec)
 {
     ec = {};
 

@@ -74,7 +74,6 @@ constexpr field header::unknown_field;
 
 //------------------------------------------------
 
-constexpr
 header::
 header(fields_tag) noexcept
     : kind(detail::kind::fields)
@@ -84,7 +83,6 @@ header(fields_tag) noexcept
 {
 }
 
-constexpr
 header::
 header(request_tag) noexcept
     : kind(detail::kind::request)
@@ -96,7 +94,6 @@ header(request_tag) noexcept
 {
 }
 
-constexpr
 header::
 header(response_tag) noexcept
     : kind(detail::kind::response)
@@ -114,7 +111,7 @@ header const*
 header::
 get_default(detail::kind k) noexcept
 {
-    static constexpr header h[3] = {
+    static header const h[3] = {
         fields_tag{},
         request_tag{},
         response_tag{}};
@@ -490,8 +487,7 @@ on_insert_connection(
     if(! rv)
     {
         md.connection.ec =
-            BOOST_HTTP_ERR(
-                error::bad_connection);
+            error::bad_connection;
         return;
     }
     md.connection.ec = {};
@@ -528,8 +524,7 @@ on_insert_content_length(
     {
         // parse failure
         md.content_length.ec =
-            BOOST_HTTP_ERR(
-            error::bad_content_length);
+            error::bad_content_length;
         md.content_length.value = 0;
         update_payload();
         return;
@@ -549,8 +544,7 @@ on_insert_content_length(
     }
     // bad: different values
     md.content_length.ec =
-        BOOST_HTTP_ERR(
-            error::multiple_content_length);
+        error::multiple_content_length;
     md.content_length.value = 0;
     update_payload();
 }
@@ -572,8 +566,7 @@ on_insert_expect(
             "100-continue"))
     {
         md.expect.ec =
-            BOOST_HTTP_ERR(
-                error::bad_expect);
+            error::bad_expect;
         md.expect.is_100_continue = false;
         return;
     }
@@ -617,8 +610,7 @@ on_insert_transfer_encoding(
 
 error:
     md.transfer_encoding.ec =
-        BOOST_HTTP_ERR(
-            error::bad_transfer_encoding);
+        error::bad_transfer_encoding;
     md.transfer_encoding.is_chunked = false;
     update_payload();
 }
@@ -637,8 +629,7 @@ on_insert_content_encoding(
     if(!rv)
     {
         md.content_encoding.ec =
-            BOOST_HTTP_ERR(
-                error::bad_content_encoding);
+            error::bad_content_encoding;
         md.content_encoding.coding =
             content_coding::unknown;
         return;
@@ -694,8 +685,7 @@ on_insert_upgrade(
         http::version::http_1_1)
     {
         md.upgrade.ec =
-            BOOST_HTTP_ERR(
-                error::bad_upgrade);
+            error::bad_upgrade;
         md.upgrade.websocket = false;
         return;
     }
@@ -704,8 +694,7 @@ on_insert_upgrade(
     if(! rv)
     {
         md.upgrade.ec =
-            BOOST_HTTP_ERR(
-                error::bad_upgrade);
+            error::bad_upgrade;
         md.upgrade.websocket = false;
         return;
     }
@@ -1117,7 +1106,7 @@ parse_start_line(
     header& h,
     header_limits const& lim,
     std::size_t new_size,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     BOOST_ASSERT(h.size == 0);
     BOOST_ASSERT(h.prefix == 0);
@@ -1137,10 +1126,9 @@ parse_start_line(
         if(! rv)
         {
             ec = rv.error();
-            if( ec == grammar::error::need_more &&
+            if( ec == system::error_code(grammar::error::need_more) &&
                 new_size == lim.max_start_line)
-                ec = BOOST_HTTP_ERR(
-                    error::start_line_limit);
+                ec = error::start_line_limit;
             return;
         }
         // method
@@ -1165,8 +1153,7 @@ parse_start_line(
             break;
         default:
         {
-            ec = BOOST_HTTP_ERR(
-                error::bad_version);
+            ec = error::bad_version;
             return;
         }
         }
@@ -1178,10 +1165,9 @@ parse_start_line(
         if(! rv)
         {
             ec = rv.error();
-            if( ec == grammar::error::need_more &&
+            if( ec == system::error_code(grammar::error::need_more) &&
                 new_size == lim.max_start_line)
-                ec = BOOST_HTTP_ERR(
-                    error::start_line_limit);
+                ec = error::start_line_limit;
             return;
         }
         // version
@@ -1197,8 +1183,7 @@ parse_start_line(
             break;
         default:
         {
-            ec = BOOST_HTTP_ERR(
-                error::bad_version);
+            ec = error::bad_version;
             return;
         }
         }
@@ -1220,7 +1205,7 @@ parse_field(
     header& h,
     header_limits const& lim,
     std::size_t new_size,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     if( new_size > lim.max_field)
         new_size = lim.max_field;
@@ -1232,25 +1217,23 @@ parse_field(
     if(rv.has_error())
     {
         ec = rv.error();
-        if(ec == grammar::error::end_of_range)
+        if(ec == system::error_code(grammar::error::end_of_range))
         {
             // final CRLF
             h.size = static_cast<
                 header::offset_type>(it - h.cbuf);
             return;
         }
-        if( ec == grammar::error::need_more &&
+        if( ec == system::error_code(grammar::error::need_more) &&
             new_size == lim.max_field)
         {
-            ec = BOOST_HTTP_ERR(
-                error::field_size_limit);
+            ec = error::field_size_limit;
         }
         return;
     }
     if(h.count >= lim.max_fields)
     {
-        ec = BOOST_HTTP_ERR(
-            error::fields_limit);
+        ec = error::fields_limit;
         return;
     }
     if(rv->has_obs_fold)
@@ -1290,7 +1273,7 @@ header::
 parse(
     std::size_t new_size,
     header_limits const& lim,
-    system::error_code& ec) noexcept
+    std::error_code& ec) noexcept
 {
     if( new_size > lim.max_size)
         new_size = lim.max_size;
@@ -1302,11 +1285,10 @@ parse(
             *this, lim, new_size, ec);
         if(ec)
         {
-            if( ec == grammar::error::need_more &&
+            if( ec == system::error_code(grammar::error::need_more) &&
                 new_size == lim.max_fields)
             {
-                ec = BOOST_HTTP_ERR(
-                    error::headers_limit);
+                ec = error::headers_limit;
             }
             return;
         }
@@ -1317,17 +1299,16 @@ parse(
             *this, lim, new_size, ec);
         if(ec)
         {
-            if( ec == grammar::error::need_more &&
+            if( ec == system::error_code(grammar::error::need_more) &&
                 new_size == lim.max_size)
             {
-                ec = BOOST_HTTP_ERR(
-                    error::headers_limit);
+                ec = error::headers_limit;
                 return;
             }
             break;
         }
     }
-    if(ec == grammar::error::end_of_range)
+    if(ec == system::error_code(grammar::error::end_of_range))
         ec = {};
 }
 
