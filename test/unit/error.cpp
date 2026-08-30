@@ -9,7 +9,6 @@
 
 // Test that header file is self-contained.
 #include <boost/http/error.hpp>
-#include <boost/url/grammar/error.hpp>
 
 #include <memory>
 
@@ -111,8 +110,7 @@ public:
 
         check(n,
             condition::need_more_input,
-            system::error_code(
-                urls::grammar::error::need_more));
+            error::need_data);
         check(n,
              condition::invalid_payload,
              error::bad_payload);

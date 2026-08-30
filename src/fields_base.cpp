@@ -72,7 +72,7 @@ verify_field_value(
         grammar::parse(it, end, detail::field_value_rule);
     if( rv.has_error() )
     {
-        if( rv.error() == condition::need_more_input )
+        if( rv.error() == grammar::error::need_more )
             return error::bad_field_value;
         return rv.error();
     }

@@ -102,14 +102,8 @@ equivalent(
     {
     case condition::invalid_payload:
         return (ec == error::bad_payload);
-
     case condition::need_more_input:
-        if( ec == system::error_code(
-                urls::grammar::error::need_more) ||
-            ec == error::need_data )
-            return true;
-        break;
-
+        return ec == error::need_data;
     default:
         break;
     }

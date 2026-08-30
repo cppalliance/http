@@ -1125,10 +1125,12 @@ parse_start_line(
             it, end, request_line_rule);
         if(! rv)
         {
-            ec = rv.error();
-            if( ec == system::error_code(grammar::error::need_more) &&
-                new_size == lim.max_start_line)
+            if( rv.error() != grammar::error::need_more )
+                ec = rv.error();
+            else if( new_size == lim.max_start_line )
                 ec = error::start_line_limit;
+            else
+                ec = error::need_data;
             return;
         }
         // method
@@ -1164,10 +1166,12 @@ parse_start_line(
             it, end, status_line_rule);
         if(! rv)
         {
-            ec = rv.error();
-            if( ec == system::error_code(grammar::error::need_more) &&
-                new_size == lim.max_start_line)
+            if( rv.error() != grammar::error::need_more )
+                ec = rv.error();
+            else if( new_size == lim.max_start_line )
                 ec = error::start_line_limit;
+            else
+                ec = error::need_data;
             return;
         }
         // version
@@ -1216,19 +1220,20 @@ parse_field(
         it, end, field_rule);
     if(rv.has_error())
     {
-        ec = rv.error();
-        if(ec == system::error_code(grammar::error::end_of_range))
+        if(rv.error() == grammar::error::end_of_range)
         {
             // final CRLF
             h.size = static_cast<
                 header::offset_type>(it - h.cbuf);
+            ec = error::end_of_message;
             return;
         }
-        if( ec == system::error_code(grammar::error::need_more) &&
-            new_size == lim.max_field)
-        {
+        if( rv.error() != grammar::error::need_more )
+            ec = rv.error();
+        else if( new_size == lim.max_field )
             ec = error::field_size_limit;
-        }
+        else
+            ec = error::need_data;
         return;
     }
     if(h.count >= lim.max_fields)
@@ -1285,7 +1290,7 @@ parse(
             *this, lim, new_size, ec);
         if(ec)
         {
-            if( ec == system::error_code(grammar::error::need_more) &&
+            if( ec == error::need_data &&
                 new_size == lim.max_fields)
             {
                 ec = error::headers_limit;
@@ -1299,7 +1304,7 @@ parse(
             *this, lim, new_size, ec);
         if(ec)
         {
-            if( ec == system::error_code(grammar::error::need_more) &&
+            if( ec == error::need_data &&
                 new_size == lim.max_size)
             {
                 ec = error::headers_limit;
@@ -1308,7 +1313,7 @@ parse(
             break;
         }
     }
-    if(ec == system::error_code(grammar::error::end_of_range))
+    if(ec == error::end_of_message)
         ec = {};
 }
 
