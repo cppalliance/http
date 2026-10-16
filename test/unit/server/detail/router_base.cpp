@@ -11,15 +11,22 @@
 #include <boost/http/server/router.hpp>
 
 #include <boost/capy/test/run_blocking.hpp>
+#include <boost/capy/test/buffer_sink.hpp>
 #include "test_suite.hpp"
 
 namespace boost {
 namespace http {
 
-struct any_router_test
+struct router_base_test
 {
     using params = route_params;
     using test_router = router<params>;
+
+    static void init_sink(params& p)
+    {
+        p.res_body = capy::any_buffer_sink(
+            capy::test::buffer_sink{});
+    }
 
     void testCopyConstruction()
     {
@@ -35,6 +42,7 @@ struct any_router_test
         router<> ar2(ar1);
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(ar1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
@@ -66,6 +74,7 @@ struct any_router_test
         ar2 = ar1;
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(ar1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
@@ -90,6 +99,7 @@ struct any_router_test
         ar1 = ar2;  // assign to default-constructed
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(ar1.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST_EQ(*counter, 1);
@@ -97,7 +107,6 @@ struct any_router_test
 
     void testOptionsHandler()
     {
-        std::string captured_allow;
         test_router r;
         r.add(http::method::get, "/api/users", [](params&) -> route_task
         {
@@ -107,18 +116,14 @@ struct any_router_test
         {
             co_return route_done;
         });
-        r.set_options_handler(
-            [&captured_allow](params&, std::string_view allow) -> route_task
-            {
-                captured_allow = allow;
-                co_return route_done;
-            });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::options, urls::url_view("/api/users"), req));
-        BOOST_TEST(captured_allow.find("GET") != std::string::npos);
-        BOOST_TEST(captured_allow.find("POST") != std::string::npos);
+        auto allow = req.res.value_or(field::allow, "");
+        BOOST_TEST(allow.find("GET") != std::string::npos);
+        BOOST_TEST(allow.find("POST") != std::string::npos);
     }
 
     void testExplicitOptionsPriority()
@@ -147,6 +152,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::options, urls::url_view("/test"), req));
         BOOST_TEST(explicit_called);
@@ -155,7 +161,6 @@ struct any_router_test
 
     void testAllMethodsHandler()
     {
-        std::string captured_allow;
         test_router r;
         // Use route().all() but have handler return route_next
         // so OPTIONS fallback can run
@@ -163,25 +168,20 @@ struct any_router_test
         {
             co_return route_next;
         });
-        r.set_options_handler(
-            [&captured_allow](params&, std::string_view allow) -> route_task
-            {
-                captured_allow = allow;
-                co_return route_done;
-            });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::options, urls::url_view("/wildcard"), req));
         // .all() should produce a full Allow header
-        BOOST_TEST(captured_allow.find("GET") != std::string::npos);
-        BOOST_TEST(captured_allow.find("POST") != std::string::npos);
-        BOOST_TEST(captured_allow.find("DELETE") != std::string::npos);
+        auto allow = req.res.value_or(field::allow, "");
+        BOOST_TEST(allow.find("GET") != std::string::npos);
+        BOOST_TEST(allow.find("POST") != std::string::npos);
+        BOOST_TEST(allow.find("DELETE") != std::string::npos);
     }
 
     void testOptionsStarGlobal()
     {
-        std::string captured_allow;
         test_router r;
         r.add(http::method::get, "/a", [](params&) -> route_task
         {
@@ -195,20 +195,54 @@ struct any_router_test
         {
             co_return route_done;
         });
-        r.set_options_handler(
-            [&captured_allow](params&, std::string_view allow) -> route_task
-            {
-                captured_allow = allow;
-                co_return route_done;
-            });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::options, urls::url_view("*"), req));
-        // Should contain all registered methods
-        BOOST_TEST(captured_allow.find("GET") != std::string::npos);
-        BOOST_TEST(captured_allow.find("POST") != std::string::npos);
-        BOOST_TEST(captured_allow.find("PUT") != std::string::npos);
+        auto allow = req.res.value_or(field::allow, "");
+        BOOST_TEST(allow.find("GET") != std::string::npos);
+        BOOST_TEST(allow.find("POST") != std::string::npos);
+        BOOST_TEST(allow.find("PUT") != std::string::npos);
+    }
+
+    void testMethodNotAllowed()
+    {
+        test_router r;
+        r.add(http::method::get, "/foo", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+        r.add(http::method::post, "/foo", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+
+        params req;
+        init_sink(req);
+        capy::test::run_blocking()(r.dispatch(
+            http::method::put, urls::url_view("/foo"), req));
+        BOOST_TEST(req.res.status() == status::method_not_allowed);
+        auto allow = req.res.value_or(field::allow, "");
+        BOOST_TEST(allow.find("GET") != std::string::npos);
+        BOOST_TEST(allow.find("POST") != std::string::npos);
+    }
+
+    void testOptionsStarDefault()
+    {
+        test_router r;
+        r.add(http::method::get, "/x", [](params&) -> route_task
+        {
+            co_return route_done;
+        });
+
+        params req;
+        init_sink(req);
+        capy::test::run_blocking()(r.dispatch(
+            http::method::options, urls::url_view("*"), req));
+        BOOST_TEST(req.res.status() == status::no_content);
+        auto allow = req.res.value_or(field::allow, "");
+        BOOST_TEST(allow.find("GET") != std::string::npos);
     }
 
     //--------------------------------------------
@@ -243,6 +277,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/users/123"), req));
 
@@ -266,6 +301,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/users/42/posts/99"), req));
 
@@ -287,6 +323,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/files/a/b/c.txt"), req));
 
@@ -310,6 +347,7 @@ struct any_router_test
         // With optional group
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api/v2"), req));
             BOOST_TEST_EQ(call_count, 1);
@@ -319,6 +357,7 @@ struct any_router_test
         // Without optional group
         {
             params req;
+            init_sink(req);
             captured_version.clear();
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api"), req));
@@ -341,6 +380,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/items/abc-def-123"), req));
 
@@ -362,6 +402,7 @@ struct any_router_test
         // Wrong path
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/posts/123"), req));
             BOOST_TEST(!handler_called);
@@ -384,6 +425,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get,
             urls::url_view("/john/myrepo/blob/main/src/index.js"),
@@ -413,6 +455,7 @@ struct any_router_test
         // With extension
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/file.txt"), req));
             BOOST_TEST_EQ(call_count, 1);
@@ -422,6 +465,7 @@ struct any_router_test
         // Without extension
         {
             params req;
+            init_sink(req);
             captured_ext.clear();
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/file"), req));
@@ -439,6 +483,7 @@ struct any_router_test
             [](params&) -> route_task { co_return route_done; });
 
         params req;
+        init_sink(req);
 
         // First request captures param
         capy::test::run_blocking()(r.dispatch(
@@ -464,6 +509,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         // %20 = space, path is decoded before matching
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/users/john%20doe"), req));
@@ -490,6 +536,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/api/v1/users"), req));
 
@@ -516,6 +563,7 @@ struct any_router_test
         }());
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/api/v1/users"), req));
 
@@ -546,6 +594,7 @@ struct any_router_test
         }());
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/api/v1/users/123"), req));
 
@@ -580,6 +629,7 @@ struct any_router_test
         }());
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/a/b/c/d/e/f"), req));
 
@@ -610,6 +660,7 @@ struct any_router_test
         }());
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/api/v1/users/42"), req));
 
@@ -643,6 +694,7 @@ struct any_router_test
         }());
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get,
             urls::url_view("/very/long/path/prefix/that/exceeds/small/string/optimization/tail"),
@@ -741,6 +793,7 @@ struct any_router_test
         // Exact case - should match
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/Api"), req));
@@ -750,6 +803,7 @@ struct any_router_test
         // Wrong case - should not match
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api"), req));
@@ -772,6 +826,7 @@ struct any_router_test
         // Different case - should match
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api"), req));
@@ -781,6 +836,7 @@ struct any_router_test
         // Upper case - should match
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/API"), req));
@@ -803,6 +859,7 @@ struct any_router_test
         // Without trailing slash - should match
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api/users"), req));
@@ -812,6 +869,7 @@ struct any_router_test
         // With trailing slash - should not match in strict mode
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api/users/"), req));
@@ -834,6 +892,7 @@ struct any_router_test
         // Without trailing slash - should match
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api/users"), req));
@@ -843,6 +902,7 @@ struct any_router_test
         // With trailing slash - should also match in non-strict mode
         {
             params req;
+            init_sink(req);
             handler_called = false;
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/api/users/"), req));
@@ -867,6 +927,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/path:literal"), req));
         BOOST_TEST(handler_called);
@@ -886,6 +947,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/path*star"), req));
         BOOST_TEST(handler_called);
@@ -905,6 +967,7 @@ struct any_router_test
 
         // Use percent-encoded braces: { = %7B, } = %7D
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/path%7Bbrace%7D"), req));
         BOOST_TEST(handler_called);
@@ -923,6 +986,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/path%5Cslash"), req));
         BOOST_TEST(handler_called);
@@ -945,6 +1009,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/items/123"), req));
         BOOST_TEST_EQ(captured_value, "123");
@@ -963,6 +1028,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/files/a/b/c.txt"), req));
         BOOST_TEST_EQ(captured_value, "a/b/c.txt");
@@ -986,6 +1052,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/LAX-JFK"), req));
         BOOST_TEST_EQ(from_val, "LAX");
@@ -1003,6 +1070,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/1/2/3/4/5/6/7/8/9/10"), req));
         BOOST_TEST_EQ(req.params.size(), 10u);
@@ -1023,6 +1091,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/a//b"), req));
         BOOST_TEST(handler_called);
@@ -1041,6 +1110,7 @@ struct any_router_test
             });
 
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/"), req));
         BOOST_TEST(handler_called);
@@ -1061,6 +1131,7 @@ struct any_router_test
         // All levels
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/a/b/c"), req));
             BOOST_TEST_EQ(call_count, 1);
@@ -1069,6 +1140,7 @@ struct any_router_test
         // Two levels
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/a/b"), req));
             BOOST_TEST_EQ(call_count, 2);
@@ -1077,6 +1149,7 @@ struct any_router_test
         // One level
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/a"), req));
             BOOST_TEST_EQ(call_count, 3);
@@ -1098,6 +1171,7 @@ struct any_router_test
         // Both groups
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/a/b"), req));
             BOOST_TEST_EQ(call_count, 1);
@@ -1106,6 +1180,7 @@ struct any_router_test
         // First only
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/a"), req));
             BOOST_TEST_EQ(call_count, 2);
@@ -1114,6 +1189,7 @@ struct any_router_test
         // Second only
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view("/b"), req));
             BOOST_TEST_EQ(call_count, 3);
@@ -1122,6 +1198,7 @@ struct any_router_test
         // Neither
         {
             params req;
+            init_sink(req);
             capy::test::run_blocking()(r.dispatch(
                 http::method::get, urls::url_view(""), req));
             BOOST_TEST_EQ(call_count, 4);
@@ -1142,6 +1219,7 @@ struct any_router_test
 
         // Empty param value - should not match
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/users//posts"), req));
         BOOST_TEST(!handler_called);
@@ -1161,6 +1239,7 @@ struct any_router_test
 
         // Empty wildcard value - should not match
         params req;
+        init_sink(req);
         capy::test::run_blocking()(r.dispatch(
             http::method::get, urls::url_view("/files/"), req));
         BOOST_TEST(!handler_called);
@@ -1175,6 +1254,8 @@ struct any_router_test
         testExplicitOptionsPriority();
         testAllMethodsHandler();
         testOptionsStarGlobal();
+        testMethodNotAllowed();
+        testOptionsStarDefault();
 
         // Route pattern integration tests
         testParamCapture();
@@ -1235,8 +1316,8 @@ struct any_router_test
 };
 
 TEST_SUITE(
-    any_router_test,
-    "boost.http.server.any_router");
+    router_base_test,
+    "boost.http.server.detail.router_base");
 
 } // http
 } // boost

@@ -7,8 +7,8 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#ifndef BOOST_HTTP_SRC_SERVER_DETAIL_ANY_ROUTER_HPP
-#define BOOST_HTTP_SRC_SERVER_DETAIL_ANY_ROUTER_HPP
+#ifndef BOOST_HTTP_SRC_SERVER_DETAIL_ROUTER_BASE_HPP
+#define BOOST_HTTP_SRC_SERVER_DETAIL_ROUTER_BASE_HPP
 
 #include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/detail/except.hpp>
