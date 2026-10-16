@@ -11,7 +11,7 @@
 #include <boost/http/concept/buffer_sink.hpp>
 #include <boost/capy/task.hpp>
 
-#include <boost/capy/ex/io_env.hpp>
+#include <boost/capy/ex/await_context.hpp>
 
 #include <system_error>
 
@@ -25,14 +25,14 @@ namespace http {
 namespace {
 using namespace capy;
 
-// Mock IoAwaitable returning (error_code)
+// Mock ContextAwaitable returning (error_code)
 struct mock_commit_awaitable
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -43,14 +43,14 @@ struct mock_commit_awaitable
     }
 };
 
-// Mock IoAwaitable returning wrong type (error_code, size_t)
+// Mock ContextAwaitable returning wrong type (error_code, size_t)
 struct mock_commit_awaitable_wrong_type
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -61,7 +61,7 @@ struct mock_commit_awaitable_wrong_type
     }
 };
 
-// Mock awaitable missing IoAwaitable protocol
+// Mock awaitable missing ContextAwaitable protocol
 struct mock_commit_awaitable_not_io
 {
     bool await_ready() const noexcept { return true; }
@@ -171,7 +171,7 @@ struct invalid_buffer_sink_no_commit_eof
     }
 };
 
-// Invalid: commit is not IoAwaitable
+// Invalid: commit is not ContextAwaitable
 struct invalid_buffer_sink_not_io
 {
     std::span<mutable_buffer>
@@ -253,7 +253,7 @@ static_assert(!BufferSink<invalid_buffer_sink_no_prepare>);
 static_assert(!BufferSink<invalid_buffer_sink_no_commit>);
 static_assert(!BufferSink<invalid_buffer_sink_no_commit_eof>);
 
-// Non-IoAwaitable does not satisfy BufferSink
+// Non-ContextAwaitable does not satisfy BufferSink
 static_assert(!BufferSink<invalid_buffer_sink_not_io>);
 
 // Wrong prepare return type does not satisfy BufferSink

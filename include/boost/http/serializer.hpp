@@ -18,7 +18,8 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/http/concept/buffer_sink.hpp>
 #include <boost/capy/concept/write_stream.hpp>
-#include <boost/capy/io_task.hpp>
+#include <boost/capy/results.hpp>
+#include <boost/capy/task.hpp>
 #include <boost/core/span.hpp>
 #include <boost/system/result.hpp>
 
@@ -646,7 +647,7 @@ public:
     */
     auto
     commit(std::size_t n)
-        -> capy::io_task<>
+        -> capy::task<capy::results<>>
     {
         if(sr_->is_start())
             sr_->start_writes();
@@ -695,7 +696,7 @@ public:
     */
     auto
     commit_eof(std::size_t n)
-        -> capy::io_task<>
+        -> capy::task<capy::results<>>
     {
         if(sr_->is_start())
             sr_->start_writes();
@@ -743,7 +744,7 @@ public:
     template<class ConstBufferSequence>
     auto
     write(ConstBufferSequence const& buffers)
-        -> capy::io_task<std::size_t>
+        -> capy::task<capy::results<std::size_t>>
     {
         if(sr_->is_start())
             sr_->start_buffers();
@@ -845,7 +846,7 @@ public:
     template<class ConstBufferSequence>
     auto
     write_eof(ConstBufferSequence const& buffers)
-        -> capy::io_task<std::size_t>
+        -> capy::task<capy::results<std::size_t>>
     {
         auto [ec, n] = co_await write(buffers);
         if(ec)
@@ -892,7 +893,7 @@ public:
     */
     auto
     write_eof()
-        -> capy::io_task<>
+        -> capy::task<capy::results<>>
     {
         if(sr_->is_start())
             sr_->start_buffers();

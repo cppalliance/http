@@ -16,8 +16,8 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <coroutine>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/io_result.hpp>
+#include <boost/capy/ex/await_context.hpp>
+#include <boost/capy/results.hpp>
 #include <boost/capy/error.hpp>
 #include <boost/capy/test/fuse.hpp>
 
@@ -145,21 +145,21 @@ public:
             bool await_ready() const noexcept { return false; }
 
             // The operation completes synchronously, but await_suspend is
-            // the only place capy::io_env is delivered (the promise's
+            // the only place capy::await_context is delivered (the promise's
             // transform_awaiter forwards it here). Returning false means
             // the coroutine does not actually suspend; it resumes
-            // immediately, having observed the stop token. See capy::io_env,
-            // IoAwaitable.
+            // immediately, having observed the stop token. See capy::await_context,
+            // ContextAwaitable.
             bool
             await_suspend(
                 std::coroutine_handle<>,
-                capy::io_env const* env) noexcept
+                capy::await_context const* env) noexcept
             {
                 canceled_ = env->stop_token.stop_requested();
                 return false;
             }
 
-            capy::io_result<std::size_t>
+            capy::results<std::size_t>
             await_resume()
             {
                 if(capy::buffer_empty(buffers_))
@@ -228,13 +228,13 @@ public:
             bool
             await_suspend(
                 std::coroutine_handle<>,
-                capy::io_env const* env) noexcept
+                capy::await_context const* env) noexcept
             {
                 canceled_ = env->stop_token.stop_requested();
                 return false;
             }
 
-            capy::io_result<std::size_t>
+            capy::results<std::size_t>
             await_resume()
             {
                 if(capy::buffer_empty(buffers_))

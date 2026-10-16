@@ -14,9 +14,8 @@
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/ex/executor_ref.hpp>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/ex/await_context.hpp>
+#include <boost/capy/results.hpp>
 #include <boost/http/test/read_source.hpp>
 #include <boost/capy/test/run_blocking.hpp>
 
@@ -45,9 +44,9 @@ struct pending_source_awaitable
         : counter_(std::exchange(o.counter_, nullptr)) {}
     ~pending_source_awaitable() { if(counter_) ++(*counter_); }
     bool await_ready() const noexcept { return false; }
-    std::coroutine_handle<> await_suspend(std::coroutine_handle<>, io_env const*)
+    std::coroutine_handle<> await_suspend(std::coroutine_handle<>, await_context const*)
         { return std::noop_coroutine(); }
-    io_result<std::size_t> await_resume()
+    results<std::size_t> await_resume()
         { return {std::error_code(), 0}; }
 };
 
@@ -68,9 +67,9 @@ struct resuming_source_awaitable
 {
     bool await_ready() const noexcept { return false; }
     std::coroutine_handle<>
-    await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
+    await_suspend(std::coroutine_handle<> h, await_context const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {std::error_code(), 5}; }
+    results<std::size_t> await_resume() { return {std::error_code(), 5}; }
 };
 
 struct resuming_read_source
@@ -776,7 +775,7 @@ public:
 
             capy::test::blocking_context bctx;
             auto ex = bctx.get_executor();
-            io_env env{executor_ref(ex), {}};
+            await_context env{executor_ref(ex), {}};
             aw.await_suspend(
                 std::noop_coroutine(), &env);
         }
@@ -796,7 +795,7 @@ public:
 
             capy::test::blocking_context bctx;
             auto ex = bctx.get_executor();
-            io_env env{executor_ref(ex), {}};
+            await_context env{executor_ref(ex), {}};
             aw.await_suspend(
                 std::noop_coroutine(), &env);
 

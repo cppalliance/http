@@ -15,8 +15,7 @@
 #include <boost/http/io/pull_from.hpp>
 
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/ex/await_context.hpp>
 #include <boost/http/test/buffer_sink.hpp>
 #include <boost/capy/test/run_blocking.hpp>
 #include <boost/http/test/read_source.hpp>
@@ -107,9 +106,9 @@ public:
             std::size_t n_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<>
+            results<>
             await_resume()
             {
                 auto ec = self_->f_.maybe_fail();
@@ -132,9 +131,9 @@ public:
             std::size_t n_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<>
+            results<>
             await_resume()
             {
                 auto ec = self_->f_.maybe_fail();
@@ -162,9 +161,9 @@ public:
             CB buffers_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<std::size_t>
+            results<std::size_t>
             await_resume()
             {
                 self_->write_api_used_ = true;
@@ -194,9 +193,9 @@ public:
             CB buffers_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<std::size_t>
+            results<std::size_t>
             await_resume()
             {
                 self_->write_api_used_ = true;
@@ -225,9 +224,9 @@ public:
             CB buffers_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<std::size_t>
+            results<std::size_t>
             await_resume()
             {
                 self_->write_api_used_ = true;
@@ -257,9 +256,9 @@ public:
             buffer_write_sink* self_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<>
+            results<>
             await_resume()
             {
                 self_->write_api_used_ = true;
@@ -288,18 +287,18 @@ struct resuming_eof_awaitable
 {
     bool await_ready() const noexcept { return false; }
     std::coroutine_handle<>
-    await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
+    await_suspend(std::coroutine_handle<> h, await_context const*) noexcept
         { return h; }
-    io_result<> await_resume() { return {}; }
+    results<> await_resume() { return {}; }
 };
 
 struct resuming_size_awaitable
 {
     bool await_ready() const noexcept { return false; }
     std::coroutine_handle<>
-    await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
+    await_suspend(std::coroutine_handle<> h, await_context const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {std::error_code(), 1}; }
+    results<std::size_t> await_resume() { return {std::error_code(), 1}; }
 };
 
 // Satisfies BufferSink + WriteSink with suspending operations.

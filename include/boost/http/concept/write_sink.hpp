@@ -13,7 +13,7 @@
 #include <boost/capy/detail/config.hpp>
 #include <boost/capy/concept/buffer_archetype.hpp>
 #include <boost/capy/concept/decomposes_to.hpp>
-#include <boost/capy/concept/io_awaitable.hpp>
+#include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/capy/concept/write_stream.hpp>
 #include <system_error>
 
@@ -48,7 +48,7 @@ namespace http {
     @li `T` must provide a `write_eof` member function taking no
         arguments, returning an awaitable that decomposes to
         `(error_code)`
-    @li All return types must satisfy @ref capy::IoAwaitable
+    @li All return types must satisfy @ref capy::ContextAwaitable
 
     @par Semantic Requirements
 
@@ -95,15 +95,15 @@ namespace http {
 
     @code
     template< ConstBufferSequence Buffers >
-    capy::IoAwaitable auto write_some( Buffers buffers );  // inherited
+    capy::ContextAwaitable auto write_some( Buffers buffers );  // inherited
 
     template< ConstBufferSequence Buffers >
-    capy::IoAwaitable auto write( Buffers buffers );
+    capy::ContextAwaitable auto write( Buffers buffers );
 
     template< ConstBufferSequence Buffers >
-    capy::IoAwaitable auto write_eof( Buffers buffers );
+    capy::ContextAwaitable auto write_eof( Buffers buffers );
 
-    capy::IoAwaitable auto write_eof();
+    capy::ContextAwaitable auto write_eof();
     @endcode
 
     @warning **Coroutine Buffer Lifetime**: When implementing coroutine
@@ -137,7 +137,7 @@ namespace http {
     }
     @endcode
 
-    @see capy::WriteStream, capy::IoAwaitable, ConstBufferSequence,
+    @see capy::WriteStream, capy::ContextAwaitable, ConstBufferSequence,
         capy::awaitable_decomposes_to
 */
 template<typename T>
@@ -145,15 +145,15 @@ concept WriteSink =
     capy::WriteStream<T> &&
     requires(T& sink, capy::const_buffer_archetype buffers)
     {
-        { sink.write(buffers) } -> capy::IoAwaitable;
+        { sink.write(buffers) } -> capy::ContextAwaitable;
         requires capy::awaitable_decomposes_to<
             decltype(sink.write(buffers)),
             std::error_code, std::size_t>;
-        { sink.write_eof(buffers) } -> capy::IoAwaitable;
+        { sink.write_eof(buffers) } -> capy::ContextAwaitable;
         requires capy::awaitable_decomposes_to<
             decltype(sink.write_eof(buffers)),
             std::error_code, std::size_t>;
-        { sink.write_eof() } -> capy::IoAwaitable;
+        { sink.write_eof() } -> capy::ContextAwaitable;
         requires capy::awaitable_decomposes_to<
             decltype(sink.write_eof()),
             std::error_code>;

@@ -11,7 +11,7 @@
 #include <boost/http/concept/buffer_source.hpp>
 #include <boost/capy/task.hpp>
 
-#include <boost/capy/ex/io_env.hpp>
+#include <boost/capy/ex/await_context.hpp>
 
 #include <system_error>
 
@@ -25,14 +25,14 @@ namespace http {
 namespace {
 using namespace capy;
 
-// Mock IoAwaitable returning (error_code, span<const_buffer>)
+// Mock ContextAwaitable returning (error_code, span<const_buffer>)
 struct mock_source_awaitable
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -43,14 +43,14 @@ struct mock_source_awaitable
     }
 };
 
-// Mock IoAwaitable returning wrong type (just error_code)
+// Mock ContextAwaitable returning wrong type (just error_code)
 struct mock_source_awaitable_wrong_type
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -61,7 +61,7 @@ struct mock_source_awaitable_wrong_type
     }
 };
 
-// Mock awaitable missing IoAwaitable protocol
+// Mock awaitable missing ContextAwaitable protocol
 struct mock_source_awaitable_not_io
 {
     bool await_ready() const noexcept { return true; }
@@ -107,7 +107,7 @@ struct invalid_buffer_source_no_pull
     // No pull method
 };
 
-// Invalid: pull is not IoAwaitable
+// Invalid: pull is not ContextAwaitable
 struct invalid_buffer_source_not_io
 {
     mock_source_awaitable_not_io
@@ -160,7 +160,7 @@ static_assert(!BufferSource<invalid_buffer_source_wrong_type>);
 // Missing methods do not satisfy BufferSource
 static_assert(!BufferSource<invalid_buffer_source_no_pull>);
 
-// Non-IoAwaitable does not satisfy BufferSource
+// Non-ContextAwaitable does not satisfy BufferSource
 static_assert(!BufferSource<invalid_buffer_source_not_io>);
 
 // Non-awaitable return does not satisfy BufferSource

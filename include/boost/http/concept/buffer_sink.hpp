@@ -13,7 +13,7 @@
 #include <boost/capy/detail/config.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/concept/decomposes_to.hpp>
-#include <boost/capy/concept/io_awaitable.hpp>
+#include <boost/capy/concept/context_awaitable.hpp>
 #include <system_error>
 
 #include <concepts>
@@ -41,9 +41,9 @@ namespace http {
 
     @li `T` must provide a synchronous `prepare` member function accepting
         a `std::span<capy::mutable_buffer>` and returning a span of filled buffers
-    @li `T` must provide `commit(n)` returning an @ref capy::IoAwaitable that
+    @li `T` must provide `commit(n)` returning an @ref capy::ContextAwaitable that
         decomposes to `(error_code)`
-    @li `T` must provide `commit_eof(n)` returning an @ref capy::IoAwaitable
+    @li `T` must provide `commit_eof(n)` returning an @ref capy::ContextAwaitable
         that decomposes to `(error_code)`
 
     @par Semantic Requirements
@@ -80,15 +80,15 @@ namespace http {
     @code
     std::span<capy::mutable_buffer> prepare( std::span<capy::mutable_buffer> dest );
 
-    capy::IoAwaitable auto commit( std::size_t n );
-    capy::IoAwaitable auto commit_eof( std::size_t n );
+    capy::ContextAwaitable auto commit( std::size_t n );
+    capy::ContextAwaitable auto commit_eof( std::size_t n );
     @endcode
 
     @par Example
 
     @code
     template<BufferSource Source, BufferSink Sink>
-    io_task<std::size_t> transfer( Source& source, Sink& sink )
+    task<results<std::size_t>> transfer( Source& source, Sink& sink )
     {
         capy::const_buffer src_arr[16];
         capy::mutable_buffer dst_arr[16];
@@ -117,7 +117,7 @@ namespace http {
     }
     @endcode
 
-    @see BufferSource, WriteSink, capy::IoAwaitable, capy::awaitable_decomposes_to
+    @see BufferSource, WriteSink, capy::ContextAwaitable, capy::awaitable_decomposes_to
 */
 template<typename T>
 concept BufferSink =
@@ -127,13 +127,13 @@ concept BufferSink =
         { sink.prepare(dest) } -> std::same_as<std::span<capy::mutable_buffer>>;
 
         // Async: commit n bytes written
-        { sink.commit(n) } -> capy::IoAwaitable;
+        { sink.commit(n) } -> capy::ContextAwaitable;
         requires capy::awaitable_decomposes_to<
             decltype(sink.commit(n)),
             std::error_code>;
 
         // Async: commit n final bytes and signal end of data
-        { sink.commit_eof(n) } -> capy::IoAwaitable;
+        { sink.commit_eof(n) } -> capy::ContextAwaitable;
         requires capy::awaitable_decomposes_to<
             decltype(sink.commit_eof(n)),
             std::error_code>;

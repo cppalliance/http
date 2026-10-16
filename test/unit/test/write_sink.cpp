@@ -14,7 +14,6 @@
 #include <boost/http/concept/write_sink.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/cond.hpp>
-#include <boost/capy/task.hpp>
 
 #include "test_helpers.hpp"
 

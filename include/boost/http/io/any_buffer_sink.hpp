@@ -16,11 +16,11 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/buffer_param.hpp>
 #include <boost/http/concept/buffer_sink.hpp>
-#include <boost/capy/concept/io_awaitable.hpp>
+#include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/http/concept/write_sink.hpp>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/io_task.hpp>
+#include <boost/capy/ex/await_context.hpp>
+#include <boost/capy/results.hpp>
+#include <boost/capy/task.hpp>
 
 #include <concepts>
 #include <coroutine>
@@ -292,7 +292,7 @@ public:
         The wrapper must contain a valid sink (`has_value() == true`).
     */
     template<capy::ConstBufferSequence CB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     write_some(CB buffers);
 
     /** Write all data from a buffer sequence.
@@ -312,7 +312,7 @@ public:
         The wrapper must contain a valid sink (`has_value() == true`).
     */
     template<capy::ConstBufferSequence CB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     write(CB buffers);
 
     /** Atomically write data and signal end-of-stream.
@@ -333,7 +333,7 @@ public:
         The wrapper must contain a valid sink (`has_value() == true`).
     */
     template<capy::ConstBufferSequence CB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     write_eof(CB buffers);
 
     /** Signal end-of-stream.
@@ -401,21 +401,21 @@ private:
     write_eof_buffers_(std::span<capy::const_buffer const> buffers);
 };
 
-/** Type-erased ops for awaitables that await-return `capy::io_result<>`. */
+/** Type-erased ops for awaitables that await-return `capy::results<>`. */
 struct any_buffer_sink::awaitable_ops
 {
     bool (*await_ready)(void*);
-    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::io_env const*);
-    capy::io_result<> (*await_resume)(void*);
+    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::await_context const*);
+    capy::results<> (*await_resume)(void*);
     void (*destroy)(void*) noexcept;
 };
 
-/** Type-erased ops for awaitables that await-return `capy::io_result<std::size_t>`. */
+/** Type-erased ops for awaitables that await-return `capy::results<std::size_t>`. */
 struct any_buffer_sink::write_awaitable_ops
 {
     bool (*await_ready)(void*);
-    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::io_env const*);
-    capy::io_result<std::size_t> (*await_resume)(void*);
+    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::await_context const*);
+    capy::results<std::size_t> (*await_resume)(void*);
     void (*destroy)(void*) noexcept;
 };
 
@@ -490,7 +490,7 @@ struct any_buffer_sink::vtable_for_impl
             +[](void* p) {
                 return static_cast<CommitAwaitable*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<CommitAwaitable*>(p), h, env);
             },
@@ -517,7 +517,7 @@ struct any_buffer_sink::vtable_for_impl
             +[](void* p) {
                 return static_cast<CommitEofAwaitable*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<CommitEofAwaitable*>(p), h, env);
             },
@@ -547,7 +547,7 @@ struct any_buffer_sink::vtable_for_impl
             +[](void* p) {
                 return static_cast<Aw*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<Aw*>(p), h, env);
             },
@@ -577,7 +577,7 @@ struct any_buffer_sink::vtable_for_impl
             +[](void* p) {
                 return static_cast<Aw*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<Aw*>(p), h, env);
             },
@@ -607,7 +607,7 @@ struct any_buffer_sink::vtable_for_impl
             +[](void* p) {
                 return static_cast<Aw*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<Aw*>(p), h, env);
             },
@@ -635,7 +635,7 @@ struct any_buffer_sink::vtable_for_impl
             +[](void* p) {
                 return static_cast<Aw*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<Aw*>(p), h, env);
             },
@@ -823,13 +823,13 @@ any_buffer_sink::commit(std::size_t n)
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             return self_->active_ops_->await_suspend(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<>
+        capy::results<>
         await_resume()
         {
             struct guard {
@@ -865,13 +865,13 @@ any_buffer_sink::commit_eof(std::size_t n)
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             return self_->active_ops_->await_suspend(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<>
+        capy::results<>
         await_resume()
         {
             struct guard {
@@ -904,7 +904,7 @@ any_buffer_sink::write_some_(
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_write_ops_ =
                 self_->vt_->construct_write_some_awaitable(
@@ -920,7 +920,7 @@ any_buffer_sink::write_some_(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             struct guard {
@@ -954,7 +954,7 @@ any_buffer_sink::write_(
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_write_ops_ =
                 self_->vt_->construct_write_awaitable(
@@ -970,7 +970,7 @@ any_buffer_sink::write_(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             struct guard {
@@ -1004,7 +1004,7 @@ any_buffer_sink::write_eof_buffers_(
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_write_ops_ =
                 self_->vt_->construct_write_eof_buffers_awaitable(
@@ -1020,7 +1020,7 @@ any_buffer_sink::write_eof_buffers_(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             struct guard {
@@ -1039,7 +1039,7 @@ any_buffer_sink::write_eof_buffers_(
 }
 
 template<capy::ConstBufferSequence CB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 any_buffer_sink::write_some(CB buffers)
 {
     capy::buffer_param<CB> bp(buffers);
@@ -1072,7 +1072,7 @@ any_buffer_sink::write_some(CB buffers)
 }
 
 template<capy::ConstBufferSequence CB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 any_buffer_sink::write(CB buffers)
 {
     capy::buffer_param<CB> bp(buffers);
@@ -1156,13 +1156,13 @@ any_buffer_sink::write_eof()
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             return self_->active_ops_->await_suspend(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<>
+        capy::results<>
         await_resume()
         {
             struct guard {
@@ -1180,7 +1180,7 @@ any_buffer_sink::write_eof()
 }
 
 template<capy::ConstBufferSequence CB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 any_buffer_sink::write_eof(CB buffers)
 {
     // Native WriteSink path

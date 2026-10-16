@@ -16,12 +16,12 @@
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/capy/buffers/buffer_param.hpp>
 #include <boost/http/concept/buffer_source.hpp>
-#include <boost/capy/concept/io_awaitable.hpp>
+#include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/http/concept/read_source.hpp>
 #include <boost/capy/error.hpp>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/io_task.hpp>
+#include <boost/capy/ex/await_context.hpp>
+#include <boost/capy/results.hpp>
+#include <boost/capy/task.hpp>
 
 #include <concepts>
 #include <coroutine>
@@ -265,7 +265,7 @@ public:
         @see pull, consume
     */
     template<capy::MutableBufferSequence MB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     read_some(MB buffers);
 
     /** Read data into a mutable buffer sequence.
@@ -289,7 +289,7 @@ public:
         @see pull, consume
     */
     template<capy::MutableBufferSequence MB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     read(MB buffers);
 
 protected:
@@ -332,21 +332,21 @@ private:
     read_(std::span<capy::mutable_buffer const> buffers);
 };
 
-/** Type-erased ops for awaitables that await-return `capy::io_result<std::span<capy::const_buffer>>`. */
+/** Type-erased ops for awaitables that await-return `capy::results<std::span<capy::const_buffer>>`. */
 struct any_buffer_source::awaitable_ops
 {
     bool (*await_ready)(void*);
-    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::io_env const*);
-    capy::io_result<std::span<capy::const_buffer>> (*await_resume)(void*);
+    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::await_context const*);
+    capy::results<std::span<capy::const_buffer>> (*await_resume)(void*);
     void (*destroy)(void*) noexcept;
 };
 
-/** Type-erased ops for awaitables that await-return `capy::io_result<std::size_t>`. */
+/** Type-erased ops for awaitables that await-return `capy::results<std::size_t>`. */
 struct any_buffer_source::read_awaitable_ops
 {
     bool (*await_ready)(void*);
-    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::io_env const*);
-    capy::io_result<std::size_t> (*await_resume)(void*);
+    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::await_context const*);
+    capy::results<std::size_t> (*await_resume)(void*);
     void (*destroy)(void*) noexcept;
 };
 
@@ -404,7 +404,7 @@ struct any_buffer_source::vtable_for_impl
             +[](void* p) {
                 return static_cast<PullAwaitable*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<PullAwaitable*>(p), h, env);
             },
@@ -434,7 +434,7 @@ struct any_buffer_source::vtable_for_impl
             +[](void* p) {
                 return static_cast<Aw*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<Aw*>(p), h, env);
             },
@@ -464,7 +464,7 @@ struct any_buffer_source::vtable_for_impl
             +[](void* p) {
                 return static_cast<Aw*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<Aw*>(p), h, env);
             },
@@ -631,13 +631,13 @@ any_buffer_source::pull(std::span<capy::const_buffer> dest)
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             return self_->active_ops_->await_suspend(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::span<capy::const_buffer>>
+        capy::results<std::span<capy::const_buffer>>
         await_resume()
         {
             struct guard {
@@ -670,7 +670,7 @@ any_buffer_source::read_some_(
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_read_ops_ =
                 self_->vt_->construct_read_some_awaitable(
@@ -686,7 +686,7 @@ any_buffer_source::read_some_(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             struct guard {
@@ -720,7 +720,7 @@ any_buffer_source::read_(
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_read_ops_ =
                 self_->vt_->construct_read_awaitable(
@@ -736,7 +736,7 @@ any_buffer_source::read_(
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             struct guard {
@@ -755,7 +755,7 @@ any_buffer_source::read_(
 }
 
 template<capy::MutableBufferSequence MB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 any_buffer_source::read_some(MB buffers)
 {
     capy::buffer_param<MB> bp(buffers);
@@ -779,7 +779,7 @@ any_buffer_source::read_some(MB buffers)
 }
 
 template<capy::MutableBufferSequence MB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 any_buffer_source::read(MB buffers)
 {
     capy::buffer_param<MB> bp(buffers);

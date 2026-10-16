@@ -11,7 +11,7 @@
 #include <boost/http/concept/read_source.hpp>
 #include <boost/capy/task.hpp>
 
-#include <boost/capy/ex/io_env.hpp>
+#include <boost/capy/ex/await_context.hpp>
 
 #include <system_error>
 
@@ -25,14 +25,14 @@ namespace http {
 namespace {
 using namespace capy;
 
-// Mock IoAwaitable returning (error_code, size_t) as pair
+// Mock ContextAwaitable returning (error_code, size_t) as pair
 struct mock_source_awaitable_pair
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -43,14 +43,14 @@ struct mock_source_awaitable_pair
     }
 };
 
-// Mock IoAwaitable returning (error_code, size_t) as tuple
+// Mock ContextAwaitable returning (error_code, size_t) as tuple
 struct mock_source_awaitable_tuple
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -61,14 +61,14 @@ struct mock_source_awaitable_tuple
     }
 };
 
-// Mock IoAwaitable with wrong return type (just error_code)
+// Mock ContextAwaitable with wrong return type (just error_code)
 struct mock_source_awaitable_wrong_type
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -79,21 +79,21 @@ struct mock_source_awaitable_wrong_type
     }
 };
 
-// Mock IoAwaitable returning int
+// Mock ContextAwaitable returning int
 struct mock_source_awaitable_int
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
     int await_resume() const noexcept { return 0; }
 };
 
-// Mock awaitable missing IoAwaitable protocol
+// Mock awaitable missing ContextAwaitable protocol
 struct mock_source_awaitable_not_io
 {
     bool await_ready() const noexcept { return true; }
@@ -208,7 +208,7 @@ struct invalid_read_source_empty
 {
 };
 
-// Invalid: read is not IoAwaitable
+// Invalid: read is not ContextAwaitable
 struct invalid_read_source_not_io
 {
     template<MutableBufferSequence MB>
@@ -263,7 +263,7 @@ static_assert(!ReadSource<invalid_read_source_wrong_type>);
 // Missing everything does not satisfy ReadSource
 static_assert(!ReadSource<invalid_read_source_empty>);
 
-// Non-IoAwaitable does not satisfy ReadSource
+// Non-ContextAwaitable does not satisfy ReadSource
 static_assert(!ReadSource<invalid_read_source_not_io>);
 
 // Non-awaitable return does not satisfy ReadSource
