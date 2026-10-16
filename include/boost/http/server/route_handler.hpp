@@ -19,8 +19,7 @@
 #include <boost/core/detail/string_view.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/io_task.hpp>
+#include <boost/capy/results.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/write.hpp>
 #include <boost/http/io/any_buffer_source.hpp>
@@ -442,7 +441,7 @@ public:
 
     /** Send the response with an optional body.
     */
-    BOOST_HTTP_DECL capy::io_task<> send(std::string_view body = {});
+    BOOST_HTTP_DECL capy::task<capy::results<>> send(std::string_view body = {});
 
 private:
     template<class, class>

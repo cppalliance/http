@@ -15,11 +15,11 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/detail/buffer_array.hpp>
 #include <boost/capy/buffers/buffer_param.hpp>
-#include <boost/capy/concept/io_awaitable.hpp>
+#include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/http/concept/read_source.hpp>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/io_result.hpp>
-#include <boost/capy/io_task.hpp>
+#include <boost/capy/ex/await_context.hpp>
+#include <boost/capy/results.hpp>
+#include <boost/capy/task.hpp>
 
 #include <concepts>
 #include <coroutine>
@@ -247,7 +247,7 @@ public:
         call returned an error (including EOF).
     */
     template<capy::MutableBufferSequence MB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     read(MB buffers);
 
 protected:
@@ -281,8 +281,8 @@ private:
 struct any_read_source::awaitable_ops
 {
     bool (*await_ready)(void*);
-    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::io_env const*);
-    capy::io_result<std::size_t> (*await_resume)(void*);
+    std::coroutine_handle<> (*await_suspend)(void*, std::coroutine_handle<>, capy::await_context const*);
+    capy::results<std::size_t> (*await_resume)(void*);
     void (*destroy)(void*) noexcept;
 };
 
@@ -329,7 +329,7 @@ struct any_read_source::vtable_for_impl
             +[](void* p) {
                 return static_cast<ReadSomeAwaitable*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<ReadSomeAwaitable*>(p), h, env);
             },
@@ -356,7 +356,7 @@ struct any_read_source::vtable_for_impl
             +[](void* p) {
                 return static_cast<ReadAwaitable*>(p)->await_ready();
             },
-            +[](void* p, std::coroutine_handle<> h, capy::io_env const* env) {
+            +[](void* p, std::coroutine_handle<> h, capy::await_context const* env) {
                 return capy::detail::call_await_suspend(
                     static_cast<ReadAwaitable*>(p), h, env);
             },
@@ -488,7 +488,7 @@ any_read_source::read_some(MB buffers)
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_ops_ = self_->vt_->construct_read_some_awaitable(
                 self_->source_,
@@ -502,7 +502,7 @@ any_read_source::read_some(MB buffers)
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             if(ba_.to_span().empty())
@@ -537,7 +537,7 @@ any_read_source::read_(std::span<capy::mutable_buffer const> buffers)
         }
 
         std::coroutine_handle<>
-        await_suspend(std::coroutine_handle<> h, capy::io_env const* env)
+        await_suspend(std::coroutine_handle<> h, capy::await_context const* env)
         {
             self_->active_ops_ = self_->vt_->construct_read_awaitable(
                 self_->source_,
@@ -551,7 +551,7 @@ any_read_source::read_(std::span<capy::mutable_buffer const> buffers)
                 self_->cached_awaitable_, h, env);
         }
 
-        capy::io_result<std::size_t>
+        capy::results<std::size_t>
         await_resume()
         {
             struct guard {
@@ -569,7 +569,7 @@ any_read_source::read_(std::span<capy::mutable_buffer const> buffers)
 }
 
 template<capy::MutableBufferSequence MB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 any_read_source::read(MB buffers)
 {
     capy::buffer_param bp(buffers);

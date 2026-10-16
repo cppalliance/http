@@ -11,7 +11,7 @@
 #include <boost/http/concept/write_sink.hpp>
 #include <boost/capy/task.hpp>
 
-#include <boost/capy/ex/io_env.hpp>
+#include <boost/capy/ex/await_context.hpp>
 
 #include <system_error>
 
@@ -25,14 +25,14 @@ namespace http {
 namespace {
 using namespace capy;
 
-// Mock IoAwaitable returning std::error_code (for write_eof())
+// Mock ContextAwaitable returning std::error_code (for write_eof())
 struct mock_sink_awaitable
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -43,14 +43,14 @@ struct mock_sink_awaitable
     }
 };
 
-// Mock IoAwaitable returning (error_code, size_t)
+// Mock ContextAwaitable returning (error_code, size_t)
 struct mock_sink_awaitable_with_size
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
@@ -61,21 +61,21 @@ struct mock_sink_awaitable_with_size
     }
 };
 
-// Mock IoAwaitable returning int
+// Mock ContextAwaitable returning int
 struct mock_sink_awaitable_int
 {
     bool await_ready() const noexcept { return true; }
 
     void await_suspend(
         std::coroutine_handle<>,
-        io_env const*) const noexcept
+        await_context const*) const noexcept
     {
     }
 
     int await_resume() const noexcept { return 0; }
 };
 
-// Mock awaitable missing IoAwaitable protocol
+// Mock awaitable missing ContextAwaitable protocol
 struct mock_sink_awaitable_not_io
 {
     bool await_ready() const noexcept { return true; }
@@ -89,7 +89,7 @@ struct mock_sink_awaitable_not_io
     }
 };
 
-// Mock awaitable missing IoAwaitable protocol, returns (ec, size_t)
+// Mock awaitable missing ContextAwaitable protocol, returns (ec, size_t)
 struct mock_sink_awaitable_with_size_not_io
 {
     bool await_ready() const noexcept { return true; }
@@ -325,7 +325,7 @@ struct invalid_write_sink_no_write_eof_buffers
     }
 };
 
-// Invalid: write is not IoAwaitable
+// Invalid: write is not ContextAwaitable
 struct invalid_write_sink_write_not_io
 {
     template<ConstBufferSequence CB>
@@ -356,7 +356,7 @@ struct invalid_write_sink_write_not_io
     }
 };
 
-// Invalid: write_eof() is not IoAwaitable
+// Invalid: write_eof() is not ContextAwaitable
 struct invalid_write_sink_eof_not_io
 {
     template<ConstBufferSequence CB>
@@ -474,7 +474,7 @@ static_assert(!WriteSink<invalid_write_sink_no_bare_eof>);
 static_assert(!WriteSink<invalid_write_sink_no_write_eof_buffers>);
 static_assert(!WriteSink<invalid_write_sink_empty>);
 
-// Non-IoAwaitable does not satisfy WriteSink
+// Non-ContextAwaitable does not satisfy WriteSink
 static_assert(!WriteSink<invalid_write_sink_write_not_io>);
 static_assert(!WriteSink<invalid_write_sink_eof_not_io>);
 

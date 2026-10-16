@@ -15,7 +15,7 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/concept/const_buffer_sequence.hpp>
 #include <boost/capy/ex/immediate.hpp>
-#include <boost/capy/io_result.hpp>
+#include <boost/capy/results.hpp>
 #include <boost/json/stream_parser.hpp>
 #include <boost/json/value.hpp>
 
@@ -57,7 +57,7 @@ class json_sink
     json::stream_parser parser_;
 
     template<capy::ConstBufferSequence CB>
-    capy::immediate<capy::io_result<std::size_t>>
+    capy::immediate<capy::results<std::size_t>>
     write_impl(CB const& buffers, bool eof)
     {
         std::error_code ec;
@@ -122,7 +122,7 @@ public:
             On success, returns the total bytes written.
     */
     template<capy::ConstBufferSequence CB>
-    capy::immediate<capy::io_result<std::size_t>>
+    capy::immediate<capy::results<std::size_t>>
     write_some(CB const& buffers)
     {
         return write_impl(buffers, false);
@@ -138,7 +138,7 @@ public:
             On success, returns the total bytes written.
     */
     template<capy::ConstBufferSequence CB>
-    capy::immediate<capy::io_result<std::size_t>>
+    capy::immediate<capy::results<std::size_t>>
     write(CB const& buffers)
     {
         return write_impl(buffers, false);
@@ -156,7 +156,7 @@ public:
             On success, returns the total bytes written.
     */
     template<capy::ConstBufferSequence CB>
-    capy::immediate<capy::io_result<std::size_t>>
+    capy::immediate<capy::results<std::size_t>>
     write(CB const& buffers, bool eof)
     {
         return write_impl(buffers, eof);
@@ -173,7 +173,7 @@ public:
             On success, returns the total bytes written.
     */
     template<capy::ConstBufferSequence CB>
-    capy::immediate<capy::io_result<std::size_t>>
+    capy::immediate<capy::results<std::size_t>>
     write_eof(CB const& buffers)
     {
         return write_impl(buffers, true);
@@ -185,7 +185,7 @@ public:
 
         @return An awaitable yielding `(error_code)`.
     */
-    capy::immediate<capy::io_result<>>
+    capy::immediate<capy::results<>>
     write_eof()
     {
         std::error_code ec;

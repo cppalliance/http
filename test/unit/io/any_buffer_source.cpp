@@ -16,8 +16,7 @@
 
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/capy/cond.hpp>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/task.hpp>
+#include <boost/capy/ex/await_context.hpp>
 #include <boost/http/test/buffer_source.hpp>
 #include <boost/capy/test/run_blocking.hpp>
 #include <boost/http/test/write_sink.hpp>
@@ -99,9 +98,9 @@ public:
             std::span<const_buffer> dest_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<std::span<const_buffer>>
+            results<std::span<const_buffer>>
             await_resume()
             {
                 auto ec = self_->f_.maybe_fail();
@@ -139,9 +138,9 @@ public:
             MB buffers_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<std::size_t>
+            results<std::size_t>
             await_resume()
             {
                 self_->read_api_used_ = true;
@@ -177,9 +176,9 @@ public:
             MB buffers_;
 
             bool await_ready() const noexcept { return true; }
-            void await_suspend(std::coroutine_handle<>, io_env const*) const noexcept {}
+            void await_suspend(std::coroutine_handle<>, await_context const*) const noexcept {}
 
-            io_result<std::size_t>
+            results<std::size_t>
             await_resume()
             {
                 self_->read_api_used_ = true;
@@ -215,9 +214,9 @@ struct resuming_pull_awaitable
     char const* data_;
     bool await_ready() const noexcept { return false; }
     std::coroutine_handle<>
-    await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
+    await_suspend(std::coroutine_handle<> h, await_context const*) noexcept
         { return h; }
-    io_result<std::span<const_buffer>>
+    results<std::span<const_buffer>>
     await_resume()
     {
         if(dest_.empty())
@@ -227,13 +226,13 @@ struct resuming_pull_awaitable
     }
 };
 
-struct resuming_io_awaitable
+struct resuming_context_awaitable
 {
     bool await_ready() const noexcept { return false; }
     std::coroutine_handle<>
-    await_suspend(std::coroutine_handle<> h, io_env const*) noexcept
+    await_suspend(std::coroutine_handle<> h, await_context const*) noexcept
         { return h; }
-    io_result<std::size_t> await_resume() { return {std::error_code(), 3}; }
+    results<std::size_t> await_resume() { return {std::error_code(), 3}; }
 };
 
 // Satisfies BufferSource + ReadSource with suspending operations.
@@ -244,9 +243,9 @@ struct resuming_buffer_source
         { return {dest, data_}; }
     void consume(std::size_t) noexcept {}
     template<MutableBufferSequence MB>
-    resuming_io_awaitable read_some(MB) { return {}; }
+    resuming_context_awaitable read_some(MB) { return {}; }
     template<MutableBufferSequence MB>
-    resuming_io_awaitable read(MB) { return {}; }
+    resuming_context_awaitable read(MB) { return {}; }
 };
 
 // Move constructor throws so owning construction fails after storage
@@ -262,9 +261,9 @@ struct throwing_move_buffer_source
         { return {dest, nullptr}; }
     void consume(std::size_t) noexcept {}
     template<MutableBufferSequence MB>
-    resuming_io_awaitable read_some(MB) { return {}; }
+    resuming_context_awaitable read_some(MB) { return {}; }
     template<MutableBufferSequence MB>
-    resuming_io_awaitable read(MB) { return {}; }
+    resuming_context_awaitable read(MB) { return {}; }
 };
 
 // Verify concepts at compile time

@@ -125,7 +125,7 @@ is_method(
 
 //------------------------------------------------
 
-capy::io_task<>
+capy::task<capy::results<>>
 route_params::
 send(std::string_view body)
 {

@@ -15,8 +15,8 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <coroutine>
-#include <boost/capy/ex/io_env.hpp>
-#include <boost/capy/io_result.hpp>
+#include <boost/capy/ex/await_context.hpp>
+#include <boost/capy/results.hpp>
 #include <boost/capy/test/fuse.hpp>
 
 #include <algorithm>
@@ -171,21 +171,21 @@ public:
             bool await_ready() const noexcept { return false; }
 
             // The operation completes synchronously, but await_suspend is
-            // the only place capy::io_env is delivered (the promise's
+            // the only place capy::await_context is delivered (the promise's
             // transform_awaiter forwards it here). Returning false means
             // the coroutine does not actually suspend; it resumes
-            // immediately, having observed the stop token. See capy::io_env,
-            // IoAwaitable.
+            // immediately, having observed the stop token. See capy::await_context,
+            // ContextAwaitable.
             bool
             await_suspend(
                 std::coroutine_handle<>,
-                capy::io_env const* env) noexcept
+                capy::await_context const* env) noexcept
             {
                 canceled_ = env->stop_token.stop_requested();
                 return false;
             }
 
-            capy::io_result<>
+            capy::results<>
             await_resume()
             {
                 if(canceled_)
@@ -239,13 +239,13 @@ public:
             bool
             await_suspend(
                 std::coroutine_handle<>,
-                capy::io_env const* env) noexcept
+                capy::await_context const* env) noexcept
             {
                 canceled_ = env->stop_token.stop_requested();
                 return false;
             }
 
-            capy::io_result<>
+            capy::results<>
             await_resume()
             {
                 if(canceled_)

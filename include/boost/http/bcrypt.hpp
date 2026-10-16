@@ -41,7 +41,7 @@
 #include <boost/capy/continuation.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/ex/executor_ref.hpp>
-#include <boost/capy/ex/io_env.hpp>
+#include <boost/capy/ex/await_context.hpp>
 #include <boost/capy/ex/run_async.hpp>
 #include <boost/capy/ex/system_context.hpp>
 
@@ -516,7 +516,7 @@ struct hash_async_op
 
     void await_suspend(
         std::coroutine_handle<void> cont,
-        capy::io_env const* env)
+        capy::await_context const* env)
     {
         cont_.h = cont;
         auto caller_ex = env->executor;
@@ -561,7 +561,7 @@ struct compare_async_op
 
     void await_suspend(
         std::coroutine_handle<void> cont,
-        capy::io_env const* env)
+        capy::await_context const* env)
     {
         cont_.h = cont;
         auto caller_ex = env->executor;

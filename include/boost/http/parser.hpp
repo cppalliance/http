@@ -22,7 +22,8 @@
 #include <boost/http/concept/write_sink.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/error.hpp>
-#include <boost/capy/io_task.hpp>
+#include <boost/capy/results.hpp>
+#include <boost/capy/task.hpp>
 #include <boost/core/span.hpp>
 
 #include <array>
@@ -359,7 +360,7 @@ public:
         @see @ref read.
     */
     template<capy::ReadStream Stream>
-    capy::io_task<>
+    capy::task<capy::results<>>
     read_header(Stream& stream);
 
     /** Asynchronously read a complete HTTP message.
@@ -384,7 +385,7 @@ public:
         @see @ref body, @ref read_header.
     */
     template<capy::ReadStream Stream>
-    capy::io_task<>
+    capy::task<capy::results<>>
     read(Stream& stream);
 
     /** Asynchronously read body data into buffers.
@@ -406,7 +407,7 @@ public:
         @see @ref read_header.
     */
     template<capy::ReadStream Stream, capy::MutableBufferSequence MB>
-    capy::io_task<std::size_t>
+    capy::task<capy::results<std::size_t>>
     read(Stream& stream, MB buffers);
 
     /** Return a source for reading body data.
@@ -450,7 +451,7 @@ public:
         @see WriteSink.
     */
     template<http::WriteSink Sink>
-    capy::io_task<>
+    capy::task<capy::results<>>
     read(capy::ReadStream auto& stream, Sink&& sink);
 
 private:
@@ -521,7 +522,7 @@ public:
 
         @return An awaitable yielding `(error_code,std::span<const_buffer>)`.
     */
-    capy::io_task<std::span<capy::const_buffer>>
+    capy::task<capy::results<std::span<capy::const_buffer>>>
     pull(std::span<capy::const_buffer> dest);
 
     /** Consume bytes from pulled body data.
@@ -537,7 +538,7 @@ public:
 };
 
 template<capy::ReadStream Stream>
-capy::io_task<>
+capy::task<capy::results<>>
 parser::
 read_header(Stream& stream)
 {
@@ -565,7 +566,7 @@ read_header(Stream& stream)
 }
 
 template<capy::ReadStream Stream>
-capy::io_task<>
+capy::task<capy::results<>>
 parser::
 read(Stream& stream)
 {
@@ -596,7 +597,7 @@ read(Stream& stream)
 }
 
 template<capy::ReadStream Stream, capy::MutableBufferSequence MB>
-capy::io_task<std::size_t>
+capy::task<capy::results<std::size_t>>
 parser::
 read(Stream& stream, MB buffers)
 {
@@ -658,7 +659,7 @@ source_for(Stream& stream) noexcept
 }
 
 template<capy::ReadStream Stream>
-capy::io_task<std::span<capy::const_buffer>>
+capy::task<capy::results<std::span<capy::const_buffer>>>
 parser::source<Stream>::
 pull(std::span<capy::const_buffer> dest)
 {
@@ -716,7 +717,7 @@ consume(std::size_t n) noexcept
 }
 
 template<http::WriteSink Sink>
-capy::io_task<>
+capy::task<capy::results<>>
 parser::
 read(capy::ReadStream auto& stream, Sink&& sink)
 {

@@ -14,7 +14,7 @@
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/concept/decomposes_to.hpp>
-#include <boost/capy/concept/io_awaitable.hpp>
+#include <boost/capy/concept/context_awaitable.hpp>
 
 #include <cstddef>
 #include <span>
@@ -40,7 +40,7 @@ namespace http {
 
     @li `T` must provide a `pull` member function accepting a
         `std::span<capy::const_buffer>` for output
-    @li The return type must satisfy @ref capy::IoAwaitable
+    @li The return type must satisfy @ref capy::ContextAwaitable
     @li The awaitable must decompose to `(error_code,std::span<capy::const_buffer>)`
         via structured bindings
     @li `T` must provide a `consume` member function accepting a byte count
@@ -72,7 +72,7 @@ namespace http {
     @par Conforming Signatures
 
     @code
-    some_io_awaitable<io_result<std::span<capy::const_buffer>>>
+    some_context_awaitable<results<std::span<capy::const_buffer>>>
     pull( std::span<capy::const_buffer> dest );
 
     void consume( std::size_t n ) noexcept;
@@ -82,7 +82,7 @@ namespace http {
 
     @code
     template<BufferSource Source, capy::WriteStream Stream>
-    io_task<std::size_t> transfer( Source& source, Stream& stream )
+    task<results<std::size_t>> transfer( Source& source, Stream& stream )
     {
         capy::const_buffer arr[16];
         std::size_t total = 0;
@@ -102,13 +102,13 @@ namespace http {
     }
     @endcode
 
-    @see capy::IoAwaitable, WriteSink, capy::awaitable_decomposes_to
+    @see capy::ContextAwaitable, WriteSink, capy::awaitable_decomposes_to
 */
 template<typename T>
 concept BufferSource =
     requires(T& src, std::span<capy::const_buffer> dest, std::size_t n)
     {
-        { src.pull(dest) } -> capy::IoAwaitable;
+        { src.pull(dest) } -> capy::ContextAwaitable;
         requires capy::awaitable_decomposes_to<
             decltype(src.pull(dest)),
             std::error_code, std::span<capy::const_buffer>>;

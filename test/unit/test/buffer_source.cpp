@@ -14,7 +14,6 @@
 #include <boost/http/concept/buffer_source.hpp>
 #include <boost/capy/task.hpp>
 #include <boost/capy/cond.hpp>
-#include <boost/capy/task.hpp>
 #include <boost/capy/test/buffer_to_string.hpp>
 
 #include "test_helpers.hpp"

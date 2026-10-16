@@ -526,7 +526,7 @@ object.
 
 [source,cpp]
 ----
-capy::io_task<> send(std::string_view body = {});
+capy::task<capy::results<>> send(std::string_view body = {});
 ----
 
 This is where the real magic happens. `send()` is an asynchronous
@@ -581,7 +581,7 @@ route_task my_handler(route_params& rp)
 }
 ----
 
-The return type is `io_task<>`, which yields a single `error_code`
+The return type is `task<results<>>`, which yields a single `error_code`
 through structured bindings. If the send succeeds, `ec` is
 non-failing. If the client disconnected or a write error occurred,
 `ec` describes the failure and you can propagate it with
