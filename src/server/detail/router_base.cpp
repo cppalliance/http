@@ -7,10 +7,12 @@
 // Official repository: https://github.com/cppalliance/http
 //
 
-#include "src/server/detail/any_router.hpp"
+#include "src/server/detail/router_base.hpp"
 #include <boost/http/server/detail/router_base.hpp>
 #include <boost/http/detail/except.hpp>
 #include <boost/http/error.hpp>
+#include <boost/http/field.hpp>
+#include <boost/http/status.hpp>
 #include <boost/url/grammar/ci_string.hpp>
 #include <boost/url/grammar/hexdig_chars.hpp>
 #include "src/server/detail/pct_decode.hpp"
@@ -206,8 +208,8 @@ dispatch_loop(route_params& p, bool is_options) const
     std::size_t last_matched = SIZE_MAX;
     std::uint32_t current_depth = 0;
 
-    std::uint64_t options_methods = 0;
-    std::vector<std::string> options_custom_verbs;
+    std::uint64_t matched_methods = 0;
+    std::vector<std::string> matched_custom_verbs;
 
     std::size_t path_stack[router_base::max_path_depth];
     path_stack[0] = 0;
@@ -286,12 +288,12 @@ dispatch_loop(route_params& p, bool is_options) const
         if(!ancestors_ok)
             continue;
 
-        // Collect methods from matching end-route matchers for OPTIONS
-        if(is_options && m.end_)
+        // Collect methods from matching end-route matchers
+        if(m.end_)
         {
-            options_methods |= m.allowed_methods_;
+            matched_methods |= m.allowed_methods_;
             for(auto const& v : m.custom_verbs_)
-                options_custom_verbs.push_back(v);
+                matched_custom_verbs.push_back(v);
         }
 
         if(m.end_ && !e.match_method(
@@ -364,10 +366,21 @@ dispatch_loop(route_params& p, bool is_options) const
         co_return route_error(pv.ec_);
 
     // OPTIONS fallback
-    if(is_options && options_methods != 0 && options_handler_)
+    if(is_options && matched_methods != 0 && options_handler_)
     {
-        std::string allow = build_allow_header(options_methods, options_custom_verbs);
+        std::string allow = build_allow_header(matched_methods, matched_custom_verbs);
         co_return co_await options_handler_->invoke(p, allow);
+    }
+
+    // 405 fallback: path matched but method didn't
+    if(!is_options &&
+        (matched_methods != 0 || !matched_custom_verbs.empty()))
+    {
+        std::string allow = build_allow_header(matched_methods, matched_custom_verbs);
+        p.res.set(field::allow, allow);
+        p.res.set_status(status::method_not_allowed);
+        (void)(co_await p.send());
+        co_return route_done;
     }
 
     co_return route_next;

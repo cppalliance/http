@@ -12,6 +12,7 @@
 
 #include <boost/http/server/detail/dynamic_invoke.hpp>
 #include <boost/capy/test/run_blocking.hpp>
+#include <boost/capy/test/buffer_sink.hpp>
 #include "test_suite.hpp"
 
 namespace boost {
@@ -21,6 +22,12 @@ struct router_test
 {
     using params = route_params;
     using test_router = router<params>;
+
+    static void init_sink(params& p)
+    {
+        p.res_body = capy::any_buffer_sink(
+            capy::test::buffer_sink{});
+    }
 
     struct derived_params : params {};
 
@@ -125,6 +132,7 @@ struct router_test
         route_result rv0 = route_done)
     {
         params req;
+        init_sink(req);
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             r.dispatch(http::method::get, urls::url_view(url), req));
@@ -138,6 +146,7 @@ struct router_test
         route_result rv0 = route_done)
     {
         params req;
+        init_sink(req);
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             r.dispatch(verb, urls::url_view(url), req));
@@ -151,6 +160,7 @@ struct router_test
         route_result rv0 = route_done)
     {
         params req;
+        init_sink(req);
         route_result rv;
         capy::test::run_blocking([&](route_result res) { rv = res; })(
             r.dispatch(verb, urls::url_view(url), req));
@@ -192,16 +202,16 @@ struct router_test
 
         // basic routing
         { test_router r; r.add(GET, "/", h_send); check(r, GET, "/"); }
-        { test_router r; r.add(GET, "/", h_next); check(r, POST, "/", route_next); }
+        { test_router r; r.add(GET, "/", h_next); check(r, POST, "/"); }
         { test_router r; r.add(POST, "/", h_send); check(r, POST, "/"); }
 
         // verb matching - case sensitive
         { test_router r; r.add(GET, "/", h_send); check(r, "GET", "/"); }
-        { test_router r; r.add(GET, "/", h_next); check(r, "get", "/", route_next); }
+        { test_router r; r.add(GET, "/", h_next); check(r, "get", "/"); }
 
         // custom verb
         { test_router r; r.add("CUSTOM", "/", h_send); check(r, "CUSTOM", "/"); }
-        { test_router r; r.add("CUSTOM", "/", h_next); check(r, "custom", "/", route_next); }
+        { test_router r; r.add("CUSTOM", "/", h_next); check(r, "custom", "/"); }
 
         // path matching
         { test_router r; r.add(GET, "/x", h_next); r.add(GET, "/y", h_send); check(r, GET, "/y"); }
@@ -426,6 +436,7 @@ struct router_test
             test_router r;
             r.use(h_next);
             params req;
+            init_sink(req);
             BOOST_TEST_THROWS(
                 capy::test::run_blocking()(r.dispatch(
                     http::method::unknown, urls::url_view("/"), req)),
@@ -437,6 +448,7 @@ struct router_test
             test_router r;
             r.use(h_next);
             params req;
+            init_sink(req);
             BOOST_TEST_THROWS(
                 capy::test::run_blocking()(r.dispatch(
                     "", urls::url_view("/"), req)),
@@ -558,6 +570,226 @@ struct router_test
         }
     }
 
+    void testOptionsMethod()
+    {
+        static auto const GET = http::method::get;
+        static auto const POST = http::method::post;
+        static auto const PUT = http::method::put;
+        static auto const DELETE_ = http::method::delete_;
+        static auto const OPTIONS = http::method::options;
+
+        // OPTIONS on single-verb route
+        { test_router r; r.add(GET, "/x", h_send); check(r, OPTIONS, "/x"); }
+
+        // OPTIONS on multi-verb route
+        { test_router r; r.route("/x").add(GET, h_send).add(POST, h_send); check(r, OPTIONS, "/x"); }
+
+        // OPTIONS on unmatched path -> route_next
+        { test_router r; r.add(GET, "/x", h_send); check(r, OPTIONS, "/y", route_next); }
+
+        // 405 sets Allow header (non-OPTIONS wrong method)
+        {
+            test_router r;
+            r.add(GET, "/x", h_send);
+            params req;
+            init_sink(req);
+            route_result rv;
+            capy::test::run_blocking([&](route_result res) { rv = res; })(
+                r.dispatch(POST, urls::url_view("/x"), req));
+            BOOST_TEST(rv.what() == route_what::done);
+            BOOST_TEST(req.res.exists(field::allow));
+            BOOST_TEST(req.res.status() == status::method_not_allowed);
+        }
+
+        // Allow header lists all registered verbs
+        {
+            test_router r;
+            r.route("/api")
+                .add(GET, h_send)
+                .add(POST, h_send)
+                .add(DELETE_, h_send);
+            params req;
+            init_sink(req);
+            route_result rv;
+            capy::test::run_blocking([&](route_result res) { rv = res; })(
+                r.dispatch(PUT, urls::url_view("/api"), req));
+            auto allow = req.res.value_or(field::allow, "");
+            BOOST_TEST(allow.find("GET") != std::string_view::npos);
+            BOOST_TEST(allow.find("POST") != std::string_view::npos);
+            BOOST_TEST(allow.find("DELETE") != std::string_view::npos);
+        }
+
+        // OPTIONS with custom verb
+        {
+            test_router r;
+            r.add(GET, "/x", h_send);
+            r.add("CUSTOM", "/x", h_send);
+            params req;
+            init_sink(req);
+            route_result rv;
+            capy::test::run_blocking([&](route_result res) { rv = res; })(
+                r.dispatch(PUT, urls::url_view("/x"), req));
+            auto allow = req.res.value_or(field::allow, "");
+            BOOST_TEST(allow.find("CUSTOM") != std::string_view::npos);
+            BOOST_TEST(allow.find("GET") != std::string_view::npos);
+        }
+
+        // all() produces full method list on 405
+        {
+            test_router r;
+            r.all("/x", h_next);
+            params req;
+            init_sink(req);
+            route_result rv;
+            capy::test::run_blocking([&](route_result res) { rv = res; })(
+                r.dispatch(GET, urls::url_view("/x"), req));
+            // all() handler returned route_next, so
+            // the router sees path matched and falls
+            // through to 405 with the full set
+            auto allow = req.res.value_or(field::allow, "");
+            BOOST_TEST(allow.find("GET") != std::string_view::npos);
+            BOOST_TEST(allow.find("POST") != std::string_view::npos);
+            BOOST_TEST(allow.find("PUT") != std::string_view::npos);
+            BOOST_TEST(allow.find("DELETE") != std::string_view::npos);
+        }
+
+        // set_options_handler customizes OPTIONS response
+        {
+            test_router r;
+            r.add(GET, "/x", h_send);
+            r.add(POST, "/x", h_send);
+            r.set_options_handler(
+                [](params& rp, std::string_view allow) -> route_task
+                {
+                    rp.res.set(field::allow, allow);
+                    rp.res.set(field::access_control_allow_methods, allow);
+                    co_return route_done;
+                });
+            params req;
+            init_sink(req);
+            route_result rv;
+            capy::test::run_blocking([&](route_result res) { rv = res; })(
+                r.dispatch(OPTIONS, urls::url_view("/x"), req));
+            BOOST_TEST(rv.what() == route_what::done);
+            BOOST_TEST(req.res.exists(field::allow));
+            BOOST_TEST(req.res.exists(
+                field::access_control_allow_methods));
+        }
+    }
+
+    void testMultiLevelVerbs()
+    {
+        static auto const GET = http::method::get;
+        static auto const POST = http::method::post;
+        static auto const PUT = http::method::put;
+        static auto const DELETE_ = http::method::delete_;
+        static auto const OPTIONS = http::method::options;
+
+        // Multi-level route tree: /api/users and /api/posts
+        // with different verbs at each level
+        {
+            test_router r;
+            r.use("/api", []{
+                test_router r2;
+                r2.add(GET, "/users", h_send);
+                r2.add(POST, "/users", h_send);
+                r2.add(GET, "/posts", h_send);
+                r2.add(PUT, "/posts", h_send);
+                r2.add(DELETE_, "/posts", h_send);
+                return r2;
+            }());
+
+            // Direct verb matches
+            check(r, GET, "/api/users");
+            check(r, POST, "/api/users");
+            check(r, GET, "/api/posts");
+            check(r, PUT, "/api/posts");
+            check(r, DELETE_, "/api/posts");
+
+            // OPTIONS on each sub-path
+            check(r, OPTIONS, "/api/users");
+            check(r, OPTIONS, "/api/posts");
+
+            // Wrong verb -> 405
+            {
+                params req;
+                init_sink(req);
+                route_result rv;
+                capy::test::run_blocking([&](route_result res) { rv = res; })(
+                    r.dispatch(DELETE_, urls::url_view("/api/users"), req));
+                BOOST_TEST(req.res.status() == status::method_not_allowed);
+                auto allow = req.res.value_or(field::allow, "");
+                BOOST_TEST(allow.find("GET") != std::string_view::npos);
+                BOOST_TEST(allow.find("POST") != std::string_view::npos);
+                // DELETE not allowed on /users
+                BOOST_TEST(allow.find("DELETE") == std::string_view::npos);
+            }
+
+            // Wrong verb on /posts
+            {
+                params req;
+                init_sink(req);
+                route_result rv;
+                capy::test::run_blocking([&](route_result res) { rv = res; })(
+                    r.dispatch(POST, urls::url_view("/api/posts"), req));
+                BOOST_TEST(req.res.status() == status::method_not_allowed);
+                auto allow = req.res.value_or(field::allow, "");
+                BOOST_TEST(allow.find("GET") != std::string_view::npos);
+                BOOST_TEST(allow.find("PUT") != std::string_view::npos);
+                BOOST_TEST(allow.find("DELETE") != std::string_view::npos);
+            }
+        }
+
+        // Deeply nested: /v1/admin/settings
+        {
+            test_router r;
+            r.use("/v1", []{
+                test_router r2;
+                r2.use("/admin", []{
+                    test_router r3;
+                    r3.add(GET, "/settings", h_send);
+                    r3.add(PUT, "/settings", h_send);
+                    return r3;
+                }());
+                return r2;
+            }());
+
+            check(r, GET, "/v1/admin/settings");
+            check(r, PUT, "/v1/admin/settings");
+            check(r, OPTIONS, "/v1/admin/settings");
+
+            // Wrong verb
+            {
+                params req;
+                init_sink(req);
+                route_result rv;
+                capy::test::run_blocking([&](route_result res) { rv = res; })(
+                    r.dispatch(POST, urls::url_view("/v1/admin/settings"), req));
+                BOOST_TEST(req.res.status() == status::method_not_allowed);
+            }
+        }
+
+        // Sibling sub-routers with non-overlapping verbs
+        {
+            test_router r;
+            r.use("/svc", []{
+                test_router r2;
+                r2.add(GET, "/health", h_send);
+                return r2;
+            }());
+            r.use("/svc", []{
+                test_router r2;
+                r2.add(POST, "/rpc", h_send);
+                return r2;
+            }());
+
+            check(r, GET, "/svc/health");
+            check(r, POST, "/svc/rpc");
+            check(r, OPTIONS, "/svc/health");
+            check(r, OPTIONS, "/svc/rpc");
+        }
+    }
+
     void run()
     {
         testUse();
@@ -570,6 +802,8 @@ struct router_test
         testPathDecoding();
         testCrossTypeConstruction();
         testDynamicTransform();
+        testOptionsMethod();
+        testMultiLevelVerbs();
     }
 };
 
