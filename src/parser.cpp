@@ -338,6 +338,11 @@ public:
             detail::throw_system_error(ec);
     }
 
+    ~zlib_filter()
+    {
+        svc_.inflate_end(strm_);
+    }
+
 private:
     virtual
     results
