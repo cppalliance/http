@@ -156,6 +156,11 @@ public:
             detail::throw_system_error(ec);
     }
 
+    ~zlib_filter()
+    {
+        svc_.deflate_end(strm_);
+    }
+
 private:
     virtual
     std::size_t
