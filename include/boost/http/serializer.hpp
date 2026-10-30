@@ -663,7 +663,7 @@ public:
                 co_return {std::error_code(cbs.error())};
             }
 
-            if(capy::buffer_empty(*cbs))
+            if(capy::buffers_empty(*cbs))
             {
                 // advance state machine
                 sr_->consume(0);
@@ -713,7 +713,7 @@ public:
                 co_return {std::error_code(cbs.error())};
             }
 
-            if(capy::buffer_empty(*cbs))
+            if(capy::buffers_empty(*cbs))
             {
                 // advance state machine
                 sr_->consume(0);
@@ -760,7 +760,7 @@ public:
                 co_return {cbs.error(), 0};
             }
 
-            if(capy::buffer_empty(*cbs))
+            if(capy::buffers_empty(*cbs))
             {
                 // advance state machine
                 sr_->consume(0);
@@ -776,8 +776,8 @@ public:
 
         // Write body data through stream_prepare/commit
         std::size_t total = 0;
-        for(auto it = capy::begin(buffers);
-            it != capy::end(buffers); ++it)
+        for(auto it = capy::buffer_sequence_begin(buffers);
+            it != capy::buffer_sequence_end(buffers); ++it)
         {
             capy::const_buffer src = *it;
             while(src.size() != 0)
@@ -809,7 +809,7 @@ public:
                         co_return {cbs.error(), total};
                     }
 
-                    if(capy::buffer_empty(*cbs))
+                    if(capy::buffers_empty(*cbs))
                     {
                         // advance state machine
                         sr_->consume(0);
@@ -864,7 +864,7 @@ public:
                 co_return {cbs.error(), n};
             }
 
-            if(capy::buffer_empty(*cbs))
+            if(capy::buffers_empty(*cbs))
             {
                 // advance state machine
                 sr_->consume(0);
@@ -910,7 +910,7 @@ public:
                 co_return {std::error_code(cbs.error())};
             }
 
-            if(capy::buffer_empty(*cbs))
+            if(capy::buffers_empty(*cbs))
             {
                 // advance state machine
                 sr_->consume(0);

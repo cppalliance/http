@@ -162,7 +162,7 @@ public:
             capy::results<std::size_t>
             await_resume()
             {
-                if(capy::buffer_empty(buffers_))
+                if(capy::buffers_empty(buffers_))
                     return {std::error_code(), 0};
 
                 if(canceled_)
@@ -237,7 +237,7 @@ public:
             capy::results<std::size_t>
             await_resume()
             {
-                if(capy::buffer_empty(buffers_))
+                if(capy::buffers_empty(buffers_))
                     return {std::error_code(), 0};
 
                 if(canceled_)

@@ -144,7 +144,7 @@ public:
             await_resume()
             {
                 self_->read_api_used_ = true;
-                if(buffer_empty(buffers_))
+                if(buffers_empty(buffers_))
                     return {std::error_code(), 0};
                 auto ec = self_->f_.maybe_fail();
                 if(ec)
@@ -182,7 +182,7 @@ public:
             await_resume()
             {
                 self_->read_api_used_ = true;
-                if(buffer_empty(buffers_))
+                if(buffers_empty(buffers_))
                     return {std::error_code(), 0};
                 auto ec = self_->f_.maybe_fail();
                 if(ec)

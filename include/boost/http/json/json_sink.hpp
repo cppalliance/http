@@ -62,8 +62,8 @@ class json_sink
     {
         std::error_code ec;
         std::size_t total = 0;
-        auto const end = capy::end(buffers);
-        for(auto it = capy::begin(buffers); it != end; ++it)
+        auto const end = capy::buffer_sequence_end(buffers);
+        for(auto it = capy::buffer_sequence_begin(buffers); it != end; ++it)
         {
             capy::const_buffer buf(*it);
             auto n = parser_.write(

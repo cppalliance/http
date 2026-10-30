@@ -13,7 +13,6 @@
 #include <boost/http/response.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/buffer_slice.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <boost/http/concept/buffer_sink.hpp>
 #include <boost/http/io/any_buffer_sink.hpp>
@@ -21,6 +20,11 @@
 #include <boost/capy/test/write_stream.hpp>
 #include <boost/core/ignore_unused.hpp>
 #include <boost/http/detail/flat_buffer.hpp>
+
+#ifdef BOOST_HTTP_HAS_ZLIB
+#include <boost/capy/ex/system_context.hpp>
+#include <boost/http/zlib/deflate.hpp>
+#endif
 
 #include "test_helpers.hpp"
 
@@ -61,19 +65,23 @@ struct serializer_test
     read_some(serializer& sr)
     {
         auto bufs = sr.prepare().value();
-        auto cbs = capy::buffer_slice(bufs, 0, 256);
         BOOST_TEST(!sr.is_done());
         // We limit buffer consumption to necessitate
         // multiple calls to serializer::prepare() and
         // serializer::consume(), allowing tests to cover
         // state management within these functions
+        std::size_t budget = 256;
         std::string s;
-        for( auto buf : cbs)
+        for(auto it = capy::buffer_sequence_begin(bufs);
+            it != capy::buffer_sequence_end(bufs) && budget > 0; ++it)
         {
+            capy::const_buffer buf(*it);
+            std::size_t const n = (std::min)(buf.size(), budget);
             s.append(
                 reinterpret_cast<char const*>(buf.data()),
-                buf.size());
-            sr.consume(buf.size());
+                n);
+            sr.consume(n);
+            budget -= n;
         }
         return s;
     }
@@ -1278,6 +1286,75 @@ struct serializer_test
         BOOST_TEST(r.success);
     }
 
+#ifdef BOOST_HTTP_HAS_ZLIB
+    // The final filter call passes empty input buffers; the encoder
+    // must still be told to finish or the serializer never completes.
+    void
+    testGzipFinishes()
+    {
+        auto& ctx = capy::get_system_context();
+        if(! ctx.find_service<zlib::deflate_service>())
+            zlib::install_deflate_service(ctx);
+
+        serializer_config c;
+        c.apply_gzip_encoder = true;
+        auto const cfg = make_serializer_config(c);
+
+        auto drain = [](serializer& sr)
+        {
+            std::string out;
+            for(int i = 0; i < 1000 && ! sr.is_done(); ++i)
+            {
+                auto rv = sr.prepare();
+                if(rv.has_error())
+                {
+                    BOOST_TEST(rv.error() == error::need_data);
+                    return out;
+                }
+                for(auto it = capy::buffer_sequence_begin(rv.value());
+                    it != capy::buffer_sequence_end(rv.value()); ++it)
+                {
+                    capy::const_buffer b(*it);
+                    out.append(
+                        static_cast<char const*>(b.data()), b.size());
+                }
+                sr.consume(capy::buffer_size(rv.value()));
+            }
+            return out;
+        };
+
+        response res;
+        res.set(field::content_encoding, "gzip");
+        res.set_chunked(true);
+
+        // empty body
+        {
+            serializer sr(cfg);
+            sr.set_message(res);
+            sr.start();
+            auto out = drain(sr);
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(out.ends_with("0\r\n\r\n"));
+        }
+
+        // streamed body
+        {
+            serializer sr(cfg);
+            sr.set_message(res);
+            sr.start_stream();
+            std::string body(1000, 'x');
+            auto mb = sr.stream_prepare();
+            auto n = capy::buffer_copy(mb, capy::make_buffer(body));
+            BOOST_TEST_EQ(n, body.size());
+            sr.stream_commit(n);
+            sr.stream_close();
+            auto out = drain(sr);
+            BOOST_TEST(sr.is_done());
+            BOOST_TEST(out.ends_with("0\r\n\r\n"));
+        }
+    }
+#endif
+
     void
     run()
     {
@@ -1306,6 +1383,10 @@ struct serializer_test
         // any_buffer_sink wrapper tests (WriteSink)
         testAnyBufferSinkWrite();
         testAnyBufferSinkWriteWithEof();
+
+#ifdef BOOST_HTTP_HAS_ZLIB
+        testGzipFinishes();
+#endif
     }
 };
 

@@ -21,10 +21,12 @@ namespace detail {
 template<typename BufferSequence>
 auto
 make_span(BufferSequence const& bs) ->
-    boost::span<typename std::iterator_traits<decltype(capy::begin(bs))>::value_type const>
+    boost::span<typename std::iterator_traits<
+        decltype(capy::buffer_sequence_begin(bs))>::value_type const>
 {
-    return { &*capy::begin(bs),
-        std::size_t(std::distance(capy::begin(bs), capy::end(bs))) };
+    return { &*capy::buffer_sequence_begin(bs),
+        std::size_t(std::distance(
+            capy::buffer_sequence_begin(bs), capy::buffer_sequence_end(bs))) };
 }
 
 } // detail

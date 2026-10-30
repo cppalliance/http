@@ -167,7 +167,7 @@ public:
             await_resume()
             {
                 self_->write_api_used_ = true;
-                if(buffer_empty(buffers_))
+                if(buffers_empty(buffers_))
                     return {std::error_code(), 0};
                 auto ec = self_->f_.maybe_fail();
                 if(ec) return {ec, 0};

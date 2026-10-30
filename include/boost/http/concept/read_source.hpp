@@ -63,7 +63,7 @@ namespace http {
     Successful partial reads are not permitted; either the entire
     buffer is filled or the operation returns with an error.
 
-    If `buffer_empty( buffers )` is `true`, the operation completes
+    If `buffers_empty( buffers )` is `true`, the operation completes
     immediately with `!ec` and `n` equal to 0.
 
     When the buffer sequence contains multiple buffers, each buffer is
