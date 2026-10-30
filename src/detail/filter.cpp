@@ -10,8 +10,8 @@
 
 #include "src/detail/filter.hpp"
 
-#include <boost/capy/buffers/consuming_buffers.hpp>
-#include <boost/capy/buffers/front.hpp>
+#include <boost/capy/buffers/buffers_front.hpp>
+#include <boost/http/io/buffer_param.hpp>
 
 namespace boost {
 namespace http {
@@ -22,7 +22,7 @@ namespace {
 // Returns true if the slice's current data view contains at most one
 // non-empty buffer (i.e., we are processing the last logical chunk).
 template<class Slice>
-bool single_or_empty(Slice const& s)
+bool single_or_empty(Slice& s)
 {
     auto d = s.data();
     auto it = d.begin();
@@ -42,8 +42,12 @@ process(
     std::array<capy::const_buffer, 2> in_seq,
     bool more) -> results
 {
-    auto out = capy::consuming_buffers(out_seq);
-    auto in = capy::consuming_buffers(in_seq);
+    buffer_param out(out_seq);
+    buffer_param in(in_seq);
+
+    // data() spans only the current window, so track totals separately
+    std::size_t out_left = capy::buffer_size(out_seq);
+    std::size_t in_left = capy::buffer_size(in_seq);
 
     results rv;
     bool p_more = true;
@@ -51,7 +55,7 @@ process(
     {
         if(!more && p_more && single_or_empty(in))
         {
-            if(capy::buffer_size(out.data()) < min_out_buffer())
+            if(out_left < min_out_buffer())
             {
                 rv.out_short = true;
                 return rv;
@@ -59,8 +63,8 @@ process(
             p_more = false;
         }
 
-        auto ob = capy::front(out.data());
-        auto ib = capy::front(in.data());
+        auto ob = capy::buffers_front(out.data());
+        auto ib = capy::buffers_front(in.data());
         auto rs = do_process(ob, ib, p_more);
 
         rv.in_bytes  += rs.in_bytes;
@@ -80,11 +84,13 @@ process(
 
         out.consume(rs.out_bytes);
         in.consume(rs.in_bytes);
+        out_left -= rs.out_bytes;
+        in_left -= rs.in_bytes;
 
-        if(capy::buffer_size(out.data()) == 0)
+        if(out_left == 0)
             return rv;
 
-        if(capy::buffer_size(in.data()) == 0 && rs.out_bytes < ob.size())
+        if(in_left == 0 && rs.out_bytes < ob.size())
             return rv;
     }
 }

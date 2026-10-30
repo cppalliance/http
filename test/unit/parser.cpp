@@ -2264,6 +2264,43 @@ struct parser_coro_test
         BOOST_TEST(r.success);
     }
 
+    // More destination buffers than one copy window holds, with the
+    // whole message already buffered: every body byte must arrive
+    // before read reports eof.
+    void
+    testReadManyBuffers()
+    {
+        capy::test::fuse f;
+        auto r = f.armed([&](capy::test::fuse&) -> capy::task<>
+        {
+            capy::test::read_stream rs(f);
+            rs.provide(
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Length: 26\r\n"
+                "\r\n"
+                "abcdefghijklmnopqrstuvwxyz");
+
+            response_parser pr(res_cfg_);
+            pr.reset();
+            pr.start();
+
+            char storage[32] = {};
+            std::array<capy::mutable_buffer, 32> bufs;
+            for(std::size_t i = 0; i < bufs.size(); ++i)
+                bufs[i] = capy::mutable_buffer(storage + i, 1);
+            auto [ec, n] = co_await pr.read(rs, bufs);
+            ignore_unused(ec);
+
+            if(! pr.is_complete())
+                co_return;
+
+            BOOST_TEST_EQ(n, 26u);
+            BOOST_TEST(core::string_view(storage, n) ==
+                "abcdefghijklmnopqrstuvwxyz");
+        });
+        BOOST_TEST(r.success);
+    }
+
     void
     testReadChunked()
     {
@@ -2352,6 +2389,7 @@ struct parser_coro_test
         testSourceForBodyTooLarge();
         testRead();
         testReadBuffers();
+        testReadManyBuffers();
         testReadChunked();
         testReadEof();
         testReadOverflow();

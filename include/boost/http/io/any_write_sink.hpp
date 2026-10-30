@@ -14,7 +14,7 @@
 #include <boost/capy/detail/await_suspend_helper.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/detail/buffer_array.hpp>
-#include <boost/capy/buffers/buffer_param.hpp>
+#include <boost/http/io/buffer_param.hpp>
 #include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/http/concept/write_sink.hpp>
 #include <coroutine>
@@ -222,7 +222,7 @@ public:
         Writes data from the provided buffer sequence. The operation
         completes when all bytes have been consumed, or an error
         occurs. Forwards to the underlying sink's `write` operation,
-        windowed through @ref capy::buffer_param when the sequence exceeds
+        windowed through @ref buffer_param when the sequence exceeds
         the per-call buffer limit.
 
         @param buffers The buffer sequence containing data to write.
@@ -854,7 +854,7 @@ template<capy::ConstBufferSequence CB>
 capy::task<capy::results<std::size_t>>
 any_write_sink::write(CB buffers)
 {
-    capy::const_buffer_param<CB> bp(buffers);
+    const_buffer_param<CB> bp(buffers);
     std::size_t total = 0;
 
     for(;;)
@@ -877,7 +877,7 @@ template<capy::ConstBufferSequence CB>
 capy::task<capy::results<std::size_t>>
 any_write_sink::write_eof(CB buffers)
 {
-    capy::const_buffer_param<CB> bp(buffers);
+    const_buffer_param<CB> bp(buffers);
     std::size_t total = 0;
 
     for(;;)

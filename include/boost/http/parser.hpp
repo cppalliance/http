@@ -17,9 +17,9 @@
 #include <boost/http/error.hpp>
 
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/consuming_buffers.hpp>
 #include <boost/capy/concept/read_stream.hpp>
 #include <boost/http/concept/write_sink.hpp>
+#include <boost/http/io/buffer_param.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/capy/error.hpp>
 #include <boost/capy/results.hpp>
@@ -601,11 +601,11 @@ capy::task<capy::results<std::size_t>>
 parser::
 read(Stream& stream, MB buffers)
 {
-    if(capy::buffer_empty(buffers))
+    if(capy::buffers_empty(buffers))
         co_return {std::error_code(), 0};
 
     std::size_t total = 0;
-    capy::consuming_buffers dest(buffers);
+    buffer_param dest(buffers);
 
     for(;;)
     {
@@ -614,15 +614,17 @@ read(Stream& stream, MB buffers)
 
         if(got_header())
         {
-            auto body_data = pull_body();
-            if(capy::buffer_size(body_data) > 0)
+            // dest.data() is one window, so drain the body over several copies
+            for(auto body_data = pull_body();
+                capy::buffer_size(body_data) > 0;
+                body_data = pull_body())
             {
                 std::size_t copied = capy::buffer_copy(dest.data(), body_data);
                 consume_body(copied);
                 total += copied;
                 dest.consume(copied);
 
-                if(capy::buffer_empty(dest.data()))
+                if(capy::buffers_empty(dest.data()))
                     co_return {std::error_code(), total};
             }
 

@@ -14,7 +14,7 @@
 #include <boost/capy/detail/await_suspend_helper.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/detail/buffer_array.hpp>
-#include <boost/capy/buffers/buffer_param.hpp>
+#include <boost/http/io/buffer_param.hpp>
 #include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/http/concept/read_source.hpp>
 #include <boost/capy/ex/await_context.hpp>
@@ -572,7 +572,7 @@ template<capy::MutableBufferSequence MB>
 capy::task<capy::results<std::size_t>>
 any_read_source::read(MB buffers)
 {
-    capy::buffer_param bp(buffers);
+    buffer_param bp(buffers);
     std::size_t total = 0;
 
     for(;;)

@@ -20,8 +20,7 @@
 
 #include <boost/assert.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/front.hpp>
-#include <boost/capy/buffers/buffer_slice.hpp>
+#include <boost/capy/buffers/buffers_front.hpp>
 #include <boost/capy/ex/system_context.hpp>
 #include <boost/http/brotli/decode.hpp>
 #include <boost/http/zlib/error.hpp>
@@ -1123,9 +1122,6 @@ public:
                     {
                         const std::size_t chunk_avail =
                             clamp(chunk_remain_, cb0_.size());
-                        auto cb0_data = cb0_.data();
-                        auto chunk = capy::buffer_slice(
-                            cb0_data, 0, chunk_avail);
 
                         if(body_limit_remain() < chunk_avail)
                         {
@@ -1137,7 +1133,8 @@ public:
                         // in_place style
                         auto copied = capy::buffer_copy(
                             cb1_.prepare(cb1_.capacity()),
-                            chunk);
+                            cb0_.data(),
+                            chunk_avail);
                         chunk_remain_ -= copied;
                         body_avail_   += copied;
                         body_total_   += copied;

@@ -14,7 +14,7 @@
 #include <boost/capy/detail/await_suspend_helper.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
-#include <boost/capy/buffers/buffer_param.hpp>
+#include <boost/http/io/buffer_param.hpp>
 #include <boost/http/concept/buffer_sink.hpp>
 #include <boost/capy/concept/context_awaitable.hpp>
 #include <boost/http/concept/write_sink.hpp>
@@ -1042,7 +1042,7 @@ template<capy::ConstBufferSequence CB>
 capy::task<capy::results<std::size_t>>
 any_buffer_sink::write_some(CB buffers)
 {
-    capy::buffer_param<CB> bp(buffers);
+    buffer_param<CB> bp(buffers);
     auto src = bp.data();
     if(src.empty())
         co_return {std::error_code(), 0};
@@ -1075,7 +1075,7 @@ template<capy::ConstBufferSequence CB>
 capy::task<capy::results<std::size_t>>
 any_buffer_sink::write(CB buffers)
 {
-    capy::buffer_param<CB> bp(buffers);
+    buffer_param<CB> bp(buffers);
     std::size_t total = 0;
 
     // Native WriteSink path
@@ -1186,7 +1186,7 @@ any_buffer_sink::write_eof(CB buffers)
     // Native WriteSink path
     if(vt_->construct_write_eof_buffers_awaitable)
     {
-        capy::const_buffer_param<CB> bp(buffers);
+        const_buffer_param<CB> bp(buffers);
         std::size_t total = 0;
 
         for(;;)
@@ -1215,7 +1215,7 @@ any_buffer_sink::write_eof(CB buffers)
     }
 
     // Synthesized path: prepare + capy::buffer_copy + commit + commit_eof
-    capy::buffer_param<CB> bp(buffers);
+    buffer_param<CB> bp(buffers);
     std::size_t total = 0;
 
     for(;;)
