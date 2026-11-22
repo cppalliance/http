@@ -143,8 +143,8 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 file(GLOB_RECURSE BOOST_HTTP_HEADERS CONFIGURE_DEPENDS include/boost/*.hpp include/boost/*.natvis)
 file(GLOB_RECURSE BOOST_HTTP_SOURCES CONFIGURE_DEPENDS src/*.cpp src/*.hpp)
 
-source_group("" FILES "include/boost/http.hpp" "build/Jamfile")
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost/http PREFIX "include" FILES ${BOOST_HTTP_HEADERS})
+source_group("" FILES "build/Jamfile")
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/include/boost PREFIX "include" FILES ${BOOST_HTTP_HEADERS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/src PREFIX "src" FILES ${BOOST_HTTP_SOURCES})
 
 function(boost_http_setup_properties target)
