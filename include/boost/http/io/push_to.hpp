@@ -10,7 +10,7 @@
 #ifndef BOOST_HTTP_IO_PUSH_TO_HPP
 #define BOOST_HTTP_IO_PUSH_TO_HPP
 
-#include <boost/capy/detail/config.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/http/concept/buffer_source.hpp>
@@ -63,7 +63,7 @@ template<BufferSource Src, WriteSink Sink>
 capy::task<capy::results<std::size_t>>
 push_to(Src& source, Sink& sink)
 {
-    capy::const_buffer arr[capy::detail::max_iovec_];
+    capy::const_buffer arr[detail::max_iovec_];
     std::size_t total = 0;
 
     for(;;)
@@ -128,7 +128,7 @@ template<BufferSource Src, capy::WriteStream Stream>
 capy::task<capy::results<std::size_t>>
 push_to(Src& source, Stream& stream)
 {
-    capy::const_buffer arr[capy::detail::max_iovec_];
+    capy::const_buffer arr[detail::max_iovec_];
     std::size_t total = 0;
 
     for(;;)

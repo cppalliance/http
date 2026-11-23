@@ -10,8 +10,8 @@
 #ifndef BOOST_HTTP_IO_ANY_WRITE_SINK_HPP
 #define BOOST_HTTP_IO_ANY_WRITE_SINK_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/detail/await_suspend_helper.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/detail/buffer_array.hpp>
 #include <boost/http/io/buffer_param.hpp>
@@ -799,7 +799,7 @@ any_write_sink::write_some(CB buffers)
     struct awaitable
     {
         any_write_sink* self_;
-        capy::detail::const_buffer_array<capy::detail::max_iovec_> ba_;
+        capy::detail::const_buffer_array<detail::max_iovec_> ba_;
 
         awaitable(
             any_write_sink* self,

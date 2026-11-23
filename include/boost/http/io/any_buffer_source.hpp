@@ -10,8 +10,8 @@
 #ifndef BOOST_HTTP_IO_ANY_BUFFER_SOURCE_HPP
 #define BOOST_HTTP_IO_ANY_BUFFER_SOURCE_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/detail/await_suspend_helper.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/http/io/buffer_param.hpp>
@@ -768,7 +768,7 @@ any_buffer_source::read_some(MB buffers)
         co_return co_await read_some_(dest);
 
     // Synthesized path: pull + capy::buffer_copy + consume
-    capy::const_buffer arr[capy::detail::max_iovec_];
+    capy::const_buffer arr[detail::max_iovec_];
     auto [ec, bufs] = co_await pull(arr);
     if(ec)
         co_return {ec, 0};
@@ -810,7 +810,7 @@ any_buffer_source::read(MB buffers)
         if(dest.empty())
             break;
 
-        capy::const_buffer arr[capy::detail::max_iovec_];
+        capy::const_buffer arr[detail::max_iovec_];
         auto [ec, bufs] = co_await pull(arr);
 
         if(ec)

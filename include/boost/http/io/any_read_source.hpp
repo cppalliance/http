@@ -10,8 +10,8 @@
 #ifndef BOOST_HTTP_IO_ANY_READ_SOURCE_HPP
 #define BOOST_HTTP_IO_ANY_READ_SOURCE_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/detail/await_suspend_helper.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/detail/buffer_array.hpp>
 #include <boost/http/io/buffer_param.hpp>
@@ -473,7 +473,7 @@ any_read_source::read_some(MB buffers)
     struct awaitable
     {
         any_read_source* self_;
-        capy::detail::mutable_buffer_array<capy::detail::max_iovec_> ba_;
+        capy::detail::mutable_buffer_array<detail::max_iovec_> ba_;
 
         awaitable(any_read_source* self, MB const& buffers)
             : self_(self)

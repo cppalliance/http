@@ -10,8 +10,8 @@
 #ifndef BOOST_HTTP_IO_ANY_BUFFER_SINK_HPP
 #define BOOST_HTTP_IO_ANY_BUFFER_SINK_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/detail/await_suspend_helper.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/buffer_copy.hpp>
 #include <boost/http/io/buffer_param.hpp>
@@ -1052,7 +1052,7 @@ any_buffer_sink::write_some(CB buffers)
         co_return co_await write_some_(src);
 
     // Synthesized path: prepare + capy::buffer_copy + commit
-    capy::mutable_buffer arr[capy::detail::max_iovec_];
+    capy::mutable_buffer arr[detail::max_iovec_];
     auto dst_bufs = prepare(arr);
     if(dst_bufs.empty())
     {
@@ -1103,7 +1103,7 @@ any_buffer_sink::write(CB buffers)
         if(src.empty())
             break;
 
-        capy::mutable_buffer arr[capy::detail::max_iovec_];
+        capy::mutable_buffer arr[detail::max_iovec_];
         auto dst_bufs = prepare(arr);
         if(dst_bufs.empty())
         {
@@ -1224,7 +1224,7 @@ any_buffer_sink::write_eof(CB buffers)
         if(src.empty())
             break;
 
-        capy::mutable_buffer arr[capy::detail::max_iovec_];
+        capy::mutable_buffer arr[detail::max_iovec_];
         auto dst_bufs = prepare(arr);
         if(dst_bufs.empty())
         {

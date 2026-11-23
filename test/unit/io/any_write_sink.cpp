@@ -9,6 +9,7 @@
 
 // Test that header file is self-contained.
 #include <boost/http/io/any_write_sink.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/task.hpp>
 
 #include <boost/capy/buffers/make_buffer.hpp>
@@ -19,8 +20,6 @@
 #include <boost/http/test/write_sink.hpp>
 
 #include "test_helpers.hpp"
-
-#include <boost/capy/detail/config.hpp>
 
 #include <array>
 #include <coroutine>
@@ -556,7 +555,7 @@ public:
     {
         // Buffer sequence exceeds max_iovec_ -- verifies the
         // windowed loop writes every buffer in the sequence.
-        constexpr unsigned N = capy::detail::max_iovec_ + 4;
+        constexpr unsigned N = detail::max_iovec_ + 4;
 
         capy::test::fuse f;
         auto r = f.armed([&](capy::test::fuse&) -> capy::task<> {
@@ -591,7 +590,7 @@ public:
     {
         // Buffer sequence exceeds max_iovec_ -- verifies the
         // last window is sent atomically with EOF via write_eof(buffers).
-        constexpr unsigned N = capy::detail::max_iovec_ + 4;
+        constexpr unsigned N = detail::max_iovec_ + 4;
 
         capy::test::fuse f;
         auto r = f.armed([&](capy::test::fuse&) -> capy::task<> {

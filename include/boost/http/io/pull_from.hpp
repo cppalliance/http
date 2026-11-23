@@ -10,7 +10,7 @@
 #ifndef BOOST_HTTP_IO_PULL_FROM_HPP
 #define BOOST_HTTP_IO_PULL_FROM_HPP
 
-#include <boost/capy/detail/config.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/cond.hpp>
 #include <boost/http/concept/buffer_sink.hpp>
@@ -64,7 +64,7 @@ template<ReadSource Src, BufferSink Sink>
 capy::task<capy::results<std::size_t>>
 pull_from(Src& source, Sink& sink)
 {
-    capy::mutable_buffer dst_arr[capy::detail::max_iovec_];
+    capy::mutable_buffer dst_arr[detail::max_iovec_];
     std::size_t total = 0;
 
     for(;;)
@@ -144,7 +144,7 @@ template<capy::ReadStream Src, BufferSink Sink>
 capy::task<capy::results<std::size_t>>
 pull_from(Src& source, Sink& sink)
 {
-    capy::mutable_buffer dst_arr[capy::detail::max_iovec_];
+    capy::mutable_buffer dst_arr[detail::max_iovec_];
     std::size_t total = 0;
 
     for(;;)

@@ -11,7 +11,6 @@
 #ifndef BOOST_HTTP_TEST_BUFFER_SINK_HPP
 #define BOOST_HTTP_TEST_BUFFER_SINK_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/buffers/make_buffer.hpp>
 #include <coroutine>
@@ -172,7 +171,7 @@ public:
 
             // The operation completes synchronously, but await_suspend is
             // the only place capy::await_context is delivered (the promise's
-            // transform_awaiter forwards it here). Returning false means
+            // awaiter forwards it here). Returning false means
             // the coroutine does not actually suspend; it resumes
             // immediately, having observed the stop token. See capy::await_context,
             // ContextAwaitable.
