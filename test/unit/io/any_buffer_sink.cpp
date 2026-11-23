@@ -9,6 +9,7 @@
 
 // Test that header file is self-contained.
 #include <boost/http/io/any_buffer_sink.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/task.hpp>
 
 // Test that pull_from header is self-contained.
@@ -405,7 +406,7 @@ public:
                 test::buffer_sink bs(f);
                 any_buffer_sink abs(std::move(bs));
 
-                mutable_buffer arr[capy::detail::max_iovec_];
+                mutable_buffer arr[detail::max_iovec_];
                 auto bufs = abs.prepare(arr);
                 BOOST_TEST_EQ(bufs.size(), 1u);
 
@@ -466,7 +467,7 @@ public:
             test::buffer_sink bs(f);
             any_buffer_sink abs(&bs);
 
-            mutable_buffer arr[capy::detail::max_iovec_];
+            mutable_buffer arr[detail::max_iovec_];
             auto bufs = abs.prepare(arr);
             BOOST_TEST_EQ(bufs.size(), 1u);
             BOOST_TEST(bufs[0].size() > 0);
@@ -491,7 +492,7 @@ public:
             test::buffer_sink bs(f);
             any_buffer_sink abs(&bs);
 
-            mutable_buffer arr[capy::detail::max_iovec_];
+            mutable_buffer arr[detail::max_iovec_];
             auto bufs = abs.prepare(arr);
             BOOST_TEST_EQ(bufs.size(), 1u);
 
@@ -515,7 +516,7 @@ public:
             test::buffer_sink bs(f);
             any_buffer_sink abs(&bs);
 
-            mutable_buffer arr[capy::detail::max_iovec_];
+            mutable_buffer arr[detail::max_iovec_];
             auto bufs = abs.prepare(arr);
             BOOST_TEST_EQ(bufs.size(), 1u);
 
@@ -545,7 +546,7 @@ public:
 
             // First write
             {
-                mutable_buffer arr[capy::detail::max_iovec_];
+                mutable_buffer arr[detail::max_iovec_];
                 auto bufs = abs.prepare(arr);
                 BOOST_TEST_EQ(bufs.size(), 1u);
 
@@ -558,7 +559,7 @@ public:
 
             // Second write
             {
-                mutable_buffer arr[capy::detail::max_iovec_];
+                mutable_buffer arr[detail::max_iovec_];
                 auto bufs = abs.prepare(arr);
                 BOOST_TEST_EQ(bufs.size(), 1u);
 
@@ -711,7 +712,7 @@ public:
             test::buffer_sink bs(f);
             any_buffer_sink abs(&bs);
 
-            mutable_buffer arr[capy::detail::max_iovec_];
+            mutable_buffer arr[detail::max_iovec_];
             auto bufs = abs.prepare(arr);
             std::memcpy(bufs[0].data(), "data", 4);
 
@@ -1149,7 +1150,7 @@ public:
             buffer_write_sink bws(f);
             any_buffer_sink abs(&bws);
 
-            mutable_buffer arr[capy::detail::max_iovec_];
+            mutable_buffer arr[detail::max_iovec_];
             auto bufs = abs.prepare(arr);
             BOOST_TEST_EQ(bufs.size(), 1u);
 
@@ -1360,7 +1361,7 @@ public:
         any_buffer_sink abs(&sink);
 
         auto coro = [&]() -> capy::task<std::size_t> {
-            mutable_buffer arr[capy::detail::max_iovec_];
+            mutable_buffer arr[detail::max_iovec_];
             abs.prepare(arr);
 
             auto [ec1] = co_await abs.commit(1);

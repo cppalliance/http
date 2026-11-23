@@ -9,6 +9,7 @@
 
 // Test that header file is self-contained.
 #include <boost/http/io/buffer_param.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 
 #include "test_helpers.hpp"
 
@@ -308,7 +309,7 @@ struct buffer_param_test
 
         // Exactly max_iovec_ buffers — fits in one window
         {
-            std::vector<std::string> strings(capy::detail::max_iovec_, "x");
+            std::vector<std::string> strings(detail::max_iovec_, "x");
             std::vector<capy::const_buffer> bufs;
             for(auto const& s : strings)
                 bufs.emplace_back(s.data(), s.size());
@@ -322,7 +323,7 @@ struct buffer_param_test
         // One more than max_iovec_ — needs two windows
         {
             std::vector<std::string> strings(
-                capy::detail::max_iovec_ + 1, "x");
+                detail::max_iovec_ + 1, "x");
             std::vector<capy::const_buffer> bufs;
             for(auto const& s : strings)
                 bufs.emplace_back(s.data(), s.size());

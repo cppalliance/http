@@ -10,7 +10,6 @@
 #ifndef BOOST_HTTP_CONCEPT_READ_SOURCE_HPP
 #define BOOST_HTTP_CONCEPT_READ_SOURCE_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/concept/buffer_archetype.hpp>
 #include <boost/capy/concept/decomposes_to.hpp>
 #include <boost/capy/concept/context_awaitable.hpp>

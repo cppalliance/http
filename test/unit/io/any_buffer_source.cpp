@@ -9,6 +9,7 @@
 
 // Test that header file is self-contained.
 #include <boost/http/io/any_buffer_source.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/task.hpp>
 
 // Test that push_to header is self-contained.
@@ -390,7 +391,7 @@ public:
         any_buffer_source abs(&src);
 
         auto coro = [&]() -> capy::task<std::size_t> {
-            const_buffer arr[capy::detail::max_iovec_];
+            const_buffer arr[detail::max_iovec_];
             auto [ec1, bufs] = co_await abs.pull(arr);
             if(ec1)
                 co_return 0;
@@ -422,7 +423,7 @@ public:
 
             any_buffer_source abs(&bs);
 
-            const_buffer arr[capy::detail::max_iovec_];
+            const_buffer arr[detail::max_iovec_];
             auto [ec, bufs] = co_await abs.pull(arr);
             if(ec)
                 co_return;
@@ -444,7 +445,7 @@ public:
 
             any_buffer_source abs(&bs);
 
-            const_buffer arr[capy::detail::max_iovec_];
+            const_buffer arr[detail::max_iovec_];
 
             // First pull returns all data
             auto [ec1, bufs1] = co_await abs.pull(arr);
@@ -485,7 +486,7 @@ public:
 
             any_buffer_source abs(&bs);
 
-            const_buffer arr[capy::detail::max_iovec_];
+            const_buffer arr[detail::max_iovec_];
 
             // Pull returns data
             auto [ec1, bufs1] = co_await abs.pull(arr);
@@ -519,7 +520,7 @@ public:
             std::size_t total = 0;
             for(;;)
             {
-                const_buffer arr[capy::detail::max_iovec_];
+                const_buffer arr[detail::max_iovec_];
                 auto [ec, bufs] = co_await abs.pull(arr);
                 if(ec == capy::cond::eof)
                     break;
@@ -547,7 +548,7 @@ public:
 
             any_buffer_source abs(&bs);
 
-            const_buffer arr[capy::detail::max_iovec_];
+            const_buffer arr[detail::max_iovec_];
             auto [ec, bufs] = co_await abs.pull(arr);
             if(ec != capy::cond::eof)
                 co_return;
@@ -714,7 +715,7 @@ public:
 
             any_buffer_source abs(&brs);
 
-            const_buffer arr[capy::detail::max_iovec_];
+            const_buffer arr[detail::max_iovec_];
             auto [ec, bufs] = co_await abs.pull(arr);
             if(ec)
                 co_return;

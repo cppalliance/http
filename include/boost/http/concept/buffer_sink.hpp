@@ -10,7 +10,6 @@
 #ifndef BOOST_HTTP_CONCEPT_BUFFER_SINK_HPP
 #define BOOST_HTTP_CONCEPT_BUFFER_SINK_HPP
 
-#include <boost/capy/detail/config.hpp>
 #include <boost/capy/buffers.hpp>
 #include <boost/capy/concept/decomposes_to.hpp>
 #include <boost/capy/concept/context_awaitable.hpp>

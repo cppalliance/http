@@ -29,7 +29,7 @@
 #ifndef BOOST_HTTP_IO_BUFFER_PARAM_HPP
 #define BOOST_HTTP_IO_BUFFER_PARAM_HPP
 
-#include <boost/capy/detail/config.hpp>
+#include <boost/http/detail/max_iovec.hpp>
 #include <boost/capy/buffers.hpp>
 
 #include <new>
@@ -151,7 +151,7 @@ private:
     decltype(capy::buffer_sequence_end(std::declval<BS const&>())) end_;
     union {
         int dummy_;
-        buffer_type arr_[capy::detail::max_iovec_];
+        buffer_type arr_[detail::max_iovec_];
     };
     std::size_t size_ = 0;
     std::size_t pos_ = 0;
@@ -161,7 +161,7 @@ private:
     {
         pos_ = 0;
         size_ = 0;
-        for(; it_ != end_ && size_ < capy::detail::max_iovec_; ++it_)
+        for(; it_ != end_ && size_ < detail::max_iovec_; ++it_)
         {
             buffer_type buf(*it_);
             if(buf.size() > 0)
